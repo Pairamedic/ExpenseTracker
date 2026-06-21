@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f46e5"/>
+      <stop offset="100%" stop-color="#6d28d9"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="110" fill="url(#bg)"/>
+  <!-- Wallet body -->
+  <rect x="96" y="176" width="320" height="200" rx="28" fill="white" fill-opacity="0.18"/>
+  <rect x="96" y="176" width="320" height="56" rx="28" fill="white" fill-opacity="0.22"/>
+  <!-- Coin slot -->
+  <rect x="310" y="248" width="80" height="60" rx="16" fill="white" fill-opacity="0.15"/>
+  <circle cx="350" cy="278" r="18" fill="white" fill-opacity="0.5"/>
+  <!-- Dollar lines -->
+  <rect x="130" y="260" width="140" height="12" rx="6" fill="white" fill-opacity="0.4"/>
+  <rect x="130" y="286" width="100" height="10" rx="5" fill="white" fill-opacity="0.25"/>
+  <!-- Top handle -->
+  <rect x="156" y="148" width="120" height="36" rx="18" fill="white" fill-opacity="0.2"/>
+</svg>

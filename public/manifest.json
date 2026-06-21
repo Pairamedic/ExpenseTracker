@@ -1,0 +1,19 @@
+{
+  "name": "Budget Tracker",
+  "short_name": "Budget",
+  "description": "Track bills, income, debts and savings",
+  "start_url": "/ExpenseTracker/",
+  "scope": "/ExpenseTracker/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/ExpenseTracker/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

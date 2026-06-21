@@ -30,7 +30,7 @@ function NoteForm({ initial = {}, onSave, onCancel }) {
         <label className="text-sm text-slate-400 mb-1 block">Note *</label>
         <textarea autoFocus rows={7}
           className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 resize-none leading-relaxed"
-          placeholder="Write anything — budget goals, reminders, account numbers, loan details..."
+          placeholder="Write anything — budget goals, reminders, account numbers..."
           value={content} onChange={(e) => setContent(e.target.value)} required />
       </div>
       <div className="flex gap-3 pt-1">
@@ -48,13 +48,13 @@ function NoteCard({ note, onEdit, onDelete, onPin }) {
   const displayContent = isLong && !expanded ? note.content.slice(0, 180) + '…' : note.content;
   return (
     <div className={`relative bg-slate-800/60 rounded-2xl border transition-all ${note.pinned ? 'border-indigo-700/60' : 'border-slate-700/50'}`}>
-      {note.pinned && <div className="absolute top-3 right-10 text-indigo-400"><Pin size={13} /></div>}
+      {note.pinned && <div className="absolute top-3.5 right-11 text-indigo-400"><Pin size={13} /></div>}
       <div className="p-4">
         <div className="flex items-start justify-between gap-2 mb-1">
           <div className="flex-1 min-w-0">
-            {note.title && <p className="font-semibold text-white leading-tight mb-1">{note.title}</p>}
+            {note.title && <p className="font-semibold text-base text-white leading-tight mb-1.5">{note.title}</p>}
             <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap break-words" onClick={() => isLong && setExpanded(!expanded)}>{displayContent}</p>
-            {isLong && <button onClick={() => setExpanded(!expanded)} className="text-xs text-indigo-400 hover:text-indigo-300 mt-1 transition-colors">{expanded ? 'Show less' : 'Show more'}</button>}
+            {isLong && <button onClick={() => setExpanded(!expanded)} className="text-xs text-indigo-400 hover:text-indigo-300 mt-1.5 transition-colors">{expanded ? 'Show less' : 'Show more'}</button>}
           </div>
           <button onClick={() => setMenuOpen(!menuOpen)} className="flex-shrink-0 p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-700 rounded-lg transition-colors"><MoreVertical size={16} /></button>
         </div>
@@ -85,15 +85,15 @@ export default function Notes() {
     .filter((n) => { if (!search) return true; const q = search.toLowerCase(); return n.title?.toLowerCase().includes(q) || n.content.toLowerCase().includes(q); })
     .sort((a, b) => { if (a.pinned !== b.pinned) return a.pinned ? -1 : 1; return new Date(b.updatedAt) - new Date(a.updatedAt); });
   return (
-    <div className="pb-24">
-      <div className="px-5 pt-8 pb-4">
+    <div className="pb-32">
+      <div className="px-5 pt-5 pb-4">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-white">Notes</h1>
-          <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors"><Plus size={16} /> Add</button>
+          <h1 className="text-3xl font-black text-white tracking-tight">Notes</h1>
+          <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"><Plus size={16} /> Add</button>
         </div>
         {notes.length > 3 && (
           <div className="relative mb-4">
-            <input className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 text-sm"
+            <input className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 text-sm"
               placeholder="Search notes..." value={search} onChange={(e) => setSearch(e.target.value)} />
             {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"><X size={15} /></button>}
           </div>
@@ -102,9 +102,9 @@ export default function Notes() {
       <div className="px-5 space-y-3">
         {filtered.length === 0 && notes.length === 0 ? (
           <div className="text-center py-16 text-slate-500">
-            <NotebookPen size={40} className="mx-auto mb-3 opacity-30" />
-            <p className="text-sm">No notes yet.</p>
-            <p className="text-xs mt-1 text-slate-600">Tap Add to jot down budget goals,<br />account details, reminders, and more.</p>
+            <NotebookPen size={44} className="mx-auto mb-3 opacity-30" />
+            <p className="text-base">No notes yet.</p>
+            <p className="text-sm mt-1 text-slate-600">Tap Add to jot down budget goals,<br />account details, and reminders.</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-12 text-slate-500 text-sm">No notes match your search.</div>

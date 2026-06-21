@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   ChevronLeft, ChevronRight, Wallet, TrendingUp, Receipt, CreditCard,
-  CheckCircle, AlertCircle, PencilLine, CalendarDays, PiggyBank, Plus,
+  CheckCircle, AlertCircle, PencilLine, CalendarDays, Plus,
   Pencil, Trash2, CheckSquare, Square, MoreVertical
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -37,20 +37,19 @@ function SavingCard({ saving, onEdit, onDelete }) {
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-white">{saving.name}</p>
           {saving.notes && <p className="text-xs text-slate-500 truncate mt-0.5">{saving.notes}</p>}
-          {pct !== null && (
+          {pct !== null ? (
             <div className="mt-2">
               <div className="flex justify-between text-xs text-slate-500 mb-1">
                 <span>{formatCurrency(saving.balance)}</span>
                 <span>Goal: {formatCurrency(saving.goal)}</span>
               </div>
-              <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+              <div className="h-2.5 bg-slate-700 rounded-full overflow-hidden">
                 <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
               </div>
               <p className="text-xs text-slate-500 mt-1">{pct.toFixed(0)}% of goal</p>
             </div>
-          )}
-          {pct === null && (
-            <p className="text-xl font-bold text-emerald-400 mt-1">{formatCurrency(saving.balance)}</p>
+          ) : (
+            <p className="text-2xl font-bold text-emerald-400 mt-1">{formatCurrency(saving.balance)}</p>
           )}
           {saving.monthlyContribution && (
             <p className="text-xs text-slate-500 mt-1">+{formatCurrency(saving.monthlyContribution)}/mo</p>
@@ -137,72 +136,70 @@ export default function Dashboard() {
 
   const openCommitments = commitments.filter((c) => !c.completed);
   const doneCommitments = commitments.filter((c) => c.completed);
-
   const totalSavings = savings.reduce((s, a) => s + a.balance, 0);
 
   return (
-    <div className="pb-24">
+    <div className="pb-32">
       {/* Header */}
-      <div className="px-5 pt-8 pb-4">
-        <h1 className="text-2xl font-bold text-white mb-1">Budget Tracker</h1>
+      <div className="px-5 pt-5 pb-2">
+        <div className="flex items-center justify-between mb-1">
+          <h1 className="text-3xl font-black text-white tracking-tight">Budget Tracker</h1>
+        </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setMk(monthOffset(mk, -1))} className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 transition-colors">
+          <button onClick={() => setMk(monthOffset(mk, -1))} className="p-2 rounded-xl hover:bg-slate-800 text-slate-400 transition-colors">
             <ChevronLeft size={20} />
           </button>
-          <span className="text-slate-300 font-medium flex-1 text-center">{monthLabel(mk)}</span>
-          <button onClick={() => setMk(monthOffset(mk, 1))} className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 transition-colors">
+          <span className="text-base text-slate-300 font-semibold flex-1 text-center">{monthLabel(mk)}</span>
+          <button onClick={() => setMk(monthOffset(mk, 1))} className="p-2 rounded-xl hover:bg-slate-800 text-slate-400 transition-colors">
             <ChevronRight size={20} />
           </button>
         </div>
       </div>
 
-      {/* Smarter summary */}
-      <div className="px-5 mb-4">
-        <div className="bg-slate-800/60 rounded-2xl border border-slate-700/50 overflow-hidden">
-          <div className="p-4 space-y-3">
+      {/* Hero summary card */}
+      <div className="px-5 mb-5">
+        <div className="bg-gradient-to-br from-slate-800 to-slate-800/70 rounded-3xl border border-slate-700/50 overflow-hidden shadow-xl shadow-black/20">
+          <div className="px-5 pt-5 pb-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-emerald-400">
-                <TrendingUp size={15} />
-                <span className="text-sm">Income</span>
+                <TrendingUp size={16} />
+                <span className="text-sm font-medium">Income</span>
               </div>
-              <span className="font-semibold text-white">{formatCurrency(monthlyIncome)}</span>
+              <span className="text-lg font-bold text-white">{formatCurrency(monthlyIncome)}</span>
             </div>
             {spouseEnabled && partnerIncome > 0 && (
-              <div className="ml-5 space-y-1">
-                <div className="flex justify-between text-xs text-slate-500">
-                  <span>{myName || 'Me'}</span>
-                  <span>{formatCurrency(myIncome)}</span>
+              <div className="ml-6 space-y-1 bg-slate-700/30 rounded-xl px-3 py-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-400">{myName || 'Me'}</span>
+                  <span className="text-slate-300 font-medium">{formatCurrency(myIncome)}</span>
                 </div>
-                <div className="flex justify-between text-xs text-slate-500">
-                  <span>{partnerLabel}</span>
-                  <span>{formatCurrency(partnerIncome)}</span>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-400">{partnerLabel}</span>
+                  <span className="text-slate-300 font-medium">{formatCurrency(partnerIncome)}</span>
                 </div>
               </div>
             )}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-rose-400">
-                <Receipt size={15} />
-                <span className="text-sm">Bills</span>
+                <Receipt size={16} />
+                <span className="text-sm font-medium">Bills</span>
               </div>
-              <span className="font-semibold text-white">− {formatCurrency(totalBills)}</span>
+              <span className="text-lg font-bold text-white">− {formatCurrency(totalBills)}</span>
             </div>
             {totalDebtMins > 0 && (
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-amber-400">
-                  <CreditCard size={15} />
-                  <span className="text-sm">Debt minimums</span>
+                  <CreditCard size={16} />
+                  <span className="text-sm font-medium">Debt minimums</span>
                 </div>
-                <span className="font-semibold text-white">− {formatCurrency(totalDebtMins)}</span>
+                <span className="text-lg font-bold text-white">− {formatCurrency(totalDebtMins)}</span>
               </div>
             )}
-            <div className="border-t border-slate-700 pt-3 flex items-center justify-between">
-              <div className={`flex items-center gap-2 ${availableToSpend >= 0 ? 'text-indigo-400' : 'text-rose-400'}`}>
-                <Wallet size={15} />
-                <span className="text-sm font-medium">Available to spend</span>
-              </div>
-              <span className={`text-xl font-bold ${availableToSpend >= 0 ? 'text-white' : 'text-rose-400'}`}>
+            <div className={`border-t ${availableToSpend >= 0 ? 'border-indigo-500/30' : 'border-rose-500/30'} pt-4 mt-1`}>
+              <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Available to spend</p>
+              <p className={`text-5xl font-black tracking-tight ${availableToSpend >= 0 ? 'text-white' : 'text-rose-400'}`}>
                 {formatCurrency(availableToSpend)}
-              </span>
+              </p>
             </div>
           </div>
         </div>
@@ -211,14 +208,14 @@ export default function Dashboard() {
       {/* Next paycheck banner */}
       {isCurrentMonth && nextPaychecks.length > 0 && nextPaychecks[0].daysUntil <= 7 && (
         <div className="px-5 mb-4">
-          <div className="bg-indigo-900/30 border border-indigo-700/40 rounded-2xl px-4 py-3 flex items-center gap-3">
-            <CalendarDays size={18} className="text-indigo-400 flex-shrink-0" />
+          <div className="bg-indigo-900/40 border border-indigo-700/40 rounded-2xl px-4 py-3.5 flex items-center gap-3">
+            <CalendarDays size={20} className="text-indigo-400 flex-shrink-0" />
             <div>
               {nextPaychecks[0].daysUntil === 0
-                ? <p className="text-sm text-indigo-300 font-medium">Payday today — {nextPaychecks[0].source}</p>
-                : <p className="text-sm text-indigo-300 font-medium">Payday in {nextPaychecks[0].daysUntil}d — {nextPaychecks[0].source}</p>
+                ? <p className="text-sm text-indigo-300 font-semibold">Payday today — {nextPaychecks[0].source}</p>
+                : <p className="text-sm text-indigo-300 font-semibold">Payday in {nextPaychecks[0].daysUntil}d — {nextPaychecks[0].source}</p>
               }
-              <p className="text-xs text-slate-500">{formatCurrency(nextPaychecks[0].amount)} per paycheck</p>
+              <p className="text-xs text-slate-400 mt-0.5">{formatCurrency(nextPaychecks[0].amount)} per paycheck</p>
             </div>
           </div>
         </div>
@@ -226,17 +223,17 @@ export default function Dashboard() {
 
       {/* Pay schedule */}
       {payDates.length > 0 && (
-        <div className="px-5 mb-4">
-          <p className="text-xs text-slate-500 uppercase tracking-wide mb-2">Pay dates — {monthLabel(mk)}</p>
-          <div className="bg-slate-800/60 rounded-2xl border border-slate-700/50 divide-y divide-slate-700/50">
+        <div className="px-5 mb-5">
+          <p className="text-xs text-slate-500 uppercase tracking-widest mb-3 px-1">Pay dates — {monthLabel(mk)}</p>
+          <div className="bg-slate-800/60 rounded-2xl border border-slate-700/50 divide-y divide-slate-700/40">
             {payDates.map((pd, i) => (
-              <div key={i} className={`flex items-center justify-between px-4 py-3 ${pd.past ? 'opacity-40' : ''}`}>
-                <div className="flex items-center gap-2">
-                  <CalendarDays size={14} className="text-indigo-400" />
-                  <span className="text-sm text-slate-300">{pd.source}</span>
+              <div key={i} className={`flex items-center justify-between px-4 py-3.5 ${pd.past ? 'opacity-40' : ''}`}>
+                <div className="flex items-center gap-2.5">
+                  <CalendarDays size={15} className="text-indigo-400" />
+                  <span className="text-sm font-medium text-slate-300">{pd.source}</span>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-medium text-white">{formatDate(pd.date)}</p>
+                  <p className="text-sm font-bold text-white">{formatDate(pd.date)}</p>
                   <p className="text-xs text-slate-500">{formatCurrency(pd.amount)}</p>
                 </div>
               </div>
@@ -246,26 +243,26 @@ export default function Dashboard() {
       )}
 
       {/* Commitments */}
-      <div className="px-5 mb-4">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-xs text-slate-500 uppercase tracking-wide">Commitments</p>
-          <button onClick={() => setShowAddCommitment(true)} className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
-            <Plus size={13} /> Add
+      <div className="px-5 mb-5">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs text-slate-500 uppercase tracking-widest px-1">Commitments</p>
+          <button onClick={() => setShowAddCommitment(true)} className="flex items-center gap-1.5 text-sm text-indigo-400 hover:text-indigo-300 transition-colors font-medium">
+            <Plus size={15} /> Add
           </button>
         </div>
         {commitments.length === 0 ? (
-          <div className="bg-slate-800/40 rounded-2xl border border-dashed border-slate-700/50 px-4 py-5 text-center">
-            <p className="text-xs text-slate-500">No commitments yet — add financial to-dos you and your partner need to act on.</p>
+          <div className="bg-slate-800/40 rounded-2xl border border-dashed border-slate-700/50 px-4 py-6 text-center">
+            <p className="text-sm text-slate-500">No commitments yet — add financial to-dos you need to act on.</p>
           </div>
         ) : (
-          <div className="bg-slate-800/60 rounded-2xl border border-slate-700/50 divide-y divide-slate-700/50">
+          <div className="bg-slate-800/60 rounded-2xl border border-slate-700/50 divide-y divide-slate-700/40">
             {openCommitments.map((c) => (
               <CommitmentRow key={c.id} commitment={c} onToggle={toggleCommitment}
                 onEdit={setEditCommitment} onDelete={deleteCommitment} partnerLabel={partnerLabel} />
             ))}
             {doneCommitments.length > 0 && (
               <button onClick={() => setShowDoneCommitments(!showDoneCommitments)}
-                className="w-full px-4 py-2.5 text-xs text-slate-500 hover:text-slate-400 transition-colors text-left">
+                className="w-full px-4 py-3 text-xs text-slate-500 hover:text-slate-400 transition-colors text-left">
                 {showDoneCommitments ? '▾' : '▸'} {doneCommitments.length} completed
               </button>
             )}
@@ -278,19 +275,19 @@ export default function Dashboard() {
       </div>
 
       {/* Savings */}
-      <div className="px-5 mb-4">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <p className="text-xs text-slate-500 uppercase tracking-wide">Savings</p>
-            {savings.length > 0 && <span className="text-xs text-emerald-400 font-semibold">{formatCurrency(totalSavings)}</span>}
+      <div className="px-5 mb-5">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2 px-1">
+            <p className="text-xs text-slate-500 uppercase tracking-widest">Savings</p>
+            {savings.length > 0 && <span className="text-sm text-emerald-400 font-bold">{formatCurrency(totalSavings)}</span>}
           </div>
-          <button onClick={() => setShowAddSaving(true)} className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
-            <Plus size={13} /> Add
+          <button onClick={() => setShowAddSaving(true)} className="flex items-center gap-1.5 text-sm text-indigo-400 hover:text-indigo-300 transition-colors font-medium">
+            <Plus size={15} /> Add
           </button>
         </div>
         {savings.length === 0 ? (
-          <div className="bg-slate-800/40 rounded-2xl border border-dashed border-slate-700/50 px-4 py-5 text-center">
-            <p className="text-xs text-slate-500">No savings accounts yet — add your joint savings or emergency fund.</p>
+          <div className="bg-slate-800/40 rounded-2xl border border-dashed border-slate-700/50 px-4 py-6 text-center">
+            <p className="text-sm text-slate-500">No savings accounts yet — add your joint savings or emergency fund.</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -302,40 +299,40 @@ export default function Dashboard() {
       </div>
 
       {/* Discretionary budget */}
-      <div className="px-5 mb-4">
+      <div className="px-5 mb-5">
         <div className="bg-slate-800/60 rounded-2xl p-4 border border-slate-700/50 flex items-center justify-between">
           <div>
-            <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Discretionary Budget</p>
-            <p className="text-xl font-bold text-white">{formatCurrency(budgetAmount)}</p>
+            <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Discretionary Budget</p>
+            <p className="text-3xl font-bold text-white">{formatCurrency(budgetAmount)}</p>
           </div>
           <button onClick={() => { setBudgetInput(budgetAmount || ''); setEditBudget(true); }}
-            className="flex items-center gap-1.5 text-sm text-indigo-400 hover:text-indigo-300 transition-colors">
-            <PencilLine size={15} /> Edit
+            className="flex items-center gap-1.5 text-sm text-indigo-400 hover:text-indigo-300 transition-colors font-medium">
+            <PencilLine size={16} /> Edit
           </button>
         </div>
       </div>
 
-      {/* Bills status */}
+      {/* Bills paid / unpaid */}
       <div className="px-5 space-y-3">
         <div className="bg-emerald-900/20 border border-emerald-800/40 rounded-2xl p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <CheckCircle size={20} className="text-emerald-400" />
+            <CheckCircle size={22} className="text-emerald-400" />
             <div>
-              <p className="text-sm font-medium text-emerald-300">Bills Paid</p>
+              <p className="text-base font-semibold text-emerald-300">Bills Paid</p>
               <p className="text-xs text-slate-500">{paidBills.length} bill{paidBills.length !== 1 ? 's' : ''}</p>
             </div>
           </div>
-          <p className="text-lg font-bold text-emerald-400">{formatCurrency(paidTotal)}</p>
+          <p className="text-2xl font-bold text-emerald-400">{formatCurrency(paidTotal)}</p>
         </div>
         <div className="bg-amber-900/20 border border-amber-800/40 rounded-2xl p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <AlertCircle size={20} className="text-amber-400" />
+            <AlertCircle size={22} className="text-amber-400" />
             <div>
-              <p className="text-sm font-medium text-amber-300">Bills Unpaid</p>
+              <p className="text-base font-semibold text-amber-300">Bills Unpaid</p>
               <p className="text-xs text-slate-500">{unpaidBills.length} bill{unpaidBills.length !== 1 ? 's' : ''}</p>
             </div>
           </div>
-          <p className="text-lg font-bold text-amber-400">{formatCurrency(unpaidTotal)}</p>
+          <p className="text-2xl font-bold text-amber-400">{formatCurrency(unpaidTotal)}</p>
         </div>
       </div>
 
@@ -347,30 +344,26 @@ export default function Dashboard() {
             className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white text-lg mb-4 focus:outline-none focus:border-indigo-500"
             placeholder="0.00" value={budgetInput} onChange={(e) => setBudgetInput(e.target.value)} />
           <div className="flex gap-3">
-            <button onClick={() => setEditBudget(false)} className="flex-1 py-3 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors">Cancel</button>
-            <button onClick={saveBudget} className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors">Save</button>
+            <button onClick={() => setEditBudget(false)} className="flex-1 py-3 rounded-xl border border-slate-700 text-slate-300">Cancel</button>
+            <button onClick={saveBudget} className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-semibold">Save</button>
           </div>
         </Modal>
       )}
-
       {showAddSaving && (
         <Modal title="Add Savings Account" onClose={() => setShowAddSaving(false)}>
           <SavingsForm onSave={(d) => { addSaving(d); setShowAddSaving(false); }} onCancel={() => setShowAddSaving(false)} />
         </Modal>
       )}
-
       {editSaving && (
         <Modal title="Edit Savings Account" onClose={() => setEditSaving(null)}>
           <SavingsForm initial={editSaving} onSave={(d) => { updateSaving(editSaving.id, d); setEditSaving(null); }} onCancel={() => setEditSaving(null)} />
         </Modal>
       )}
-
       {showAddCommitment && (
         <Modal title="Add Commitment" onClose={() => setShowAddCommitment(false)}>
           <CommitmentForm onSave={(d) => { addCommitment(d); setShowAddCommitment(false); }} onCancel={() => setShowAddCommitment(false)} spouseName={spouseName} />
         </Modal>
       )}
-
       {editCommitment && (
         <Modal title="Edit Commitment" onClose={() => setEditCommitment(null)}>
           <CommitmentForm initial={editCommitment} onSave={(d) => { updateCommitment(editCommitment.id, d); setEditCommitment(null); }} onCancel={() => setEditCommitment(null)} spouseName={spouseName} />
@@ -385,20 +378,20 @@ function CommitmentRow({ commitment, onToggle, onEdit, onDelete, partnerLabel })
   const personLabel = commitment.person === 'me' ? 'Me' : commitment.person === 'partner' ? partnerLabel : 'Both';
 
   return (
-    <div className={`flex items-center gap-3 px-4 py-3 ${commitment.completed ? 'opacity-50' : ''}`}>
+    <div className={`flex items-center gap-3 px-4 py-3.5 ${commitment.completed ? 'opacity-50' : ''}`}>
       <button onClick={() => onToggle(commitment.id)} className={`flex-shrink-0 transition-colors ${commitment.completed ? 'text-emerald-400' : 'text-slate-600 hover:text-slate-400'}`}>
-        {commitment.completed ? <CheckSquare size={20} /> : <Square size={20} />}
+        {commitment.completed ? <CheckSquare size={22} /> : <Square size={22} />}
       </button>
       <div className="flex-1 min-w-0">
-        <p className={`text-sm ${commitment.completed ? 'line-through text-slate-500' : 'text-slate-200'}`}>{commitment.description}</p>
+        <p className={`text-sm font-medium ${commitment.completed ? 'line-through text-slate-500' : 'text-slate-200'}`}>{commitment.description}</p>
         <div className="flex items-center gap-2 mt-0.5">
           <span className="text-xs text-slate-600">{personLabel}</span>
           {commitment.amount && <span className="text-xs text-slate-500">{formatCurrency(commitment.amount)}</span>}
         </div>
       </div>
       <div className="relative flex-shrink-0">
-        <button onClick={() => setMenuOpen(!menuOpen)} className="p-1 text-slate-600 hover:text-slate-400 transition-colors">
-          <MoreVertical size={15} />
+        <button onClick={() => setMenuOpen(!menuOpen)} className="p-1.5 text-slate-600 hover:text-slate-400 transition-colors">
+          <MoreVertical size={16} />
         </button>
         {menuOpen && (
           <>

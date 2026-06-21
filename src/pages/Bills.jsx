@@ -12,8 +12,8 @@ function monthOffset(mk, offset) {
 
 function ownerBadge(owner, spouseName) {
   if (!owner || owner === 'mine') return null;
-  if (owner === 'joint') return <span className="text-xs bg-violet-900/50 text-violet-300 border border-violet-700/40 px-1.5 py-0.5 rounded-md">Joint</span>;
-  return <span className="text-xs bg-rose-900/50 text-rose-300 border border-rose-700/40 px-1.5 py-0.5 rounded-md">{spouseName || 'Partner'}</span>;
+  if (owner === 'joint') return <span className="text-xs bg-violet-900/50 text-violet-300 border border-violet-700/40 px-2 py-0.5 rounded-lg">Joint</span>;
+  return <span className="text-xs bg-rose-900/50 text-rose-300 border border-rose-700/40 px-2 py-0.5 rounded-lg">{spouseName || 'Partner'}</span>;
 }
 
 function BillCard({ bill, mk, onToggle, onEdit, onDelete, spouseName }) {
@@ -27,23 +27,23 @@ function BillCard({ bill, mk, onToggle, onEdit, onDelete, spouseName }) {
       <div className="flex items-start gap-3 p-4">
         <button
           onClick={() => onToggle(bill.id, mk)}
-          className={`mt-0.5 flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+          className={`mt-0.5 flex-shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all ${
             isPaid ? 'bg-emerald-500 border-emerald-500' : 'border-slate-600 hover:border-indigo-400'
           }`}
         >
-          {isPaid && <Check size={13} strokeWidth={3} className="text-white" />}
+          {isPaid && <Check size={14} strokeWidth={3} className="text-white" />}
         </button>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <p className={`font-semibold leading-tight ${isPaid ? 'line-through text-slate-400' : 'text-white'}`}>{bill.name}</p>
+                <p className={`font-semibold text-base leading-tight ${isPaid ? 'line-through text-slate-400' : 'text-white'}`}>{bill.name}</p>
                 {ownerBadge(bill.owner, spouseName)}
               </div>
               <p className="text-xs text-slate-500 mt-0.5">{bill.category}{bill.isRecurring ? ' · Monthly' : ''}</p>
             </div>
-            <p className={`text-lg font-bold flex-shrink-0 ${isPaid ? 'text-emerald-400' : 'text-white'}`}>
+            <p className={`text-xl font-bold flex-shrink-0 ${isPaid ? 'text-emerald-400' : 'text-white'}`}>
               {formatCurrency(bill.amount)}
             </p>
           </div>
@@ -97,7 +97,6 @@ export default function Bills() {
 
   const { spouseEnabled, spouseName } = settings;
   const partnerLabel = spouseName || 'Partner';
-
   const monthBills = getBillsForMonth(bills, mk);
 
   const filtered = monthBills.filter((b) => {
@@ -118,35 +117,35 @@ export default function Bills() {
   const totalUnpaid = monthBills.filter((b) => !(b.paidMonths || {})[mk]).reduce((s, b) => s + b.amount, 0);
 
   return (
-    <div className="pb-24">
-      <div className="px-5 pt-8 pb-4">
+    <div className="pb-32">
+      <div className="px-5 pt-5 pb-4">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-white">Bills</h1>
-          <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors">
+          <h1 className="text-3xl font-black text-white tracking-tight">Bills</h1>
+          <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors">
             <Plus size={16} /> Add
           </button>
         </div>
 
         <div className="flex items-center gap-2 mb-4">
-          <button onClick={() => setMk(monthOffset(mk, -1))} className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 transition-colors">
+          <button onClick={() => setMk(monthOffset(mk, -1))} className="p-2 rounded-xl hover:bg-slate-800 text-slate-400 transition-colors">
             <ChevronLeft size={20} />
           </button>
-          <span className="text-slate-300 font-medium flex-1 text-center">{monthLabel(mk)}</span>
-          <button onClick={() => setMk(monthOffset(mk, 1))} className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 transition-colors">
+          <span className="text-base text-slate-300 font-semibold flex-1 text-center">{monthLabel(mk)}</span>
+          <button onClick={() => setMk(monthOffset(mk, 1))} className="p-2 rounded-xl hover:bg-slate-800 text-slate-400 transition-colors">
             <ChevronRight size={20} />
           </button>
         </div>
 
         {totalUnpaid > 0 && (
-          <div className="bg-amber-900/30 border border-amber-700/40 rounded-xl px-4 py-2.5 mb-3 text-center">
-            <span className="text-amber-300 text-sm font-medium">{formatCurrency(totalUnpaid)} still to pay</span>
+          <div className="bg-amber-900/30 border border-amber-700/40 rounded-2xl px-4 py-3 mb-3 text-center">
+            <span className="text-amber-300 text-base font-semibold">{formatCurrency(totalUnpaid)} still to pay</span>
           </div>
         )}
 
         <div className="flex gap-2 mb-2">
           {['all', 'unpaid', 'paid'].map((f) => (
             <button key={f} onClick={() => setFilter(f)}
-              className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors capitalize ${filter === f ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
+              className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors capitalize ${filter === f ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
               {f}
             </button>
           ))}
@@ -156,7 +155,7 @@ export default function Bills() {
           <div className="flex gap-2">
             {[['all', 'All'], ['mine', 'Mine'], ['joint', 'Joint'], ['partner', partnerLabel]].map(([val, label]) => (
               <button key={val} onClick={() => setOwnerFilter(val)}
-                className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${ownerFilter === val ? 'bg-slate-600 text-white' : 'bg-slate-800/60 text-slate-500 hover:text-slate-300'}`}>
+                className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-colors ${ownerFilter === val ? 'bg-slate-600 text-white' : 'bg-slate-800/60 text-slate-500 hover:text-slate-300'}`}>
                 {label}
               </button>
             ))}
@@ -167,8 +166,8 @@ export default function Bills() {
       <div className="px-5 space-y-3">
         {sorted.length === 0 ? (
           <div className="text-center py-16 text-slate-500">
-            <Receipt size={40} className="mx-auto mb-3 opacity-30" />
-            <p className="text-sm">No bills yet. Tap Add to get started.</p>
+            <Receipt size={44} className="mx-auto mb-3 opacity-30" />
+            <p className="text-base">No bills yet. Tap Add to get started.</p>
           </div>
         ) : (
           sorted.map((bill) => (
@@ -188,7 +187,6 @@ export default function Bills() {
           />
         </Modal>
       )}
-
       {editBill && (
         <Modal title="Edit Bill" onClose={() => setEditBill(null)}>
           <BillForm

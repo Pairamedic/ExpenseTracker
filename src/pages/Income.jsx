@@ -24,24 +24,32 @@ function IncomeCard({ item, onEdit, onDelete, spouseEnabled, spouseName }) {
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <p className="font-semibold text-white">{item.source}</p>
-            {item.isRecurring && <RefreshCw size={12} className="text-slate-500 flex-shrink-0" />}
+            <p className="font-semibold text-base text-white">{item.source}</p>
+            {item.isRecurring && <RefreshCw size={13} className="text-slate-500 flex-shrink-0" />}
           </div>
-          <div className="flex items-center gap-2 mt-0.5">
-            <p className="text-xs text-slate-500 capitalize">{item.frequency}</p>
-            {spouseEnabled && <span className="text-xs bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded-md">{item.person === 'spouse' ? (spouseName || 'Spouse') : 'Me'}</span>}
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-sm text-slate-500 capitalize">{item.frequency}</p>
+            {spouseEnabled && (
+              <span className="text-xs bg-slate-700 text-slate-400 px-2 py-0.5 rounded-lg">
+                {item.person === 'spouse' ? (spouseName || 'Spouse') : 'Me'}
+              </span>
+            )}
             {item.notes && <span className="text-xs text-slate-500 truncate">{item.notes}</span>}
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <div className="text-right">
-            <p className="text-lg font-bold text-emerald-400">{formatCurrency(monthly)}</p>
+            <p className="text-xl font-bold text-emerald-400">{formatCurrency(monthly)}</p>
             <p className="text-xs text-slate-500">/mo</p>
           </div>
-          <button onClick={() => setMenuOpen(!menuOpen)} className="p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-700 rounded-lg transition-colors"><MoreVertical size={16} /></button>
+          <button onClick={() => setMenuOpen(!menuOpen)} className="p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-700 rounded-lg transition-colors">
+            <MoreVertical size={16} />
+          </button>
         </div>
       </div>
-      {item.frequency !== 'monthly' && <p className="text-xs text-slate-600 mt-2">{formatCurrency(item.amount)} per paycheck</p>}
+      {item.frequency !== 'monthly' && (
+        <p className="text-xs text-slate-600 mt-2">{formatCurrency(item.amount)} per paycheck</p>
+      )}
       {menuOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
@@ -67,45 +75,51 @@ export default function Income() {
   const spouseTotal = monthIncome.filter((i) => i.person === 'spouse').reduce((s, i) => s + monthlyAmount(i), 0);
 
   return (
-    <div className="pb-24">
-      <div className="px-5 pt-8 pb-4">
+    <div className="pb-32">
+      <div className="px-5 pt-5 pb-4">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-white">Income</h1>
-          <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors"><Plus size={16} /> Add</button>
+          <h1 className="text-3xl font-black text-white tracking-tight">Income</h1>
+          <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors">
+            <Plus size={16} /> Add
+          </button>
         </div>
         <div className="flex items-center gap-2 mb-4">
-          <button onClick={() => setMk(monthOffset(mk, -1))} className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 transition-colors"><ChevronLeft size={20} /></button>
-          <span className="text-slate-300 font-medium flex-1 text-center">{monthLabel(mk)}</span>
-          <button onClick={() => setMk(monthOffset(mk, 1))} className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 transition-colors"><ChevronRight size={20} /></button>
+          <button onClick={() => setMk(monthOffset(mk, -1))} className="p-2 rounded-xl hover:bg-slate-800 text-slate-400 transition-colors"><ChevronLeft size={20} /></button>
+          <span className="text-base text-slate-300 font-semibold flex-1 text-center">{monthLabel(mk)}</span>
+          <button onClick={() => setMk(monthOffset(mk, 1))} className="p-2 rounded-xl hover:bg-slate-800 text-slate-400 transition-colors"><ChevronRight size={20} /></button>
         </div>
-        <div className="bg-emerald-900/20 border border-emerald-800/40 rounded-2xl p-4 mb-1">
-          <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Total Monthly Income</p>
-          <p className="text-3xl font-bold text-emerald-400">{formatCurrency(totalMonthly)}</p>
+        <div className="bg-emerald-900/20 border border-emerald-800/40 rounded-2xl p-5 mb-1">
+          <p className="text-xs text-slate-500 uppercase tracking-widest mb-2">Total Monthly Income</p>
+          <p className="text-4xl font-black text-emerald-400">{formatCurrency(totalMonthly)}</p>
           {settings.spouseEnabled && (
-            <div className="flex gap-4 mt-2">
-              <span className="text-xs text-slate-500">Me: <span className="text-slate-300">{formatCurrency(myTotal)}</span></span>
-              <span className="text-xs text-slate-500">{settings.spouseName || 'Spouse'}: <span className="text-slate-300">{formatCurrency(spouseTotal)}</span></span>
+            <div className="flex gap-5 mt-3">
+              <span className="text-sm text-slate-500">Me: <span className="text-slate-300 font-semibold">{formatCurrency(myTotal)}</span></span>
+              <span className="text-sm text-slate-500">{settings.spouseName || 'Spouse'}: <span className="text-slate-300 font-semibold">{formatCurrency(spouseTotal)}</span></span>
             </div>
           )}
         </div>
       </div>
       <div className="px-5 space-y-3">
         {monthIncome.length === 0 ? (
-          <div className="text-center py-16 text-slate-500"><TrendingUp size={40} className="mx-auto mb-3 opacity-30" /><p className="text-sm">No income added yet. Tap Add to get started.</p></div>
-        ) : monthIncome.map((item) => (
-          <div key={item.id} className="relative">
-            <IncomeCard item={item} onEdit={setEditItem} onDelete={deleteIncome} spouseEnabled={settings.spouseEnabled} spouseName={settings.spouseName} />
+          <div className="text-center py-16 text-slate-500">
+            <TrendingUp size={44} className="mx-auto mb-3 opacity-30" />
+            <p className="text-base">No income added yet. Tap Add to get started.</p>
           </div>
+        ) : monthIncome.map((item) => (
+          <IncomeCard key={item.id} item={item} onEdit={setEditItem} onDelete={deleteIncome}
+            spouseEnabled={settings.spouseEnabled} spouseName={settings.spouseName} />
         ))}
       </div>
       {showAdd && (
         <Modal title="Add Income" onClose={() => setShowAdd(false)}>
-          <IncomeForm onSave={(data) => { addIncome({ ...data, month: mk }); setShowAdd(false); }} onCancel={() => setShowAdd(false)} spouseEnabled={settings.spouseEnabled} spouseName={settings.spouseName} />
+          <IncomeForm onSave={(data) => { addIncome({ ...data, month: mk }); setShowAdd(false); }} onCancel={() => setShowAdd(false)}
+            spouseEnabled={settings.spouseEnabled} spouseName={settings.spouseName} />
         </Modal>
       )}
       {editItem && (
         <Modal title="Edit Income" onClose={() => setEditItem(null)}>
-          <IncomeForm initial={editItem} onSave={(data) => { updateIncome(editItem.id, data); setEditItem(null); }} onCancel={() => setEditItem(null)} spouseEnabled={settings.spouseEnabled} spouseName={settings.spouseName} />
+          <IncomeForm initial={editItem} onSave={(data) => { updateIncome(editItem.id, data); setEditItem(null); }} onCancel={() => setEditItem(null)}
+            spouseEnabled={settings.spouseEnabled} spouseName={settings.spouseName} />
         </Modal>
       )}
     </div>
