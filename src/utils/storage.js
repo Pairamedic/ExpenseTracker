@@ -3,6 +3,7 @@ const KEYS = {
   INCOME: 'bt_income',
   BUDGET: 'bt_budget',
   SETTINGS: 'bt_settings',
+  NOTES: 'bt_notes',
 };
 
 function get(key) {
@@ -30,4 +31,7 @@ export const storage = {
 
   getSettings: () => get(KEYS.SETTINGS) || { spouseEnabled: false, spouseName: '', myName: 'Me' },
   setSettings: (settings) => set(KEYS.SETTINGS, settings),
+
+  getNotes: () => get(KEYS.NOTES) || [],
+  setNotes: (notes) => set(KEYS.NOTES, notes),
 };

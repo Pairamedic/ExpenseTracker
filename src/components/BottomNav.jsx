@@ -1,10 +1,11 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Receipt, TrendingUp, Settings } from 'lucide-react';
+import { LayoutDashboard, Receipt, TrendingUp, NotebookPen, Settings } from 'lucide-react';
 
 const links = [
   { to: '/', label: 'Dashboard', Icon: LayoutDashboard },
   { to: '/bills', label: 'Bills', Icon: Receipt },
   { to: '/income', label: 'Income', Icon: TrendingUp },
+  { to: '/notes', label: 'Notes', Icon: NotebookPen },
   { to: '/settings', label: 'Settings', Icon: Settings },
 ];
 

@@ -9,6 +9,7 @@ export function AppProvider({ children }) {
   const [income, setIncomeState] = useState(() => storage.getIncome());
   const [budget, setBudgetState] = useState(() => storage.getBudget());
   const [settings, setSettingsState] = useState(() => storage.getSettings());
+  const [notes, setNotesState] = useState(() => storage.getNotes());
 
   const persistBills = useCallback((next) => {
     setBillsState(next);
@@ -70,11 +71,34 @@ export function AppProvider({ children }) {
     persistBudget({ ...budget, [mk]: amount });
   }, [budget, persistBudget]);
 
+  const persistNotes = useCallback((next) => {
+    setNotesState(next);
+    storage.setNotes(next);
+  }, []);
+
+  const addNote = useCallback((note) => {
+    const now = new Date().toISOString();
+    persistNotes([{ ...note, id: generateId(), createdAt: now, updatedAt: now }, ...notes]);
+  }, [notes, persistNotes]);
+
+  const updateNote = useCallback((id, updates) => {
+    persistNotes(notes.map((n) => (n.id === id ? { ...n, ...updates, updatedAt: new Date().toISOString() } : n)));
+  }, [notes, persistNotes]);
+
+  const deleteNote = useCallback((id) => {
+    persistNotes(notes.filter((n) => n.id !== id));
+  }, [notes, persistNotes]);
+
+  const toggleNotePin = useCallback((id) => {
+    persistNotes(notes.map((n) => (n.id === id ? { ...n, pinned: !n.pinned } : n)));
+  }, [notes, persistNotes]);
+
   return (
     <AppContext.Provider value={{
       bills, addBill, updateBill, deleteBill, toggleBillPaid,
       income, addIncome, updateIncome, deleteIncome,
       budget, setBudgetForMonth,
+      notes, addNote, updateNote, deleteNote, toggleNotePin,
       settings, setSettings: persistSettings,
     }}>
       {children}

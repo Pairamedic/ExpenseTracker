@@ -8,6 +8,11 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#0f172a" />
     <title>Budget Tracker</title>
+    <script>
+      // Restore path from GitHub Pages 404 redirect
+      var redirect = sessionStorage.getItem('spa_redirect');
+      if (redirect) { sessionStorage.removeItem('spa_redirect'); history.replaceState(null, '', redirect); }
+    </script>
   </head>
   <body>
     <div id="root"></div>
