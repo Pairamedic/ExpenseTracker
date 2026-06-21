@@ -11,7 +11,7 @@ import Settings from './pages/Settings';
 export default function App() {
   return (
     <AppProvider>
-      <BrowserRouter basename="/expensetracker">
+      <BrowserRouter basename="/ExpenseTracker">
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/bills" element={<Bills />} />
