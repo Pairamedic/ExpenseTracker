@@ -11,6 +11,8 @@ export function AppProvider({ children }) {
   const [settings, setSettingsState] = useState(() => storage.getSettings());
   const [notes, setNotesState] = useState(() => storage.getNotes());
   const [debts, setDebtsState] = useState(() => storage.getDebts());
+  const [savings, setSavingsState] = useState(() => storage.getSavings());
+  const [commitments, setCommitmentsState] = useState(() => storage.getCommitments());
 
   const persistBills = useCallback((next) => {
     setBillsState(next);
@@ -35,6 +37,16 @@ export function AppProvider({ children }) {
   const persistDebts = useCallback((next) => {
     setDebtsState(next);
     storage.setDebts(next);
+  }, []);
+
+  const persistSavings = useCallback((next) => {
+    setSavingsState(next);
+    storage.setSavings(next);
+  }, []);
+
+  const persistCommitments = useCallback((next) => {
+    setCommitmentsState(next);
+    storage.setCommitments(next);
   }, []);
 
   // Bills
@@ -102,6 +114,19 @@ export function AppProvider({ children }) {
     }));
   }, [debts, persistDebts]);
 
+  // Savings
+  const addSaving = useCallback((s) => persistSavings([...savings, { ...s, id: generateId() }]), [savings, persistSavings]);
+  const updateSaving = useCallback((id, u) => persistSavings(savings.map((s) => s.id === id ? { ...s, ...u } : s)), [savings, persistSavings]);
+  const deleteSaving = useCallback((id) => persistSavings(savings.filter((s) => s.id !== id)), [savings, persistSavings]);
+
+  // Commitments
+  const addCommitment = useCallback((c) => {
+    persistCommitments([...commitments, { ...c, id: generateId(), completed: false, createdAt: new Date().toISOString() }]);
+  }, [commitments, persistCommitments]);
+  const updateCommitment = useCallback((id, u) => persistCommitments(commitments.map((c) => c.id === id ? { ...c, ...u } : c)), [commitments, persistCommitments]);
+  const deleteCommitment = useCallback((id) => persistCommitments(commitments.filter((c) => c.id !== id)), [commitments, persistCommitments]);
+  const toggleCommitment = useCallback((id) => persistCommitments(commitments.map((c) => c.id === id ? { ...c, completed: !c.completed } : c)), [commitments, persistCommitments]);
+
   // Notes
   const persistNotes = useCallback((next) => {
     setNotesState(next);
@@ -132,6 +157,8 @@ export function AppProvider({ children }) {
       budget, setBudgetForMonth,
       notes, addNote, updateNote, deleteNote, toggleNotePin,
       debts, addDebt, updateDebt, deleteDebt, toggleDebtPaid,
+      savings, addSaving, updateSaving, deleteSaving,
+      commitments, addCommitment, updateCommitment, deleteCommitment, toggleCommitment,
       settings, setSettings: persistSettings,
     }}>
       {children}

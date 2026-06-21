@@ -5,6 +5,8 @@ const KEYS = {
   SETTINGS: 'bt_settings',
   NOTES: 'bt_notes',
   DEBTS: 'bt_debts',
+  SAVINGS: 'bt_savings',
+  COMMITMENTS: 'bt_commitments',
 };
 
 function get(key) {
@@ -38,4 +40,10 @@ export const storage = {
 
   getDebts: () => get(KEYS.DEBTS) || [],
   setDebts: (debts) => set(KEYS.DEBTS, debts),
+
+  getSavings: () => get(KEYS.SAVINGS) || [],
+  setSavings: (s) => set(KEYS.SAVINGS, s),
+
+  getCommitments: () => get(KEYS.COMMITMENTS) || [],
+  setCommitments: (c) => set(KEYS.COMMITMENTS, c),
 };
