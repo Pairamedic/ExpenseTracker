@@ -11,9 +11,7 @@ export function monthLabel(key) {
   return new Date(+year, +month - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }
 
-export function currentMonthKey() {
-  return monthKey(new Date());
-}
+export function currentMonthKey() { return monthKey(new Date()); }
 
 export function getDueDateLabel(dayOfMonth) {
   if (!dayOfMonth) return '';
