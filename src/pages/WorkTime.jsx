@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
   Briefcase, Clock, ChevronLeft, ChevronRight, Plus, Pencil, Trash2,
-  MoreVertical, Check, Calculator, Save, Info,
+  MoreVertical, Check, Calculator, Save, Info, Share2,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatCurrency, monthKey } from '../utils/helpers';
@@ -764,6 +764,18 @@ function HoursTab({ jobs, shifts, addShift, updateShift, deleteShift, bulkSaveSh
 
   const shiftsOnDate = shifts.filter((s) => s.date === logDate);
 
+  const weekSummary = useMemo(() => {
+    return jobs.map((job) => {
+      const weekStartDay = job.weekStartDay ?? 0;
+      const weekStartStr = getWeekStartStr(today(), weekStartDay);
+      const weekEndStr = addDays(weekStartStr, 6);
+      const hours = shifts
+        .filter((sh) => sh.jobId === job.id && !sh.otExempt && sh.date >= weekStartStr && sh.date <= weekEndStr)
+        .reduce((s, sh) => s + sh.hoursWorked, 0);
+      return { job, hours };
+    }).filter(({ hours }) => hours > 0);
+  }, [jobs, shifts]);
+
   if (jobs.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '5rem 1.5rem', color: 'var(--muted)' }}>
@@ -830,6 +842,32 @@ function HoursTab({ jobs, shifts, addShift, updateShift, deleteShift, bulkSaveSh
       {shiftsOnDate.length === 0 && (
         <div style={{ backgroundColor: 'var(--surface2)', border: '1px dashed var(--border)', borderRadius: '0.875rem', padding: '1rem', textAlign: 'center', marginBottom: '0.75rem' }}>
           <p style={{ fontSize: '0.875rem', color: 'var(--subtle)' }}>No shift logged for this date</p>
+        </div>
+      )}
+
+      {weekSummary.length > 0 && (
+        <div style={{ backgroundColor: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '0.875rem', padding: '0.75rem', marginBottom: '0.75rem' }}>
+          {weekSummary.map(({ job, hours }) => {
+            const toOT = Math.max(0, 40 - hours);
+            const pct = Math.min(100, (hours / 40) * 100);
+            const overOT = hours >= 40;
+            return (
+              <div key={job.id} style={{ marginBottom: weekSummary.length > 1 ? '0.5rem' : 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                  <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text)' }}>
+                    {jobs.length > 1 ? job.name : 'This week'}
+                  </span>
+                  <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: overOT ? 'var(--danger)' : hours > 32 ? 'var(--warn)' : 'var(--text)' }}>
+                    {hours}h{overOT ? ' · In OT' : ` · ${toOT}h to OT`}
+                  </span>
+                </div>
+                <div style={{ height: '4px', borderRadius: '9999px', backgroundColor: 'var(--border)', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${pct}%`, borderRadius: '9999px', transition: 'width 0.3s',
+                    backgroundColor: overOT ? 'var(--danger)' : hours > 32 ? 'var(--warn)' : 'var(--accent)' }} />
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -911,6 +949,7 @@ function EstimateTab({ jobs, shifts, addIncome }) {
   const [preset, setPreset] = useState('current');
   const [range, setRange] = useState(() => getLastNDaysEnd(14));
   const [saved, setSaved] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const job = jobs.find((j) => j.id === selectedJobId);
   const payPeriods = job ? getPayPeriodBounds(job) : null;
@@ -979,6 +1018,43 @@ function EstimateTab({ jobs, shifts, addIncome }) {
       includeInAvailability: job.includeInAvailability !== false,
     });
     setSaved(true);
+  }
+
+  function buildExportText() {
+    if (!result || !job) return '';
+    const effRate = result.grossPay > 0 ? ((result.totalDeductions / result.grossPay) * 100).toFixed(1) : 0;
+    const lines = [
+      `Paycheck Estimate — ${job.name}`,
+      `Period: ${periodLabel(range.start, range.end)}`,
+      '',
+      'Earnings',
+      `  Regular (${result.regularHours}h):  ${formatCurrency(result.regularPay)}`,
+      ...(result.overtimeHours > 0 ? [`  Overtime (${result.overtimeHours}h):  ${formatCurrency(result.otPay)}`] : []),
+      `  Gross Pay:  ${formatCurrency(result.grossPay)}`,
+      '',
+      'Deductions',
+      ...(result.iraDeduction > 0 ? [`  IRA/401k:  -${formatCurrency(result.iraDeduction)}`] : []),
+      `  Federal Income Tax:  -${formatCurrency(result.fit)}`,
+      `  Social Security:  -${formatCurrency(result.fica)}`,
+      `  Medicare:  -${formatCurrency(result.medi)}`,
+      `  AR State Tax:  -${formatCurrency(result.sitAR)}`,
+      `  Total Deductions:  -${formatCurrency(result.totalDeductions)}`,
+      '',
+      `Est. Net Pay:  ${formatCurrency(result.netPay)}`,
+      `(${effRate}% effective deduction rate)`,
+    ];
+    return lines.join('\n');
+  }
+
+  async function handleShare() {
+    const text = buildExportText();
+    if (!text) return;
+    if (navigator.share) {
+      try { await navigator.share({ title: 'Paycheck Estimate', text }); return; } catch (_) {}
+    }
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
   }
 
   if (jobs.length === 0) {
@@ -1077,16 +1153,22 @@ function EstimateTab({ jobs, shifts, addIncome }) {
             </p>
           </div>
 
-          {saved ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.875rem', borderRadius: '0.875rem', backgroundColor: 'var(--positive-soft)', color: 'var(--positive-text)', fontWeight: '700' }}>
-              <Check size={16} /> Saved to Income
-            </div>
-          ) : (
-            <button onClick={handleSave} className="app-btn-primary"
-              style={{ backgroundColor: 'var(--positive)', marginTop: '0' }}>
-              <Save size={18} /> Save to Income
+          <div style={{ display: 'grid', gridTemplateColumns: saved ? '1fr' : '1fr auto', gap: '0.5rem', marginTop: '0' }}>
+            {saved ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.875rem', borderRadius: '0.875rem', backgroundColor: 'var(--positive-soft)', color: 'var(--positive-text)', fontWeight: '700' }}>
+                <Check size={16} /> Saved to Income
+              </div>
+            ) : (
+              <button onClick={handleSave} className="app-btn-primary"
+                style={{ backgroundColor: 'var(--positive)', marginTop: '0' }}>
+                <Save size={18} /> Save to Income
+              </button>
+            )}
+            <button onClick={handleShare}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.875rem 1rem', borderRadius: '0.875rem', border: '1px solid var(--border)', backgroundColor: 'var(--surface2)', color: copied ? 'var(--positive-text)' : 'var(--muted)', fontWeight: '700', fontSize: '0.875rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              {copied ? <><Check size={16} /> Copied!</> : <><Share2 size={16} /> Share</>}
             </button>
-          )}
+          </div>
         </>
       )}
     </div>
@@ -1218,7 +1300,10 @@ function SegmentedControl({ value, onChange, options }) {
 
 export default function WorkTime() {
   const { jobs, addJob, updateJob, deleteJob, shifts, addShift, updateShift, deleteShift, bulkSaveShifts, addIncome } = useApp();
-  const [tab, setTab] = useState('jobs');
+  const [tab, setTab] = useState(() => {
+    const s = localStorage.getItem('workTimeTab');
+    return TABS.includes(s) ? s : 'jobs';
+  });
   const [showJobForm, setShowJobForm] = useState(false);
   const [editJob, setEditJob] = useState(null);
 
@@ -1234,7 +1319,7 @@ export default function WorkTime() {
             </button>
           )}
         </div>
-        <SegmentedControl value={tab} onChange={setTab} options={TABS} />
+        <SegmentedControl value={tab} onChange={(t) => { setTab(t); localStorage.setItem('workTimeTab', t); }} options={TABS} />
       </div>
 
       <div style={{ marginTop: '0.25rem' }}>
