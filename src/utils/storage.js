@@ -13,6 +13,7 @@ const KEYS = {
   SHIFTS: 'bt_shifts',
   BUDGET_CATEGORIES: 'bt_budget_categories',
   BUDGET_SPENDS: 'bt_budget_spends',
+  AGREEMENTS: 'bt_agreements',
 };
 
 function get(key) {
@@ -48,6 +49,8 @@ const DEFAULT_SETTINGS = {
     spendingTrend: true,
     topCategories: true,
     spendingByPerson: true,
+    envelopes: true,
+    agreements: true,
   },
 };
 
@@ -93,4 +96,7 @@ export const storage = {
 
   getBudgetSpends: () => get(KEYS.BUDGET_SPENDS) || [],
   setBudgetSpends: (v) => set(KEYS.BUDGET_SPENDS, v),
+
+  getAgreements: () => get(KEYS.AGREEMENTS) || [],
+  setAgreements: (v) => set(KEYS.AGREEMENTS, v),
 };
