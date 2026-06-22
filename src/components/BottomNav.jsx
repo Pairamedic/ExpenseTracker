@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Receipt, TrendingUp, NotebookPen, ShoppingBag, Briefcase } from 'lucide-react';
+import { LayoutDashboard, Receipt, TrendingUp, ShoppingBag, Briefcase, Search } from 'lucide-react';
 
 const links = [
   { to: '/', label: 'Home', Icon: LayoutDashboard },
@@ -7,7 +7,7 @@ const links = [
   { to: '/purchases', label: 'Spending', Icon: ShoppingBag },
   { to: '/income', label: 'Income', Icon: TrendingUp },
   { to: '/work', label: 'Work', Icon: Briefcase },
-  { to: '/notes', label: 'Notes', Icon: NotebookPen },
+  { to: '/search', label: 'Search', Icon: Search },
 ];
 
 export default function BottomNav() {

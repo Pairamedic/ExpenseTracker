@@ -11,6 +11,7 @@ import Notes from './pages/Notes';
 import Settings from './pages/Settings';
 import Purchases from './pages/Purchases';
 import WorkTime from './pages/WorkTime';
+import SearchPage from './pages/Search';
 import Login from './pages/Login';
 
 function UpdateBanner() {
@@ -98,6 +99,7 @@ function AppShell() {
             <Route path="/settings" element={<Settings />} />
             <Route path="/purchases" element={<Purchases />} />
             <Route path="/work" element={<WorkTime />} />
+            <Route path="/search" element={<SearchPage />} />
           </Routes>
         </div>
         <BottomNav />

@@ -3,12 +3,13 @@ import {
   ExternalLink, MoreVertical, Pencil, Trash2,
   ChevronLeft, ChevronRight, Receipt, Info, X,
   CalendarOff, AlertTriangle, CreditCard,
-  CheckCircle2, Circle, Plus,
+  CheckCircle2, Circle, Plus, TrendingDown,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import {
   formatCurrency, monthKey, monthLabel, getDueDateLabel,
   getBillsForMonth, getBillStatus, getBillStatusColor, isBillOverdueUnpaid,
+  calcDebtPayoff,
 } from '../utils/helpers';
 import Modal from '../components/Modal';
 import BillForm from '../components/BillForm';
@@ -377,10 +378,49 @@ export default function BillsDebts() {
                   </>
                 )}
               </div>
-            ) : sortedDebts.map((debt) => (
-              <DebtCard key={debt.id} debt={debt} month={mk} onTogglePaid={toggleDebtPaid}
-                onEdit={setEditDebt} onDelete={deleteDebt} myName={myName} spouseName={spouseName} />
-            ))}
+            ) : (
+              <>
+                {sortedDebts.map((debt) => (
+                  <DebtCard key={debt.id} debt={debt} month={mk} onTogglePaid={toggleDebtPaid}
+                    onEdit={setEditDebt} onDelete={deleteDebt} myName={myName} spouseName={spouseName} />
+                ))}
+
+                {/* Debt payoff planner */}
+                {debts.length > 0 && (
+                  <div style={{ marginTop: '1.25rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.75rem' }}>
+                      <TrendingDown size={13} style={{ color: 'var(--positive-text)' }} />
+                      <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', fontWeight: 700 }}>Payoff Planner</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+                      {debts.map((d) => {
+                        const result = calcDebtPayoff(d.balance, d.interestRate, d.minPayment);
+                        if (!result) return null;
+                        const payoffYear = result.payoffDate.getFullYear();
+                        const payoffMon = result.payoffDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                        return (
+                          <div key={d.id} style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', padding: '1rem' }}>
+                            <p style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--text)', marginBottom: '0.5rem' }}>{d.name}</p>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                              <div style={{ backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', padding: '0.625rem' }}>
+                                <p style={{ fontSize: '0.6875rem', color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.2rem' }}>Paid off</p>
+                                <p style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--positive-text)' }}>{payoffMon}</p>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>{result.months} month{result.months !== 1 ? 's' : ''}</p>
+                              </div>
+                              <div style={{ backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', padding: '0.625rem' }}>
+                                <p style={{ fontSize: '0.6875rem', color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.2rem' }}>Total interest</p>
+                                <p style={{ fontSize: '0.9375rem', fontWeight: 800, color: result.totalInterest > 0 ? 'var(--danger)' : 'var(--positive-text)' }}>{formatCurrency(result.totalInterest)}</p>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>at min payment</p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>
