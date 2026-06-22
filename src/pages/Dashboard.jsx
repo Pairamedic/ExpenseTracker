@@ -89,9 +89,9 @@ function SavingCard({ saving, onEdit, onDelete }) {
   );
 }
 
-function CommitmentRow({ commitment, onToggle, onEdit, onDelete, partnerLabel }) {
+function CommitmentRow({ commitment, onToggle, onEdit, onDelete, myLabel, partnerLabel }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const personLabel = commitment.person === 'me' ? 'Me' : commitment.person === 'partner' ? partnerLabel : 'Both';
+  const personLabel = commitment.person === 'me' ? myLabel : commitment.person === 'partner' ? partnerLabel : 'Both';
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem 1rem', opacity: commitment.completed ? 0.5 : 1 }}>
@@ -231,19 +231,41 @@ export default function Dashboard() {
   const [showDoneCommitments, setShowDoneCommitments] = useState(false);
   const [showAddPlanned, setShowAddPlanned] = useState(false);
   const [editPlanned, setEditPlanned] = useState(null);
+  const [viewMode, setViewMode] = useState('joint'); // 'primary' | 'secondary' | 'joint'
   const navigate = useNavigate();
 
   const { spouseName, myName, monthlySpendingBudget, monthlySavingsTarget } = settings;
   const partnerLabel = spouseName || 'Cameron';
   const aaronLabel = myName || 'Aaron';
 
-  const monthBills = getBillsForMonth(bills, mk);
+  const allMonthBills = getBillsForMonth(bills, mk);
   const monthIncome = getIncomeForMonth(income, mk);
+
+  // Normalize owner to canonical key
+  const normOwner = (b) => {
+    const o = b.owner;
+    if (o === 'mine' || o === 'aaron') return 'primary';
+    if (o === 'partner' || o === 'cameron') return 'secondary';
+    return 'joint';
+  };
+
+  // Filter bills and income by viewMode
+  const monthBills = viewMode === 'primary'
+    ? allMonthBills.filter((b) => normOwner(b) === 'primary')
+    : viewMode === 'secondary'
+      ? allMonthBills.filter((b) => normOwner(b) === 'secondary')
+      : allMonthBills;
+
+  const viewIncome = viewMode === 'primary'
+    ? monthIncome.filter((i) => i.person !== 'spouse')
+    : viewMode === 'secondary'
+      ? monthIncome.filter((i) => i.person === 'spouse')
+      : monthIncome;
 
   const paidBills = monthBills.filter((b) => getBillStatus(b, mk) === 'paid');
   const unpaidBills = monthBills.filter((b) => getBillStatus(b, mk) === 'unpaid');
   const pendingBills = monthBills.filter((b) => getBillStatus(b, mk) === 'pending');
-  const overdueBills = monthBills.filter((b) => isBillOverdueUnpaid(b, mk));
+  const overdueBills = allMonthBills.filter((b) => isBillOverdueUnpaid(b, mk));
 
   const totalBills = monthBills.reduce((s, b) => s + b.amount, 0);
   const paidTotal = paidBills.reduce((s, b) => s + b.amount, 0);
@@ -251,9 +273,14 @@ export default function Dashboard() {
 
   const myIncome = monthIncome.filter((i) => i.person !== 'spouse').reduce((s, i) => s + monthlyAmount(i), 0);
   const partnerIncome = monthIncome.filter((i) => i.person === 'spouse').reduce((s, i) => s + monthlyAmount(i), 0);
-  const monthlyIncome = myIncome + partnerIncome;
+  const monthlyIncome = viewIncome.reduce((s, i) => s + monthlyAmount(i), 0);
 
-  const totalDebtMins = debts.reduce((s, d) => s + d.minPayment, 0);
+  const totalDebtMins = viewMode === 'primary'
+    ? debts.filter((d) => normOwner(d) === 'primary').reduce((s, d) => s + d.minPayment, 0)
+    : viewMode === 'secondary'
+      ? debts.filter((d) => normOwner(d) === 'secondary').reduce((s, d) => s + d.minPayment, 0)
+      : debts.reduce((s, d) => s + d.minPayment, 0);
+
   const availableToSpend = monthlyIncome - totalBills - totalDebtMins;
 
   const spendingBudget = monthlySpendingBudget || 0;
@@ -337,6 +364,19 @@ export default function Dashboard() {
             <Settings size={15} /> Settings
           </RouterLink>
         </div>
+        {/* View mode toggle */}
+        <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.875rem', padding: '0.25rem', gap: '0.25rem', marginBottom: '0.75rem' }}>
+          {[['primary', aaronLabel], ['secondary', partnerLabel], ['joint', 'Joint']].map(([mode, label]) => (
+            <button key={mode} onClick={() => setViewMode(mode)}
+              style={{ flex: 1, padding: '0.5rem 0', borderRadius: '0.625rem', fontSize: '0.875rem', fontWeight: 700, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                backgroundColor: viewMode === mode ? 'var(--accent)' : 'transparent',
+                color: viewMode === mode ? '#fff' : 'var(--subtle)',
+                boxShadow: viewMode === mode ? '0 1px 4px rgba(0,0,0,0.2)' : 'none' }}>
+              {label}
+            </button>
+          ))}
+        </div>
+
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <button onClick={() => setMk(monthOffset(mk, -1))} style={{ padding: '0.5rem', borderRadius: '0.75rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
             <ChevronLeft size={20} />
@@ -397,7 +437,7 @@ export default function Dashboard() {
               </div>
               <span style={{ fontSize: '1.125rem', fontWeight: '700', color: 'var(--text)' }}>{formatCurrency(monthlyIncome)}</span>
             </div>
-            {partnerIncome > 0 && (
+            {viewMode === 'joint' && partnerIncome > 0 && (
               <div style={{ marginLeft: '1.25rem', backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', padding: '0.625rem 0.875rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
                   <span style={{ color: 'var(--muted)' }}>{aaronLabel}</span>
@@ -728,7 +768,7 @@ export default function Dashboard() {
               {openCommitments.map((c, i) => (
                 <div key={c.id} style={{ borderBottom: i < openCommitments.length - 1 || doneCommitments.length > 0 ? '1px solid var(--border)' : 'none' }}>
                   <CommitmentRow commitment={c} onToggle={toggleCommitment}
-                    onEdit={setEditCommitment} onDelete={deleteCommitment} partnerLabel={partnerLabel} />
+                    onEdit={setEditCommitment} onDelete={deleteCommitment} myLabel={aaronLabel} partnerLabel={partnerLabel} />
                 </div>
               ))}
               {doneCommitments.length > 0 && (
@@ -740,7 +780,7 @@ export default function Dashboard() {
               {showDoneCommitments && doneCommitments.map((c, i) => (
                 <div key={c.id} style={{ borderBottom: i < doneCommitments.length - 1 ? '1px solid var(--border)' : 'none' }}>
                   <CommitmentRow commitment={c} onToggle={toggleCommitment}
-                    onEdit={setEditCommitment} onDelete={deleteCommitment} partnerLabel={partnerLabel} />
+                    onEdit={setEditCommitment} onDelete={deleteCommitment} myLabel={aaronLabel} partnerLabel={partnerLabel} />
                 </div>
               ))}
             </div>

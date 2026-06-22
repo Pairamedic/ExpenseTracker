@@ -28,7 +28,7 @@ export default function BillForm({ initial = {}, onSave, onCancel, myName, spous
     onSave({
       ...form,
       amount: parseFloat(form.amount),
-      dueDay: form.isPermanent ? null : (form.dueDay ? parseInt(form.dueDay) : null),
+      dueDay: form.dueDay ? parseInt(form.dueDay) : null,
       isRecurring: true,
     });
   };
@@ -57,10 +57,9 @@ export default function BillForm({ initial = {}, onSave, onCancel, myName, spous
         </div>
         <div>
           <label className="app-label">Due day</label>
-          <input type="number" min="1" max="31" disabled={form.isPermanent} className="app-input"
-            style={{ opacity: form.isPermanent ? 0.4 : 1 }}
-            placeholder={form.isPermanent ? 'None' : 'e.g. 15'}
-            value={form.isPermanent ? '' : form.dueDay}
+          <input type="number" min="1" max="31" className="app-input"
+            placeholder="e.g. 15"
+            value={form.dueDay}
             onChange={(e) => set('dueDay', e.target.value)} />
         </div>
       </div>
