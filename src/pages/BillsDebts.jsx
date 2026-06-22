@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   ExternalLink, MoreVertical, Pencil, Trash2,
   ChevronLeft, ChevronRight, Receipt, Info, X,
@@ -9,7 +9,7 @@ import { useApp } from '../context/AppContext';
 import {
   formatCurrency, monthKey, monthLabel, getDueDateLabel,
   getBillsForMonth, getBillStatus, getBillStatusColor, isBillOverdueUnpaid,
-  calcDebtPayoff,
+  calcDebtPayoff, getPayDatesForMonth,
 } from '../utils/helpers';
 import Modal from '../components/Modal';
 import BillForm from '../components/BillForm';
@@ -198,8 +198,151 @@ function DebtCard({ debt, month, onTogglePaid, onEdit, onDelete, myName, spouseN
   );
 }
 
+// ── Bill Calendar ─────────────────────────────────────────────────────────────
+
+const CAL_DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function buildCalGrid(year, month) {
+  const first = new Date(year, month, 1);
+  const last = new Date(year, month + 1, 0);
+  const startDow = first.getDay();
+  const days = [];
+  const prevLast = new Date(year, month, 0).getDate();
+  for (let i = startDow - 1; i >= 0; i--)
+    days.push({ date: new Date(year, month - 1, prevLast - i), cur: false });
+  for (let d = 1; d <= last.getDate(); d++)
+    days.push({ date: new Date(year, month, d), cur: true });
+  let n = 1;
+  while (days.length % 7 !== 0) days.push({ date: new Date(year, month + 1, n++), cur: false });
+  return days;
+}
+
+function BillCalendarView({ bills, income, mk, onSetStatus, myName, spouseName }) {
+  const [y, m] = mk.split('-').map(Number);
+  const year = y;
+  const month = m - 1;
+
+  const grid = useMemo(() => buildCalGrid(year, month), [year, month]);
+
+  const billsByDay = useMemo(() => {
+    const map = {};
+    bills.forEach((b) => {
+      if (b.dueDay) {
+        if (!map[b.dueDay]) map[b.dueDay] = [];
+        map[b.dueDay].push(b);
+      }
+    });
+    return map;
+  }, [bills]);
+
+  const payDayNums = useMemo(() => {
+    const nums = new Set();
+    income.forEach((item) => {
+      getPayDatesForMonth(item, mk).forEach((d) => nums.add(d.getDate()));
+    });
+    return nums;
+  }, [income, mk]);
+
+  const noDueDateBills = useMemo(() =>
+    bills.filter((b) => !b.dueDay && !(b.isPermanent || (!b.dueDay && b.isRecurring))),
+    [bills]);
+  const permanentBills = useMemo(() =>
+    bills.filter((b) => b.isPermanent || (!b.dueDay && b.isRecurring)),
+    [bills]);
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const STATUS_CYCLE_MAP = { paid: 'unpaid', unpaid: 'pending', pending: 'paid' };
+  const statusColors = { paid: 'var(--positive)', pending: 'var(--warn)', unpaid: 'var(--danger)' };
+
+  return (
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px', marginBottom: '4px' }}>
+        {CAL_DOW.map((d) => (
+          <div key={d} style={{ textAlign: 'center', fontSize: '0.625rem', fontWeight: 700, color: 'var(--subtle)', paddingBottom: '0.25rem' }}>{d}</div>
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px' }}>
+        {grid.map(({ date, cur }) => {
+          const ds = date.toISOString().slice(0, 10);
+          const dayNum = date.getDate();
+          const isToday = ds === todayStr;
+          const dayBills = cur ? (billsByDay[dayNum] || []) : [];
+          const isPayDay = cur && payDayNums.has(dayNum);
+
+          return (
+            <div key={ds} style={{
+              borderRadius: '0.375rem',
+              backgroundColor: dayBills.length > 0 ? 'rgba(239,68,68,0.06)' : isPayDay ? 'rgba(16,185,129,0.08)' : 'transparent',
+              border: isToday ? '1.5px solid var(--accent)' : '1px solid transparent',
+              padding: '0.2rem 0.125rem', minHeight: '3rem',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.125rem',
+            }}>
+              <span style={{ fontSize: '0.6875rem', fontWeight: isToday ? 800 : 500, color: cur ? (isToday ? 'var(--accent-text)' : 'var(--muted)') : 'var(--border2)' }}>
+                {dayNum}
+              </span>
+              {isPayDay && (
+                <span style={{ fontSize: '0.5625rem', fontWeight: 800, color: 'var(--positive-text)', backgroundColor: 'var(--positive-soft)', padding: '0.0625rem 0.25rem', borderRadius: '0.25rem', lineHeight: 1.4 }}>
+                  Pay
+                </span>
+              )}
+              {dayBills.map((b) => {
+                const status = getBillStatus(b, mk);
+                return (
+                  <span key={b.id} title={`${b.name}: ${formatCurrency(b.amount)}`}
+                    onClick={() => onSetStatus(b.id, mk, STATUS_CYCLE_MAP[status])}
+                    style={{
+                      fontSize: '0.5rem', fontWeight: 700, color: '#fff',
+                      backgroundColor: statusColors[status],
+                      padding: '0.0625rem 0.25rem', borderRadius: '0.25rem', lineHeight: 1.4,
+                      maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      cursor: 'pointer', userSelect: 'none',
+                    }}>
+                    {b.name.length > 7 ? b.name.slice(0, 6) + '…' : b.name}
+                  </span>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ display: 'flex', gap: '0.625rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+        {[['var(--positive-soft)', 'var(--positive-text)', 'Pay Day'], ['var(--positive)', '#fff', 'Paid'], ['var(--warn)', '#fff', 'Pending'], ['var(--danger)', '#fff', 'Unpaid']].map(([bg, c, lbl]) => (
+          <div key={lbl} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+            <div style={{ width: '0.75rem', height: '0.75rem', borderRadius: '0.25rem', backgroundColor: bg, border: `1px solid ${c}` }} />
+            <span style={{ fontSize: '0.6875rem', color: 'var(--subtle)' }}>{lbl}</span>
+          </div>
+        ))}
+      </div>
+      <p style={{ fontSize: '0.6875rem', color: 'var(--subtle)', marginTop: '0.375rem' }}>Tap a bill chip to cycle its status</p>
+
+      {(permanentBills.length > 0 || noDueDateBills.length > 0) && (
+        <div style={{ marginTop: '1rem' }}>
+          <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.5rem' }}>No specific due date</p>
+          {[...permanentBills, ...noDueDateBills].map((b) => {
+            const status = getBillStatus(b, mk);
+            return (
+              <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid var(--border)' }}>
+                <div>
+                  <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)' }}>{b.name}</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginLeft: '0.5rem' }}>{formatCurrency(b.amount)}</span>
+                </div>
+                <span onClick={() => onSetStatus(b.id, mk, STATUS_CYCLE_MAP[status])}
+                  style={{ fontSize: '0.75rem', fontWeight: 700, color: statusColors[status], border: `1px solid ${statusColors[status]}`, padding: '0.125rem 0.5rem', borderRadius: '0.375rem', cursor: 'pointer', userSelect: 'none' }}>
+                  {status}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function BillsDebts() {
-  const { bills, addBill, updateBill, deleteBill, setBillStatusDirect, debts, addDebt, updateDebt, deleteDebt, toggleDebtPaid, settings } = useApp();
+  const { bills, addBill, updateBill, deleteBill, setBillStatusDirect, debts, addDebt, updateDebt, deleteDebt, toggleDebtPaid, settings, income } = useApp();
   const [tab, setTab] = useState('bills');
   const [mk, setMk] = useState(() => monthKey(new Date()));
   const [showAddBill, setShowAddBill] = useState(false);
@@ -207,6 +350,7 @@ export default function BillsDebts() {
   const [showAddDebt, setShowAddDebt] = useState(false);
   const [editDebt, setEditDebt] = useState(null);
   const [ownerFilter, setOwnerFilter] = useState(null);
+  const [calView, setCalView] = useState(false);
 
   const { myName, spouseName } = settings;
   const aaronLabel = myName || 'Aaron';
@@ -297,25 +441,41 @@ export default function BillsDebts() {
         {/* ── Bills ── */}
         {tab === 'bills' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-            {monthBills.length > 0 && (
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                  {[['Unpaid', billTotals.unpaid, 'var(--danger)'], ['Pending', billTotals.pending, 'var(--warn)'], ['Paid', billTotals.paid, 'var(--positive-text)']].map(([lbl, val, col]) => (
-                    <div key={lbl} style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.875rem', padding: '0.75rem', textAlign: 'center' }}>
-                      <p style={{ ...sectionLabel, marginBottom: '0.25rem' }}>{lbl}</p>
-                      <p style={{ fontSize: '1rem', fontWeight: 800, color: col }}>{formatCurrency(val)}</p>
-                    </div>
-                  ))}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.25rem' }}>
+              <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.625rem', padding: '0.1875rem', gap: '0.125rem' }}>
+                {[['List', false], ['Cal', true]].map(([lbl, v]) => (
+                  <button key={lbl} onClick={() => setCalView(v)}
+                    style={{ padding: '0.3rem 0.75rem', borderRadius: '0.375rem', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700,
+                      backgroundColor: calView === v ? 'var(--surface)' : 'transparent',
+                      color: calView === v ? 'var(--text)' : 'var(--subtle)' }}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {calView ? (
+              monthBills.length > 0 ? (
+                <BillCalendarView bills={ownerFiltered} income={income} mk={mk}
+                  onSetStatus={setBillStatusDirect} myName={myName} spouseName={spouseName} />
+              ) : (
+                <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
+                  <Receipt size={48} style={{ margin: '0 auto 1rem', opacity: 0.2, color: 'var(--muted)', display: 'block' }} />
+                  <p style={{ fontWeight: 700, color: 'var(--text)', fontSize: '1.125rem', marginBottom: '0.5rem' }}>No bills yet</p>
+                  <p style={{ fontSize: '0.9375rem', color: 'var(--muted)', marginBottom: '1.5rem' }}>Track recurring bills and mark them paid each month</p>
+                  <button onClick={() => setShowAddBill(true)} className="app-btn-primary" style={{ maxWidth: '14rem', margin: '0 auto' }}>
+                    <Plus size={18} /> Add First Bill
+                  </button>
                 </div>
-                {overdueCount > 0 && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', backgroundColor: 'var(--danger-soft)', border: '1px solid var(--danger)', borderRadius: '0.875rem', padding: '0.75rem 1rem' }}>
-                    <AlertTriangle size={15} style={{ color: 'var(--danger)', flexShrink: 0 }} />
-                    <p style={{ fontSize: '0.875rem', color: 'var(--danger)', fontWeight: 600 }}>
-                      {overdueCount} bill{overdueCount > 1 ? 's are' : ' is'} overdue
-                    </p>
-                  </div>
-                )}
-              </>
+              )
+            ) : (<>
+            {overdueCount > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', backgroundColor: 'var(--danger-soft)', border: '1px solid var(--danger)', borderRadius: '0.875rem', padding: '0.75rem 1rem' }}>
+                <AlertTriangle size={15} style={{ color: 'var(--danger)', flexShrink: 0 }} />
+                <p style={{ fontSize: '0.875rem', color: 'var(--danger)', fontWeight: 600 }}>
+                  {overdueCount} bill{overdueCount > 1 ? 's are' : ' is'} overdue
+                </p>
+              </div>
             )}
 
             {sortedBills.length === 0 ? (
@@ -337,6 +497,7 @@ export default function BillsDebts() {
               <BillCard key={bill.id} bill={bill} mk={mk} onSetStatus={setBillStatusDirect}
                 onEdit={setEditBill} onDelete={deleteBill} myName={myName} spouseName={spouseName} />
             ))}
+            </>)}
           </div>
         )}
 

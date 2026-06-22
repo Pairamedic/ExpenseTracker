@@ -47,6 +47,32 @@ function getThisWeekRange() {
   return { start: mon.toISOString().slice(0, 10), end: sun.toISOString().slice(0, 10) };
 }
 
+const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function getCalendarGrid(year, month) {
+  const first = new Date(year, month, 1);
+  const last = new Date(year, month + 1, 0);
+  const startDow = first.getDay();
+  const days = [];
+  const prevLast = new Date(year, month, 0).getDate();
+  for (let i = startDow - 1; i >= 0; i--)
+    days.push({ date: new Date(year, month - 1, prevLast - i), cur: false });
+  for (let d = 1; d <= last.getDate(); d++)
+    days.push({ date: new Date(year, month, d), cur: true });
+  let n = 1;
+  while (days.length % 7 !== 0) days.push({ date: new Date(year, month + 1, n++), cur: false });
+  return days;
+}
+
+function getWeekStartStr(dateStr, weekStartDay) {
+  const d = new Date(dateStr + 'T12:00:00');
+  const dow = d.getDay();
+  const daysBack = (dow - weekStartDay + 7) % 7;
+  const ws = new Date(d);
+  ws.setDate(d.getDate() - daysBack);
+  return ws.toISOString().slice(0, 10);
+}
+
 // ── Shared styled wrappers ────────────────────────────────────────────────────
 
 function Label({ children }) {
@@ -247,6 +273,7 @@ function ShiftForm({ initial = {}, jobs, onSave, onCancel }) {
     jobId: jobs[0]?.id || '',
     hoursWorked: '',
     notes: '',
+    otExempt: false,
     ...initial,
   });
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -284,9 +311,22 @@ function ShiftForm({ initial = {}, jobs, onSave, onCancel }) {
           style={{ fontSize: '1.5rem', textAlign: 'center', fontWeight: '700' }} />
       </div>
 
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '0.875rem', padding: '0.75rem 1rem' }}>
+        <div>
+          <p style={{ fontSize: '0.875rem', fontWeight: '700', color: 'var(--text)' }}>OT Exempt</p>
+          <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.125rem' }}>PTO, holiday — won't count toward OT threshold</p>
+        </div>
+        <button type="button" onClick={() => set('otExempt', !form.otExempt)}
+          style={{ width: '2.75rem', height: '1.5rem', borderRadius: '9999px', border: 'none', cursor: 'pointer', transition: 'background 0.2s', position: 'relative', flexShrink: 0,
+            backgroundColor: form.otExempt ? 'var(--warn)' : 'var(--border2)' }}>
+          <span style={{ position: 'absolute', top: '2px', width: '1.125rem', height: '1.125rem', borderRadius: '9999px', backgroundColor: '#fff', transition: 'left 0.2s',
+            left: form.otExempt ? 'calc(100% - 1.25rem)' : '2px' }} />
+        </button>
+      </div>
+
       <div>
         <Label>Notes (optional)</Label>
-        <Input placeholder="e.g. Covered a shift, short day" value={form.notes}
+        <Input placeholder="e.g. PTO, covered a shift, short day" value={form.notes}
           onChange={(e) => set('notes', e.target.value)} />
       </div>
 
@@ -361,6 +401,137 @@ function PayBreakdown({ result }) {
   );
 }
 
+// ── Shift Calendar View ───────────────────────────────────────────────────────
+
+function ShiftCalendarView({ jobs, shifts }) {
+  const now = new Date();
+  const [calYear, setCalYear] = useState(now.getFullYear());
+  const [calMonth, setCalMonth] = useState(now.getMonth());
+
+  const grid = useMemo(() => getCalendarGrid(calYear, calMonth), [calYear, calMonth]);
+
+  const shiftsByDate = useMemo(() => {
+    const map = {};
+    shifts.forEach((sh) => {
+      if (!map[sh.date]) map[sh.date] = [];
+      map[sh.date].push(sh);
+    });
+    return map;
+  }, [shifts]);
+
+  const weeks = useMemo(() => {
+    const rows = [];
+    for (let i = 0; i < grid.length; i += 7) {
+      const row = grid.slice(i, i + 7);
+      // Only count non-exempt hours toward the OT threshold coloring
+      const totalH = row.reduce((s, { date }) => {
+        const ds = date.toISOString().slice(0, 10);
+        return s + (shiftsByDate[ds] || []).reduce((a, sh) => a + (sh.otExempt ? 0 : sh.hoursWorked), 0);
+      }, 0);
+      rows.push({ row, totalH });
+    }
+    return rows;
+  }, [grid, shiftsByDate]);
+
+  const todayStr = now.toISOString().slice(0, 10);
+  const monthName = new Date(calYear, calMonth).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+  const nav = (dir) => {
+    setCalMonth((m) => {
+      const nm = m + dir;
+      if (nm < 0) { setCalYear((y) => y - 1); return 11; }
+      if (nm > 11) { setCalYear((y) => y + 1); return 0; }
+      return nm;
+    });
+  };
+
+  const btnStyle = { padding: '0.375rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' };
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.75rem' }}>
+        <button onClick={() => nav(-1)} style={btnStyle}><ChevronLeft size={18} /></button>
+        <span style={{ flex: 1, textAlign: 'center', fontWeight: 700, color: 'var(--text)', fontSize: '0.9375rem' }}>{monthName}</span>
+        <button onClick={() => nav(1)} style={btnStyle}><ChevronRight size={18} /></button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px', marginBottom: '4px' }}>
+        {DOW_LABELS.map((d) => (
+          <div key={d} style={{ textAlign: 'center', fontSize: '0.625rem', fontWeight: 700, color: 'var(--subtle)', paddingBottom: '0.25rem' }}>{d}</div>
+        ))}
+      </div>
+
+      {weeks.map(({ row, totalH }, wi) => (
+        <div key={wi} style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px', marginBottom: '2px' }}>
+          {row.map(({ date, cur }) => {
+            const ds = date.toISOString().slice(0, 10);
+            const hours = (shiftsByDate[ds] || []).reduce((s, sh) => s + sh.hoursWorked, 0);
+            const isToday = ds === todayStr;
+            const hasShift = hours > 0 && cur;
+
+            let bg = 'transparent';
+            let hourColor = 'var(--text)';
+            if (hasShift) {
+              if (totalH > 40) { bg = 'rgba(239,68,68,0.18)'; hourColor = 'var(--danger)'; }
+              else if (totalH > 32) { bg = 'rgba(245,158,11,0.18)'; hourColor = 'var(--warn)'; }
+              else { bg = 'var(--accent-soft)'; hourColor = 'var(--accent-text)'; }
+            }
+
+            return (
+              <div key={ds} style={{
+                borderRadius: '0.375rem', backgroundColor: bg,
+                border: isToday ? '1.5px solid var(--accent)' : '1px solid transparent',
+                padding: '0.2rem 0.125rem', minHeight: '2.25rem',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.125rem',
+              }}>
+                <span style={{ fontSize: '0.6875rem', fontWeight: isToday ? 800 : 500, color: cur ? (isToday ? 'var(--accent-text)' : 'var(--muted)') : 'var(--border2)' }}>
+                  {date.getDate()}
+                </span>
+                {hasShift && (
+                  <span style={{ fontSize: '0.625rem', fontWeight: 800, color: hourColor }}>{hours}h</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+
+      {weeks.some((w) => w.totalH > 0) && (
+        <div style={{ marginTop: '0.875rem', display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+          {weeks.map(({ row, totalH }, wi) => {
+            if (totalH === 0) return null;
+            const firstCur = row.find((c) => c.cur);
+            if (!firstCur) return null;
+            const weekLabel = firstCur.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const pct = Math.min(100, (totalH / 40) * 100);
+            const barColor = totalH > 40 ? 'var(--danger)' : totalH > 32 ? 'var(--warn)' : 'var(--positive-text)';
+            return (
+              <div key={wi}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6875rem', color: 'var(--muted)', marginBottom: '0.1875rem' }}>
+                  <span>Wk of {weekLabel}</span>
+                  <span style={{ fontWeight: 700, color: barColor }}>{totalH}h{totalH > 40 ? ' · OT' : totalH > 32 ? ' · near OT' : ''}</span>
+                </div>
+                <div style={{ height: '0.3125rem', backgroundColor: 'var(--surface2)', borderRadius: '9999px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${pct}%`, backgroundColor: barColor, borderRadius: '9999px' }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.875rem', flexWrap: 'wrap' }}>
+        {[['var(--accent-soft)', 'var(--accent-text)', '≤32h'], ['rgba(245,158,11,0.18)', 'var(--warn)', '32–40h'], ['rgba(239,68,68,0.18)', 'var(--danger)', '>40h (OT)']].map(([bg, c, lbl]) => (
+          <div key={lbl} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+            <div style={{ width: '0.75rem', height: '0.75rem', borderRadius: '0.25rem', backgroundColor: bg, border: `1.5px solid ${c}` }} />
+            <span style={{ fontSize: '0.6875rem', color: 'var(--subtle)' }}>{lbl}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Job Card ──────────────────────────────────────────────────────────────────
 
 function JobCard({ job, onEdit, onDelete }) {
@@ -420,12 +591,172 @@ function JobCard({ job, onEdit, onDelete }) {
   );
 }
 
+// ── Bulk Shift Form ───────────────────────────────────────────────────────────
+
+function BulkShiftForm({ jobs, shifts, onSave, onCancel }) {
+  const [jobId, setJobId] = useState(jobs[0]?.id || '');
+  const [preset, setPreset] = useState('current');
+  const [range, setRange] = useState(() => {
+    const j = jobs[0];
+    if (j) { const pp = getPayPeriodBounds(j); if (pp) return pp.current; }
+    return getLastNDaysEnd(14);
+  });
+  const [rows, setRows] = useState({});
+
+  const job = jobs.find((j) => j.id === jobId);
+  const payPeriods = job ? getPayPeriodBounds(job) : null;
+
+  const PRESETS = [
+    ...(payPeriods
+      ? [{ label: 'Current Period', key: 'current' }, { label: 'Prev Period', key: 'previous' }]
+      : [{ label: 'Last 7 days', key: '7d' }, { label: 'Last 14 days', key: '14d' }]),
+    { label: 'This Week', key: 'week' },
+    { label: 'Custom', key: 'custom' },
+  ];
+
+  useEffect(() => {
+    if (preset === 'current' && payPeriods) setRange(payPeriods.current);
+    else if (preset === 'previous' && payPeriods) setRange(payPeriods.previous);
+    else if (preset === '7d') setRange(getLastNDaysEnd(7));
+    else if (preset === '14d') setRange(getLastNDaysEnd(14));
+    else if (preset === 'week') setRange(getThisWeekRange());
+  }, [preset, jobId]);
+
+  const dates = useMemo(() => {
+    if (!range.start || !range.end) return [];
+    const arr = [];
+    let d = range.start;
+    while (d <= range.end) { arr.push(d); d = addDays(d, 1); }
+    return arr;
+  }, [range]);
+
+  useEffect(() => {
+    setRows(() => {
+      const next = {};
+      dates.forEach((d) => {
+        const existing = shifts.find((s) => s.jobId === jobId && s.date === d);
+        next[d] = existing
+          ? { hours: String(existing.hoursWorked), otExempt: existing.otExempt || false, notes: existing.notes || '', existingId: existing.id }
+          : { hours: '', otExempt: false, notes: '', existingId: null };
+      });
+      return next;
+    });
+  }, [dates, jobId]);
+
+  const setRow = (date, key, val) => setRows((r) => ({ ...r, [date]: { ...r[date], [key]: val } }));
+
+  const filledCount = dates.filter((d) => rows[d]?.hours && parseFloat(rows[d].hours) > 0).length;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const toSave = dates
+      .filter((d) => rows[d]?.hours && parseFloat(rows[d].hours) > 0)
+      .map((d) => ({
+        date: d, jobId,
+        hoursWorked: parseFloat(rows[d].hours),
+        otExempt: rows[d]?.otExempt || false,
+        notes: rows[d]?.notes || '',
+        existingId: rows[d]?.existingId || null,
+      }));
+    onSave(toSave);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+      {jobs.length > 1 && (
+        <div>
+          <Label>Job</Label>
+          <Select value={jobId} onChange={(e) => setJobId(e.target.value)}>
+            {jobs.map((j) => <option key={j.id} value={j.id}>{j.name}</option>)}
+          </Select>
+        </div>
+      )}
+
+      <div>
+        <Label>Pay Period</Label>
+        {payPeriods && (
+          <p style={{ fontSize: '0.7rem', color: 'var(--positive-text)', fontWeight: 600, marginBottom: '0.375rem' }}>
+            Auto-calculated from saved pay cycle
+          </p>
+        )}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.375rem', marginBottom: '0.5rem' }}>
+          {PRESETS.map((p) => (
+            <button key={p.key} type="button" onClick={() => setPreset(p.key)}
+              style={{ padding: '0.5rem', borderRadius: '0.625rem', fontSize: '0.8125rem', fontWeight: 600, cursor: 'pointer',
+                border: `1px solid ${preset === p.key ? 'var(--accent)' : 'var(--border)'}`,
+                backgroundColor: preset === p.key ? 'var(--accent-soft)' : 'var(--surface2)',
+                color: preset === p.key ? 'var(--accent-text)' : 'var(--muted)' }}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+        {preset === 'custom' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
+            <div><Label>Start</Label><Input type="date" value={range.start} onChange={(e) => setRange((r) => ({ ...r, start: e.target.value }))} /></div>
+            <div><Label>End</Label><Input type="date" value={range.end} onChange={(e) => setRange((r) => ({ ...r, end: e.target.value }))} /></div>
+          </div>
+        )}
+        <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', textAlign: 'center' }}>
+          {range.start && range.end ? periodLabel(range.start, range.end) : ''}
+        </p>
+      </div>
+
+      {dates.length > 0 && (
+        <div style={{ border: '1px solid var(--border)', borderRadius: '0.875rem', overflow: 'hidden' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 5rem 3.5rem', gap: '0.375rem', padding: '0.5rem 0.75rem', backgroundColor: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
+            <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--subtle)' }}>Date</p>
+            <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--subtle)', textAlign: 'center' }}>Hours</p>
+            <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--subtle)', textAlign: 'center' }}>OT Ex</p>
+          </div>
+          {dates.map((d, i) => {
+            const row = rows[d] || { hours: '', otExempt: false };
+            const hasHours = row.hours && parseFloat(row.hours) > 0;
+            return (
+              <div key={d} style={{ display: 'grid', gridTemplateColumns: '1fr 5rem 3.5rem', gap: '0.375rem', alignItems: 'center',
+                padding: '0.375rem 0.75rem',
+                backgroundColor: hasHours ? 'var(--surface2)' : 'transparent',
+                borderBottom: i < dates.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                <p style={{ fontSize: '0.875rem', color: hasHours ? 'var(--text)' : 'var(--subtle)', fontWeight: hasHours ? 600 : 400 }}>
+                  {new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                </p>
+                <input type="number" min="0" max="24" step="0.5"
+                  placeholder={String(job?.normalShiftHours || 8)}
+                  value={row.hours}
+                  onChange={(e) => setRow(d, 'hours', e.target.value)}
+                  style={{ textAlign: 'center', padding: '0.375rem 0.25rem', borderRadius: '0.5rem',
+                    border: '1px solid var(--border)', backgroundColor: 'var(--surface)',
+                    color: 'var(--text)', fontSize: '0.875rem', fontWeight: 700, width: '100%' }} />
+                <button type="button" onClick={() => setRow(d, 'otExempt', !row.otExempt)}
+                  style={{ width: '2.5rem', height: '1.375rem', borderRadius: '9999px', border: 'none', cursor: 'pointer',
+                    transition: 'background 0.15s', position: 'relative', margin: '0 auto', display: 'block',
+                    backgroundColor: row.otExempt ? 'var(--warn)' : 'var(--border2)' }}>
+                  <span style={{ position: 'absolute', top: '2px', width: '1rem', height: '1rem', borderRadius: '9999px', backgroundColor: '#fff',
+                    transition: 'left 0.15s', left: row.otExempt ? 'calc(100% - 1.125rem)' : '2px' }} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', paddingTop: '0.25rem' }}>
+        <button type="button" onClick={onCancel} className="app-btn-secondary">Cancel</button>
+        <button type="submit" className="app-btn-primary" disabled={filledCount === 0}>
+          <Plus size={15} /> Log {filledCount > 0 ? `${filledCount} Shift${filledCount !== 1 ? 's' : ''}` : 'Shifts'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 // ── Hours Tab ─────────────────────────────────────────────────────────────────
 
 function HoursTab({ jobs, shifts, addShift, updateShift, deleteShift }) {
   const [logDate, setLogDate] = useState(today());
   const [showShiftForm, setShowShiftForm] = useState(false);
+  const [showBulkForm, setShowBulkForm] = useState(false);
   const [editShift, setEditShift] = useState(null);
+  const [calView, setCalView] = useState(false);
 
   const recentShifts = useMemo(() =>
     [...shifts].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30),
@@ -445,8 +776,25 @@ function HoursTab({ jobs, shifts, addShift, updateShift, deleteShift }) {
 
   return (
     <div style={{ padding: '0 1rem' }}>
-      {/* Date nav */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
+        <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.625rem', padding: '0.1875rem', gap: '0.125rem' }}>
+          {[['List', false], ['Calendar', true]].map(([lbl, v]) => (
+            <button key={lbl} onClick={() => setCalView(v)}
+              style={{ padding: '0.375rem 0.75rem', borderRadius: '0.375rem', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700,
+                backgroundColor: calView === v ? 'var(--surface)' : 'transparent',
+                color: calView === v ? 'var(--text)' : 'var(--subtle)' }}>
+              {lbl}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {calView ? (
+        <ShiftCalendarView jobs={jobs} shifts={shifts} />
+      ) : (
+        <>
+          {/* Date nav */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
         <button onClick={() => setLogDate(addDays(logDate, -1))}
           style={{ padding: '0.5rem', borderRadius: '0.75rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
           <ChevronLeft size={20} />
@@ -465,7 +813,10 @@ function HoursTab({ jobs, shifts, addShift, updateShift, deleteShift }) {
         return (
           <div key={sh.id} style={{ backgroundColor: 'var(--accent-soft)', border: '1px solid var(--border)', borderRadius: '0.875rem', padding: '0.875rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <p style={{ fontWeight: '600', color: 'var(--text)', fontSize: '0.9375rem' }}>{job?.name || 'Unknown'}</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <p style={{ fontWeight: '600', color: 'var(--text)', fontSize: '0.9375rem' }}>{job?.name || 'Unknown'}</p>
+                {sh.otExempt && <span style={{ fontSize: '0.625rem', fontWeight: 700, color: 'var(--warn)', backgroundColor: 'rgba(245,158,11,0.15)', padding: '0.125rem 0.375rem', borderRadius: '0.375rem' }}>OT Exempt</span>}
+              </div>
               <p style={{ fontSize: '0.8125rem', color: 'var(--muted)', marginTop: '0.125rem' }}>{sh.hoursWorked}h logged{sh.notes ? ` · ${sh.notes}` : ''}</p>
             </div>
             <div style={{ display: 'flex', gap: '0.25rem' }}>
@@ -482,9 +833,14 @@ function HoursTab({ jobs, shifts, addShift, updateShift, deleteShift }) {
         </div>
       )}
 
-      <button onClick={() => setShowShiftForm(true)} className="app-btn-primary" style={{ marginBottom: '1.5rem' }}>
-        <Plus size={18} /> Log Shift
-      </button>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '1.5rem' }}>
+        <button onClick={() => setShowShiftForm(true)} className="app-btn-primary">
+          <Plus size={16} /> Log Shift
+        </button>
+        <button onClick={() => setShowBulkForm(true)} className="app-btn-secondary">
+          <Plus size={16} /> Bulk Log
+        </button>
+      </div>
 
       {/* Recent shifts */}
       {recentShifts.length > 0 && (
@@ -496,9 +852,10 @@ function HoursTab({ jobs, shifts, addShift, updateShift, deleteShift }) {
               return (
                 <div key={sh.id} style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.875rem', padding: '0.875rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                       <p style={{ fontSize: '0.9375rem', fontWeight: '600', color: 'var(--text)' }}>{fmt(sh.date)}</p>
                       {jobs.length > 1 && <span style={{ fontSize: '0.6875rem', backgroundColor: 'var(--surface2)', color: 'var(--muted)', padding: '0.125rem 0.5rem', borderRadius: '0.375rem' }}>{job?.name}</span>}
+                      {sh.otExempt && <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--warn)', backgroundColor: 'rgba(245,158,11,0.15)', padding: '0.125rem 0.375rem', borderRadius: '0.375rem' }}>OT Exempt</span>}
                     </div>
                     <p style={{ fontSize: '0.8125rem', color: 'var(--subtle)', marginTop: '0.125rem' }}>{sh.hoursWorked}h{sh.notes ? ` · ${sh.notes}` : ''}</p>
                   </div>
@@ -513,11 +870,30 @@ function HoursTab({ jobs, shifts, addShift, updateShift, deleteShift }) {
         </div>
       )}
 
+        </>
+      )}
+
       {showShiftForm && (
         <Modal title="Log Shift" onClose={() => setShowShiftForm(false)}>
           <ShiftForm initial={{ date: logDate }} jobs={jobs}
             onSave={(d) => { addShift(d); setShowShiftForm(false); }}
             onCancel={() => setShowShiftForm(false)} />
+        </Modal>
+      )}
+      {showBulkForm && (
+        <Modal title="Bulk Log Shifts" onClose={() => setShowBulkForm(false)}>
+          <BulkShiftForm
+            jobs={jobs}
+            shifts={shifts}
+            onSave={(entries) => {
+              entries.forEach(({ existingId, date, jobId, hoursWorked, otExempt, notes }) => {
+                if (existingId) updateShift(existingId, { date, jobId, hoursWorked, otExempt, notes });
+                else addShift({ date, jobId, hoursWorked, otExempt, notes });
+              });
+              setShowBulkForm(false);
+            }}
+            onCancel={() => setShowBulkForm(false)}
+          />
         </Modal>
       )}
       {editShift && (
@@ -720,10 +1096,107 @@ function EstimateTab({ jobs, shifts, addIncome }) {
   );
 }
 
+// ── Quick Calc Tab ────────────────────────────────────────────────────────────
+
+function QuickCalcTab({ jobs, shifts }) {
+  const [selectedJobId, setSelectedJobId] = useState(jobs[0]?.id || '');
+  const [date, setDate] = useState(today());
+  const [hours, setHours] = useState('');
+
+  const job = jobs.find((j) => j.id === selectedJobId);
+
+  const weekHours = useMemo(() => {
+    if (!job) return 0;
+    const weekStart = getWeekStartStr(date, job.weekStartDay ?? 0);
+    const weekEnd = addDays(weekStart, 6);
+    return shifts
+      .filter((sh) => sh.jobId === job.id && sh.date >= weekStart && sh.date <= weekEnd)
+      .reduce((s, sh) => s + sh.hoursWorked, 0);
+  }, [job, date, shifts]);
+
+  const result = useMemo(() => {
+    const h = parseFloat(hours);
+    if (!job || !h || h <= 0) return null;
+    const regularCap = Math.max(0, 40 - weekHours);
+    const regularHours = Math.min(h, regularCap);
+    const overtimeHours = Math.max(0, h - regularCap);
+    return calcPaycheck({ job, regularHours, overtimeHours });
+  }, [job, hours, weekHours]);
+
+  if (jobs.length === 0) {
+    return (
+      <div style={{ textAlign: 'center', padding: '5rem 1.5rem', color: 'var(--muted)' }}>
+        <Calculator size={40} style={{ margin: '0 auto 0.75rem', opacity: 0.3, display: 'block' }} />
+        <p style={{ fontWeight: '600', color: 'var(--muted)', marginBottom: '0.25rem' }}>No jobs yet</p>
+        <p style={{ fontSize: '0.875rem', color: 'var(--subtle)' }}>Add a job from the Jobs tab first</p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: '0 1rem' }}>
+      {jobs.length > 1 && (
+        <div style={{ marginBottom: '1rem' }}>
+          <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.5rem' }}>Job</p>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {jobs.map((j) => (
+              <button key={j.id} onClick={() => setSelectedJobId(j.id)}
+                style={{ padding: '0.5rem 1rem', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '600', border: 'none', cursor: 'pointer',
+                  backgroundColor: selectedJobId === j.id ? 'var(--accent)' : 'var(--surface2)',
+                  color: selectedJobId === j.id ? '#fff' : 'var(--muted)' }}>
+                {j.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
+        <div>
+          <Label>Shift Date</Label>
+          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        </div>
+        <div>
+          <Label>Shift Hours</Label>
+          <Input type="number" min="0" max="72" step="0.5" placeholder={job?.normalShiftHours || '8'}
+            value={hours} onChange={(e) => setHours(e.target.value)} />
+        </div>
+      </div>
+
+      <div style={{ backgroundColor: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '0.875rem', padding: '0.875rem', marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>Already logged this week</span>
+          <span style={{ fontSize: '1.125rem', fontWeight: 800, color: weekHours >= 40 ? 'var(--danger)' : weekHours > 32 ? 'var(--warn)' : 'var(--text)' }}>{weekHours}h</span>
+        </div>
+        <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.25rem' }}>
+          {weekHours >= 40 ? 'Entire shift would be at OT rate' : `${Math.max(0, 40 - weekHours)}h remaining before OT threshold`}
+        </p>
+      </div>
+
+      {result ? (
+        <>
+          <PayBreakdown result={result} />
+          <div style={{ marginTop: '0.75rem', padding: '0.75rem', backgroundColor: 'var(--surface2)', borderRadius: '0.75rem' }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', lineHeight: '1.4' }}>
+              <Info size={11} style={{ display: 'inline', marginRight: '0.25rem', verticalAlign: 'middle', opacity: 0.6 }} />
+              Quick estimate · not logged · taxes calculated for this shift in isolation
+            </p>
+          </div>
+        </>
+      ) : (
+        <div style={{ border: '1px dashed var(--border)', borderRadius: '0.875rem', padding: '2rem', textAlign: 'center' }}>
+          <Calculator size={32} style={{ margin: '0 auto 0.5rem', color: 'var(--subtle)', display: 'block', opacity: 0.5 }} />
+          <p style={{ fontSize: '0.875rem', color: 'var(--subtle)' }}>Enter hours above to see an instant pay estimate</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Page tabs ─────────────────────────────────────────────────────────────────
 
-const TABS = ['jobs', 'hours', 'estimate'];
-const TAB_LABELS = { jobs: 'Jobs', hours: 'Hours', estimate: 'Estimate' };
+const TABS = ['jobs', 'hours', 'estimate', 'quick'];
+const TAB_LABELS = { jobs: 'Jobs', hours: 'Hours', estimate: 'Estimate', quick: 'Quick' };
 
 function SegmentedControl({ value, onChange, options }) {
   return (
@@ -801,6 +1274,10 @@ export default function WorkTime() {
 
         {tab === 'estimate' && (
           <EstimateTab jobs={jobs} shifts={shifts} addIncome={addIncome} />
+        )}
+
+        {tab === 'quick' && (
+          <QuickCalcTab jobs={jobs} shifts={shifts} />
         )}
       </div>
 

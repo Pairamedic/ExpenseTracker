@@ -244,7 +244,7 @@ ${inc('bills') && bills.length ? section('Bills', table(
     b.dueDay ? `Day ${b.dueDay}` : '—',
     b.isRecurring ? 'Yes' : 'No',
   ])
-) : ''}
+)) : ''}
 
 ${inc('income') && income.length ? section('Income', table(
   ['Name', 'Amount', 'Frequency', 'Person'],
@@ -254,7 +254,7 @@ ${inc('income') && income.length ? section('Income', table(
     i.frequency || '—',
     i.person === 'spouse' ? 'Cameron' : 'Aaron',
   ])
-) : ''}
+)) : ''}
 
 ${inc('debts') && debts.length ? section('Debts', table(
   ['Name', 'Balance', 'Min Payment', 'Interest Rate', 'Owner'],
@@ -265,7 +265,7 @@ ${inc('debts') && debts.length ? section('Debts', table(
     d.interestRate != null ? `${d.interestRate}% APR` : '—',
     `<span class="badge badge-${(d.owner === 'mine' ? 'aaron' : d.owner === 'partner' ? 'cameron' : d.owner) || 'aaron'}">${ownerLabel(d.owner)}</span>`,
   ])
-) : ''}
+)) : ''}
 
 ${inc('savings') && savings.length ? section('Savings', table(
   ['Name', 'Balance', 'Goal', 'Progress'],
@@ -275,7 +275,7 @@ ${inc('savings') && savings.length ? section('Savings', table(
     s.goal ? fmt(s.goal) : '—',
     s.goal ? `${Math.min(100, Math.round((s.balance / s.goal) * 100))}%` : '—',
   ])
-) : ''}
+)) : ''}
 
 ${inc('commitments') && commitments.length ? section('Commitments', table(
   ['Description', 'Amount', 'Person', 'End Date', 'Status'],
@@ -286,7 +286,7 @@ ${inc('commitments') && commitments.length ? section('Commitments', table(
     c.endDate ? new Date(c.endDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—',
     c.completed ? '<span class="badge badge-paid">Done</span>' : '<span class="badge badge-unpaid">Open</span>',
   ])
-) : ''}
+)) : ''}
 
 ${inc('planned') && plannedExpenses.length ? section('Planned Expenses', table(
   ['Name', 'Amount', 'Target Date', 'From Savings', 'Notes'],
@@ -297,7 +297,7 @@ ${inc('planned') && plannedExpenses.length ? section('Planned Expenses', table(
     pe.fromSavingsId || '—',
     pe.notes || '',
   ])
-) : ''}
+)) : ''}
 
 ${inc('purchases') && purchases.length ? section('Spending', table(
   ['Date', 'Merchant', 'Amount', 'Category', 'Person', 'Notes'],
@@ -309,7 +309,7 @@ ${inc('purchases') && purchases.length ? section('Spending', table(
     p.person === 'spouse' || p.person === 'cameron' ? 'Cameron' : 'Aaron',
     p.notes || '',
   ])
-) : ''}
+)) : ''}
 
 </body>
 </html>`;

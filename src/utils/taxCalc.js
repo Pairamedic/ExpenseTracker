@@ -93,11 +93,18 @@ export function calcPaycheck({ job, regularHours, overtimeHours }) {
 
 // Calculate OT breakdown from an array of shifts for a job
 // weekStartDay: 0=Sun (default for EMS/fire/many employers), 1=Mon (FLSA default)
+// Shifts with otExempt=true (PTO, holiday pay) are always regular rate and
+// never counted toward the weekly OT threshold.
 export function calcHoursFromShifts(shifts, job) {
-  const weekStartDay = job.weekStartDay ?? 0; // default Sunday
+  const weekStartDay = job.weekStartDay ?? 0;
   const byWeek = {};
+  let exemptRegular = 0;
 
   for (const sh of shifts) {
+    if (sh.otExempt) {
+      exemptRegular += sh.hoursWorked;
+      continue;
+    }
     const d = new Date(sh.date + 'T12:00:00');
     const dow = d.getDay();
     const daysFromStart = (dow - weekStartDay + 7) % 7;
@@ -107,7 +114,7 @@ export function calcHoursFromShifts(shifts, job) {
     byWeek[wk] = (byWeek[wk] || 0) + sh.hoursWorked;
   }
 
-  let regularHours = 0;
+  let regularHours = exemptRegular;
   let overtimeHours = 0;
   const weeklyLimit = 40;
 
