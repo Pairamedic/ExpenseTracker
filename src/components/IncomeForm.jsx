@@ -26,35 +26,20 @@ export default function IncomeForm({ initial = {}, onSave, onCancel, spouseEnabl
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div>
-        <label className="text-sm text-slate-400 mb-1 block">Source *</label>
-        <input
-          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-          placeholder="e.g. Paycheck, Freelance, Side job"
-          value={form.source}
-          onChange={(e) => set('source', e.target.value)}
-          required
-        />
+        <label className="app-label">Source *</label>
+        <input className="app-input" placeholder="e.g. Paycheck, Freelance, Side job"
+          value={form.source} onChange={(e) => set('source', e.target.value)} required />
       </div>
 
       <div>
-        <label className="text-sm text-slate-400 mb-1 block">Amount (per paycheck) *</label>
-        <input
-          type="number" min="0" step="0.01"
-          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-          placeholder="0.00"
-          value={form.amount}
-          onChange={(e) => set('amount', e.target.value)}
-          required
-        />
+        <label className="app-label">Amount (per paycheck) *</label>
+        <input type="number" min="0" step="0.01" className="app-input" placeholder="0.00"
+          value={form.amount} onChange={(e) => set('amount', e.target.value)} required />
       </div>
 
       <div>
-        <label className="text-sm text-slate-400 mb-1 block">Frequency</label>
-        <select
-          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
-          value={form.frequency}
-          onChange={(e) => set('frequency', e.target.value)}
-        >
+        <label className="app-label">Frequency</label>
+        <select className="app-input" value={form.frequency} onChange={(e) => set('frequency', e.target.value)}>
           {FREQUENCIES.map((f) => (
             <option key={f} value={f}>{f.charAt(0).toUpperCase() + f.slice(1)}</option>
           ))}
@@ -63,46 +48,39 @@ export default function IncomeForm({ initial = {}, onSave, onCancel, spouseEnabl
 
       {form.frequency !== 'monthly' && (
         <div>
-          <label className="text-sm text-slate-400 mb-1 block">
+          <label className="app-label">
             Next or most recent pay date
-            <span className="text-slate-600 ml-1 text-xs">(used to calculate schedule)</span>
+            <span className="ml-1 text-xs" style={{ color: 'var(--subtle)' }}>(used to calculate schedule)</span>
           </label>
-          <input
-            type="date"
-            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
-            value={form.startDate}
-            onChange={(e) => set('startDate', e.target.value)}
-          />
+          <input type="date" className="app-input" value={form.startDate} onChange={(e) => set('startDate', e.target.value)} />
         </div>
       )}
 
       {spouseEnabled && (
         <div>
-          <label className="text-sm text-slate-400 mb-1 block">Person</label>
+          <label className="app-label">Person</label>
           <div className="flex gap-2">
-            <button type="button" onClick={() => set('person', 'me')}
-              className={`flex-1 py-2.5 rounded-xl border text-sm font-medium transition-colors ${form.person === 'me' ? 'bg-indigo-600 border-indigo-500 text-white' : 'border-slate-700 text-slate-400 hover:bg-slate-800'}`}>
-              Me
-            </button>
-            <button type="button" onClick={() => set('person', 'spouse')}
-              className={`flex-1 py-2.5 rounded-xl border text-sm font-medium transition-colors ${form.person === 'spouse' ? 'bg-indigo-600 border-indigo-500 text-white' : 'border-slate-700 text-slate-400 hover:bg-slate-800'}`}>
-              {spouseName || 'Spouse'}
-            </button>
+            {['me', 'spouse'].map((p) => (
+              <button key={p} type="button" onClick={() => set('person', p)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors"
+                style={{
+                  backgroundColor: form.person === p ? 'var(--accent)' : 'var(--surface2)',
+                  color: form.person === p ? '#fff' : 'var(--muted)',
+                  border: `1px solid ${form.person === p ? 'var(--accent)' : 'var(--border)'}`,
+                }}>
+                {p === 'me' ? 'Me' : (spouseName || 'Spouse')}
+              </button>
+            ))}
           </div>
         </div>
       )}
 
       {jobs.length > 0 && (
         <div>
-          <label className="text-sm text-slate-400 mb-1 block">
-            Link to Job
-            <span className="text-slate-600 ml-1 text-xs">(enables hours toggle)</span>
+          <label className="app-label">
+            Link to Job <span className="ml-1" style={{ color: 'var(--subtle)', fontSize: '0.75rem' }}>(enables hours toggle)</span>
           </label>
-          <select
-            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
-            value={form.linkedJobId || ''}
-            onChange={(e) => set('linkedJobId', e.target.value)}
-          >
+          <select className="app-input" value={form.linkedJobId || ''} onChange={(e) => set('linkedJobId', e.target.value)}>
             <option value="">None</option>
             {jobs.map((j) => <option key={j.id} value={j.id}>{j.name}</option>)}
           </select>
@@ -110,34 +88,32 @@ export default function IncomeForm({ initial = {}, onSave, onCancel, spouseEnabl
       )}
 
       <div>
-        <label className="text-sm text-slate-400 mb-1 block">Notes</label>
-        <input
-          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-          placeholder="Optional"
-          value={form.notes}
-          onChange={(e) => set('notes', e.target.value)}
-        />
+        <label className="app-label">Notes</label>
+        <input className="app-input" placeholder="Optional" value={form.notes} onChange={(e) => set('notes', e.target.value)} />
       </div>
 
       <label className="flex items-center gap-3 cursor-pointer">
         <div
-          className={`w-11 h-6 rounded-full transition-colors relative ${form.isRecurring ? 'bg-indigo-500' : 'bg-slate-700'}`}
           onClick={() => set('isRecurring', !form.isRecurring)}
+          style={{
+            width: '2.75rem', height: '1.5rem', borderRadius: '9999px',
+            backgroundColor: form.isRecurring ? 'var(--accent)' : 'var(--surface2)',
+            border: '1px solid var(--border)',
+            position: 'relative', flexShrink: 0, cursor: 'pointer', transition: 'background-color 0.2s',
+          }}
         >
-          <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${form.isRecurring ? 'translate-x-5' : 'translate-x-0'}`} />
+          <div style={{
+            position: 'absolute', top: '2px', width: '1.125rem', height: '1.125rem',
+            backgroundColor: '#fff', borderRadius: '9999px', boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+            transition: 'left 0.2s', left: form.isRecurring ? 'calc(100% - 1.25rem)' : '2px',
+          }} />
         </div>
-        <span className="text-sm text-slate-300">Recurring income</span>
+        <span className="text-sm" style={{ color: 'var(--muted)' }}>Recurring income</span>
       </label>
 
       <div className="flex gap-3 pt-2">
-        <button type="button" onClick={onCancel}
-          className="flex-1 py-3 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors">
-          Cancel
-        </button>
-        <button type="submit"
-          className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors">
-          Save
-        </button>
+        <button type="button" onClick={onCancel} className="app-btn-secondary flex-1">Cancel</button>
+        <button type="submit" className="app-btn-primary flex-1">Save</button>
       </div>
     </form>
   );

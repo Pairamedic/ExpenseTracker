@@ -32,6 +32,7 @@ const DEFAULT_SETTINGS = {
   myName: 'Aaron',
   monthlySpendingBudget: 0,
   monthlySavingsTarget: 0,
+  lightMode: false,
 };
 
 export const storage = {
