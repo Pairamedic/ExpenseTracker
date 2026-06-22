@@ -1,14 +1,14 @@
 import { useState } from 'react';
 
 export default function CommitmentForm({ initial = {}, onSave, onCancel, spouseName }) {
-  const [form, setForm] = useState({ description: '', amount: '', person: 'both', ...initial });
+  const [form, setForm] = useState({ description: '', amount: '', person: 'both', endDate: '', ...initial });
   const set = (key, val) => setForm((f) => ({ ...f, [key]: val }));
   const partnerLabel = spouseName || 'Partner';
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!form.description) return;
-    onSave({ ...form, amount: form.amount ? parseFloat(form.amount) : null });
+    onSave({ ...form, amount: form.amount ? parseFloat(form.amount) : null, endDate: form.endDate || null });
   };
 
   return (
@@ -18,10 +18,17 @@ export default function CommitmentForm({ initial = {}, onSave, onCancel, spouseN
         <input autoFocus className="app-input" placeholder="e.g. Transfer $300 to vacation fund"
           value={form.description} onChange={(e) => set('description', e.target.value)} required />
       </div>
-      <div>
-        <label className="app-label">Amount <span style={{ color: 'var(--subtle)', fontSize: '0.75rem' }}>(optional)</span></label>
-        <input type="number" min="0" step="0.01" className="app-input" placeholder="0.00"
-          value={form.amount} onChange={(e) => set('amount', e.target.value)} />
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="app-label">Amount <span style={{ color: 'var(--subtle)', fontSize: '0.75rem' }}>(optional)</span></label>
+          <input type="number" min="0" step="0.01" className="app-input" placeholder="0.00"
+            value={form.amount} onChange={(e) => set('amount', e.target.value)} />
+        </div>
+        <div>
+          <label className="app-label">End Date <span style={{ color: 'var(--subtle)', fontSize: '0.75rem' }}>(optional)</span></label>
+          <input type="date" className="app-input"
+            value={form.endDate || ''} onChange={(e) => set('endDate', e.target.value)} />
+        </div>
       </div>
       <div>
         <label className="app-label">Who's responsible</label>

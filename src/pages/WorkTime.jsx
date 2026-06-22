@@ -1,11 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Briefcase, Clock, ChevronLeft, ChevronRight, Plus, Pencil, Trash2,
   MoreVertical, Check, Calculator, Save, Info,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatCurrency, monthKey } from '../utils/helpers';
-import { calcPaycheck, calcHoursFromShifts } from '../utils/taxCalc';
+import { calcPaycheck, calcHoursFromShifts, getPayPeriodBounds } from '../utils/taxCalc';
 import Modal from '../components/Modal';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -67,6 +67,8 @@ function Select({ children, ...props }) {
 
 // ── Job Form ─────────────────────────────────────────────────────────────────
 
+const WEEK_DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
 function JobForm({ initial = {}, onSave, onCancel }) {
   const [form, setForm] = useState({
     name: '',
@@ -75,10 +77,16 @@ function JobForm({ initial = {}, onSave, onCancel }) {
     otRateAuto: true,
     normalShiftHours: '8',
     payFrequency: 'biweekly',
+    weekStartDay: 0,
+    payPeriodStartDate: '',
     filingStatus: 'single',
+    iraType: 'amount',
     iraPerPeriod: '',
+    iraPercent: '',
+    includeInAvailability: true,
     ...initial,
     otRateAuto: initial.otRateAuto !== false,
+    includeInAvailability: initial.includeInAvailability !== false,
   });
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -94,7 +102,10 @@ function JobForm({ initial = {}, onSave, onCancel }) {
       hourlyRate: rate,
       otRate: Math.round(otRate * 100) / 100,
       normalShiftHours: parseFloat(form.normalShiftHours) || 8,
-      iraPerPeriod: parseFloat(form.iraPerPeriod) || 0,
+      weekStartDay: parseInt(form.weekStartDay) || 0,
+      iraType: form.iraType,
+      iraPerPeriod: form.iraType === 'amount' ? (parseFloat(form.iraPerPeriod) || 0) : 0,
+      iraPercent: form.iraType === 'percent' ? (parseFloat(form.iraPercent) || 0) : 0,
     });
   };
 
@@ -102,7 +113,7 @@ function JobForm({ initial = {}, onSave, onCancel }) {
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       <div>
         <Label>Job Name *</Label>
-        <Input placeholder="e.g. Amazon, Walmart, Side Gig" value={form.name}
+        <Input placeholder="e.g. Amazon, EMS, Side Gig" value={form.name}
           onChange={(e) => set('name', e.target.value)} required />
       </div>
 
@@ -118,7 +129,7 @@ function JobForm({ initial = {}, onSave, onCancel }) {
         </div>
         <div>
           <Label>Shift Hours</Label>
-          <Input type="number" min="1" max="24" step="0.5" placeholder="8" value={form.normalShiftHours}
+          <Input type="number" min="1" max="72" step="0.5" placeholder="8" value={form.normalShiftHours}
             onChange={(e) => set('normalShiftHours', e.target.value)} />
         </div>
       </div>
@@ -153,21 +164,71 @@ function JobForm({ initial = {}, onSave, onCancel }) {
           </Select>
         </div>
         <div>
+          <Label>OT Week Starts</Label>
+          <Select value={form.weekStartDay} onChange={(e) => set('weekStartDay', e.target.value)}>
+            {WEEK_DAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
+          </Select>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+        <div>
           <Label>Filing Status</Label>
           <Select value={form.filingStatus} onChange={(e) => set('filingStatus', e.target.value)}>
             <option value="single">Single</option>
             <option value="mfj">Married (Joint)</option>
           </Select>
         </div>
+        <div>
+          <Label>Pay Period Start Date</Label>
+          <Input type="date" value={form.payPeriodStartDate}
+            onChange={(e) => set('payPeriodStartDate', e.target.value)} />
+        </div>
       </div>
 
       <div>
-        <Label>IRA / 401k per paycheck (optional)</Label>
-        <div style={{ position: 'relative' }}>
-          <span style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }}>$</span>
-          <Input type="number" min="0" step="0.01" placeholder="0.00" value={form.iraPerPeriod}
-            onChange={(e) => set('iraPerPeriod', e.target.value)} style={{ paddingLeft: '1.75rem' }} />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.375rem' }}>
+          <Label>IRA / 401k (optional)</Label>
+          <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.5rem', padding: '0.125rem', gap: '0.125rem' }}>
+            {['amount', 'percent'].map((t) => (
+              <button key={t} type="button" onClick={() => set('iraType', t)}
+                style={{ padding: '0.25rem 0.625rem', borderRadius: '0.375rem', fontSize: '0.75rem', fontWeight: 700, border: 'none', cursor: 'pointer',
+                  backgroundColor: form.iraType === t ? 'var(--accent)' : 'transparent',
+                  color: form.iraType === t ? '#fff' : 'var(--muted)' }}>
+                {t === 'amount' ? '$' : '%'}
+              </button>
+            ))}
+          </div>
         </div>
+        {form.iraType === 'amount' ? (
+          <div style={{ position: 'relative' }}>
+            <span style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }}>$</span>
+            <Input type="number" min="0" step="0.01" placeholder="0.00" value={form.iraPerPeriod}
+              onChange={(e) => set('iraPerPeriod', e.target.value)} style={{ paddingLeft: '1.75rem' }} />
+          </div>
+        ) : (
+          <div style={{ position: 'relative' }}>
+            <Input type="number" min="0" max="100" step="0.1" placeholder="5.0" value={form.iraPercent}
+              onChange={(e) => set('iraPercent', e.target.value)} style={{ paddingRight: '2rem' }} />
+            <span style={{ position: 'absolute', right: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }}>%</span>
+          </div>
+        )}
+        <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.25rem' }}>
+          {form.iraType === 'percent' ? 'Deducted as % of gross pay (pre-tax)' : 'Flat amount per paycheck (pre-tax)'}
+        </p>
+      </div>
+
+      <div style={{ backgroundColor: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '0.875rem', padding: '0.875rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <p style={{ fontSize: '0.875rem', fontWeight: '700', color: 'var(--text)' }}>Factor into Availability</p>
+          <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.125rem' }}>Include this job's pay estimates in budget availability</p>
+        </div>
+        <button type="button" onClick={() => set('includeInAvailability', !form.includeInAvailability)}
+          style={{ width: '2.75rem', height: '1.5rem', borderRadius: '9999px', border: 'none', cursor: 'pointer', transition: 'background 0.2s', position: 'relative', flexShrink: 0,
+            backgroundColor: form.includeInAvailability ? 'var(--accent)' : 'var(--border2)' }}>
+          <span style={{ position: 'absolute', top: '2px', width: '1.125rem', height: '1.125rem', borderRadius: '9999px', backgroundColor: '#fff', transition: 'left 0.2s',
+            left: form.includeInAvailability ? 'calc(100% - 1.25rem)' : '2px' }} />
+        </button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', paddingTop: '0.5rem' }}>
@@ -270,7 +331,7 @@ function PayBreakdown({ result }) {
       <div style={{ padding: '1rem', borderBottom: '1px solid var(--border)' }}>
         <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.5rem' }}>Deductions</p>
         {result.iraDeduction > 0 && (
-          <PayRow label="IRA / 401k (pre-tax)" value={result.iraDeduction} color="var(--danger)" prefix="-" />
+          <PayRow label={`IRA / 401k (pre-tax${result.iraPercent > 0 ? ` · ${result.iraPercent}%` : ''})`} value={result.iraDeduction} color="var(--danger)" prefix="-" />
         )}
         {result.iraDeduction > 0 && (
           <div style={{ padding: '0.25rem 0' }}>
@@ -329,7 +390,10 @@ function JobCard({ job, onEdit, onDelete }) {
           `${job.normalShiftHours}h shift`,
           job.payFrequency.charAt(0).toUpperCase() + job.payFrequency.slice(1),
           job.filingStatus === 'mfj' ? 'Married (Joint)' : 'Single',
-          job.iraPerPeriod > 0 ? `IRA ${formatCurrency(job.iraPerPeriod)}/pay` : null,
+          `OT week: ${WEEK_DAYS[job.weekStartDay ?? 0]}`,
+          job.iraType === 'percent' && job.iraPercent > 0 ? `IRA ${job.iraPercent}%` : null,
+          job.iraType !== 'percent' && job.iraPerPeriod > 0 ? `IRA ${formatCurrency(job.iraPerPeriod)}/pay` : null,
+          job.includeInAvailability === false ? 'Excluded from budget' : null,
         ].filter(Boolean).map((t) => (
           <span key={t} style={{ fontSize: '0.75rem', backgroundColor: 'var(--surface2)', color: 'var(--muted)', border: '1px solid var(--border)', padding: '0.25rem 0.625rem', borderRadius: '0.5rem' }}>
             {t}
@@ -469,20 +533,35 @@ function HoursTab({ jobs, shifts, addShift, updateShift, deleteShift }) {
 
 // ── Estimate Tab ──────────────────────────────────────────────────────────────
 
-const PRESETS = [
-  { label: 'Last 7 days', key: '7d' },
-  { label: 'Last 14 days', key: '14d' },
-  { label: 'This Week', key: 'week' },
-  { label: 'Custom', key: 'custom' },
-];
-
 function EstimateTab({ jobs, shifts, addIncome }) {
   const [selectedJobId, setSelectedJobId] = useState(jobs[0]?.id || '');
-  const [preset, setPreset] = useState('14d');
+  const [preset, setPreset] = useState('current');
   const [range, setRange] = useState(() => getLastNDaysEnd(14));
   const [saved, setSaved] = useState(false);
 
   const job = jobs.find((j) => j.id === selectedJobId);
+  const payPeriods = job ? getPayPeriodBounds(job) : null;
+
+  const PRESETS = [
+    ...(payPeriods ? [
+      { label: 'Current Period', key: 'current' },
+      { label: 'Previous Period', key: 'previous' },
+    ] : [
+      { label: 'Last 7 days', key: '7d' },
+      { label: 'Last 14 days', key: '14d' },
+    ]),
+    { label: 'This Week', key: 'week' },
+    { label: 'Custom', key: 'custom' },
+  ];
+
+  // Keep range in sync when job or preset changes
+  useEffect(() => {
+    if (preset === 'current' && payPeriods) setRange(payPeriods.current);
+    else if (preset === 'previous' && payPeriods) setRange(payPeriods.previous);
+    else if (preset === '7d') setRange(getLastNDaysEnd(7));
+    else if (preset === '14d') setRange(getLastNDaysEnd(14));
+    else if (preset === 'week') setRange(getThisWeekRange());
+  }, [preset, selectedJobId]);
 
   const periodShifts = useMemo(() =>
     shifts.filter((s) => s.jobId === selectedJobId && s.date >= range.start && s.date <= range.end),
@@ -500,9 +579,12 @@ function EstimateTab({ jobs, shifts, addIncome }) {
   function handlePreset(key) {
     setPreset(key);
     setSaved(false);
-    if (key === '7d') setRange(getLastNDaysEnd(7));
-    else if (key === '14d') setRange(getLastNDaysEnd(14));
-    else if (key === 'week') setRange(getThisWeekRange());
+  }
+
+  function handleJobChange(id) {
+    setSelectedJobId(id);
+    setSaved(false);
+    setPreset('current');
   }
 
   function handleSave() {
@@ -521,6 +603,7 @@ function EstimateTab({ jobs, shifts, addIncome }) {
       grossPay: result.grossPay,
       payPeriodStart: range.start,
       payPeriodEnd: range.end,
+      includeInAvailability: job.includeInAvailability !== false,
     });
     setSaved(true);
   }
@@ -543,7 +626,7 @@ function EstimateTab({ jobs, shifts, addIncome }) {
           <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.5rem' }}>Job</p>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {jobs.map((j) => (
-              <button key={j.id} onClick={() => { setSelectedJobId(j.id); setSaved(false); }}
+              <button key={j.id} onClick={() => handleJobChange(j.id)}
                 style={{ padding: '0.5rem 1rem', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '600', border: 'none', cursor: 'pointer',
                   backgroundColor: selectedJobId === j.id ? 'var(--accent)' : 'var(--surface2)',
                   color: selectedJobId === j.id ? '#fff' : 'var(--muted)' }}>
@@ -557,6 +640,11 @@ function EstimateTab({ jobs, shifts, addIncome }) {
       {/* Period */}
       <div style={{ marginBottom: '1rem' }}>
         <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.5rem' }}>Pay Period</p>
+        {payPeriods && (
+          <p style={{ fontSize: '0.75rem', color: 'var(--positive-text)', marginBottom: '0.5rem', fontWeight: '600' }}>
+            Auto-calculated from your payroll cycle
+          </p>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.75rem' }}>
           {PRESETS.map((p) => (
             <button key={p.key} onClick={() => handlePreset(p.key)}
@@ -580,6 +668,11 @@ function EstimateTab({ jobs, shifts, addIncome }) {
           </div>
         )}
         <p style={{ fontSize: '0.8125rem', color: 'var(--subtle)', textAlign: 'center' }}>{periodLabel(range.start, range.end)}</p>
+        {job && job.includeInAvailability === false && (
+          <p style={{ fontSize: '0.75rem', color: 'var(--warn)', textAlign: 'center', marginTop: '0.25rem', fontWeight: '600' }}>
+            This job is excluded from availability calculation
+          </p>
+        )}
       </div>
 
       {/* Hours summary */}
