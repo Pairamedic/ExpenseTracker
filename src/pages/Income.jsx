@@ -1,11 +1,9 @@
 import { useState } from 'react';
-import { Pencil, Trash2, MoreVertical, TrendingUp, RefreshCw, ChevronLeft, ChevronRight, Briefcase, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Pencil, Trash2, MoreVertical, TrendingUp, RefreshCw, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatCurrency, monthKey, monthLabel, getIncomeForMonth } from '../utils/helpers';
-import { calcPaycheck, calcHoursFromShifts } from '../utils/taxCalc';
 import Modal from '../components/Modal';
 import IncomeForm from '../components/IncomeForm';
-import AddButton from '../components/AddButton';
 
 function monthOffset(mk, offset) {
   const [y, m] = mk.split('-').map(Number);
@@ -17,113 +15,54 @@ function monthlyAmount(item) {
   return item.amount * mult;
 }
 
-// Card for regular income entries
-function IncomeCard({ item, onEdit, onDelete, spouseEnabled, spouseName, jobs, shifts, mk }) {
+function IncomeCard({ item, onEdit, onDelete, spouseEnabled, spouseName }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [useCalc, setUseCalc] = useState(item.useCalculated || false);
-
-  // If linked to a job, compute calculated amount from shifts
-  const linkedJob = item.linkedJobId ? jobs.find((j) => j.id === item.linkedJobId) : null;
-  const calcResult = (() => {
-    if (!linkedJob || !useCalc) return null;
-    const monthShifts = shifts.filter((s) => s.jobId === linkedJob.id && s.date.startsWith(mk));
-    if (monthShifts.length === 0) return null;
-    const { regularHours, overtimeHours } = calcHoursFromShifts(monthShifts, linkedJob);
-    return calcPaycheck({ job: linkedJob, regularHours, overtimeHours });
-  })();
-
-  const displayAmount = calcResult ? calcResult.netPay : monthlyAmount(item);
-  const isCalcMode = linkedJob && useCalc && calcResult;
+  const monthly = monthlyAmount(item);
 
   return (
-    <div className="relative bg-slate-800/60 rounded-2xl border border-slate-700/50 p-4">
-      {item.isWorkTimeEntry && (
-        <div className="flex items-center gap-1.5 mb-2">
-          <Briefcase size={11} className="text-indigo-400" />
-          <span className="text-[10px] font-semibold text-indigo-400 uppercase tracking-wider">Work Time</span>
-          {item.payPeriodStart && (
-            <span className="text-[10px] text-slate-500">
-              · {new Date(item.payPeriodStart + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-              –{new Date(item.payPeriodEnd + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-            </span>
-          )}
-        </div>
-      )}
-
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="font-semibold text-base text-white">{item.source}</p>
-            {item.isRecurring && <RefreshCw size={13} className="text-slate-500 flex-shrink-0" />}
+    <div style={{ position: 'relative', backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', padding: '1rem' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <p style={{ fontWeight: '700', fontSize: '1rem', color: 'var(--text)' }}>{item.source}</p>
+            {item.isRecurring && <RefreshCw size={13} style={{ color: 'var(--subtle)', flexShrink: 0 }} />}
           </div>
-          <div className="flex items-center gap-2 mt-1">
-            <p className="text-sm text-slate-500 capitalize">{item.frequency}</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.75rem', backgroundColor: 'var(--surface2)', color: 'var(--muted)', border: '1px solid var(--border)', padding: '0.25rem 0.625rem', borderRadius: '0.5rem' }}>
+              {item.frequency}
+            </span>
             {spouseEnabled && (
-              <span className="text-xs bg-slate-700 text-slate-400 px-2 py-0.5 rounded-lg">
+              <span style={{ fontSize: '0.75rem', backgroundColor: 'var(--surface2)', color: 'var(--muted)', border: '1px solid var(--border)', padding: '0.25rem 0.625rem', borderRadius: '0.5rem' }}>
                 {item.person === 'spouse' ? (spouseName || 'Spouse') : 'Me'}
               </span>
             )}
-            {item.notes && <span className="text-xs text-slate-500 truncate">{item.notes}</span>}
+            {item.notes && <span style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>{item.notes}</span>}
           </div>
         </div>
-
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <div className="text-right">
-            {item.isWorkTimeEntry && item.grossPay ? (
-              <>
-                <p className="text-xl font-bold text-emerald-400">{formatCurrency(item.amount)}</p>
-                <p className="text-xs text-slate-500">net · gross {formatCurrency(item.grossPay)}</p>
-              </>
-            ) : isCalcMode ? (
-              <>
-                <p className="text-xl font-bold text-indigo-400">{formatCurrency(calcResult.netPay)}</p>
-                <p className="text-xs text-slate-500">calc net · {formatCurrency(calcResult.grossPay)} gross</p>
-              </>
-            ) : (
-              <>
-                <p className="text-xl font-bold text-emerald-400">{formatCurrency(displayAmount)}</p>
-                <p className="text-xs text-slate-500">/mo</p>
-              </>
-            )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+          <div style={{ textAlign: 'right' }}>
+            <p style={{ fontSize: '1.25rem', fontWeight: '900', color: 'var(--positive-text)' }}>{formatCurrency(monthly)}</p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>/mo</p>
           </div>
           <button onClick={() => setMenuOpen(!menuOpen)}
-            className="p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-700 rounded-lg transition-colors">
+            style={{ padding: '0.375rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}>
             <MoreVertical size={16} />
           </button>
         </div>
       </div>
-
-      {item.frequency !== 'monthly' && !item.isWorkTimeEntry && !isCalcMode && (
-        <p className="text-xs text-slate-600 mt-2">{formatCurrency(item.amount)} per paycheck</p>
+      {item.frequency !== 'monthly' && (
+        <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.5rem' }}>{formatCurrency(item.amount)} per paycheck</p>
       )}
-
-      {/* Toggle for linked job entries */}
-      {linkedJob && (
-        <button
-          onClick={() => setUseCalc((v) => !v)}
-          className={`mt-3 flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg transition-colors ${
-            useCalc
-              ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30'
-              : 'bg-slate-700/40 text-slate-400 border border-slate-600/40'
-          }`}
-        >
-          {useCalc ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
-          {useCalc
-            ? `Using calculated from ${linkedJob.name} hours`
-            : `Using fixed amount (tap to use ${linkedJob.name} hours)`}
-        </button>
-      )}
-
       {menuOpen && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-          <div className="absolute right-3 top-12 z-50 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden min-w-[140px]">
+          <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setMenuOpen(false)} />
+          <div style={{ position: 'absolute', right: '0.75rem', top: '3rem', zIndex: 50, backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem', overflow: 'hidden', minWidth: '9rem', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
             <button onClick={() => { onEdit(item); setMenuOpen(false); }}
-              className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-slate-300 hover:bg-slate-700 transition-colors">
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.875rem 1rem', fontSize: '0.875rem', color: 'var(--text)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
               <Pencil size={14} /> Edit
             </button>
             <button onClick={() => { onDelete(item.id); setMenuOpen(false); }}
-              className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-rose-400 hover:bg-slate-700 transition-colors">
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.875rem 1rem', fontSize: '0.875rem', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
               <Trash2 size={14} /> Delete
             </button>
           </div>
@@ -134,96 +73,79 @@ function IncomeCard({ item, onEdit, onDelete, spouseEnabled, spouseName, jobs, s
 }
 
 export default function Income() {
-  const { income, addIncome, updateIncome, deleteIncome, settings, jobs, shifts } = useApp();
+  const { income, addIncome, updateIncome, deleteIncome, settings } = useApp();
   const [mk, setMk] = useState(() => monthKey(new Date()));
   const [showAdd, setShowAdd] = useState(false);
   const [editItem, setEditItem] = useState(null);
 
   const monthIncome = getIncomeForMonth(income, mk);
-  const regularIncome = monthIncome.filter((i) => !i.isWorkTimeEntry);
-  const workTimeIncome = monthIncome.filter((i) => i.isWorkTimeEntry);
-
   const totalMonthly = monthIncome.reduce((s, i) => s + monthlyAmount(i), 0);
   const myTotal = monthIncome.filter((i) => i.person !== 'spouse').reduce((s, i) => s + monthlyAmount(i), 0);
   const spouseTotal = monthIncome.filter((i) => i.person === 'spouse').reduce((s, i) => s + monthlyAmount(i), 0);
 
   return (
-    <div className="pb-36">
-      <div className="px-4 pt-6 pb-4">
-        <div className="flex items-center justify-between gap-3 mb-4">
-          <h1 className="text-2xl font-black text-white tracking-tight">Income</h1>
-          <AddButton onClick={() => setShowAdd(true)} label="Add Income" />
+    <div className="app-page">
+      <div className="app-header">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+          <h1 style={{ fontSize: '1.625rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-0.02em' }}>Income</h1>
+          <button onClick={() => setShowAdd(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.875rem', backgroundColor: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer' }}>
+            <Plus size={16} /> Add Income
+          </button>
         </div>
-        <div className="flex items-center gap-2 mb-4">
-          <button onClick={() => setMk(monthOffset(mk, -1))} className="p-2 rounded-xl hover:bg-slate-800 text-slate-400 transition-colors"><ChevronLeft size={20} /></button>
-          <span className="text-base text-slate-300 font-semibold flex-1 text-center">{monthLabel(mk)}</span>
-          <button onClick={() => setMk(monthOffset(mk, 1))} className="p-2 rounded-xl hover:bg-slate-800 text-slate-400 transition-colors"><ChevronRight size={20} /></button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+          <button onClick={() => setMk(monthOffset(mk, -1))} style={{ padding: '0.5rem', borderRadius: '0.75rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
+            <ChevronLeft size={20} />
+          </button>
+          <span style={{ flex: 1, textAlign: 'center', fontWeight: '700', fontSize: '1rem', color: 'var(--text)' }}>{monthLabel(mk)}</span>
+          <button onClick={() => setMk(monthOffset(mk, 1))} style={{ padding: '0.5rem', borderRadius: '0.75rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
+            <ChevronRight size={20} />
+          </button>
         </div>
-        <div className="bg-emerald-900/20 border border-emerald-800/40 rounded-2xl p-5 mb-1">
-          <p className="text-xs text-slate-500 uppercase tracking-widest mb-2">Total Monthly Income</p>
-          <p className="text-4xl font-black text-emerald-400">{formatCurrency(totalMonthly)}</p>
+
+        <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1.25rem', padding: '1.25rem', marginBottom: '0.5rem' }}>
+          <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>Total Monthly Income</p>
+          <p style={{ fontSize: '2.5rem', fontWeight: '900', color: 'var(--positive-text)' }}>{formatCurrency(totalMonthly)}</p>
           {settings.spouseEnabled && (
-            <div className="flex gap-5 mt-3">
-              <span className="text-sm text-slate-500">Me: <span className="text-slate-300 font-semibold">{formatCurrency(myTotal)}</span></span>
-              <span className="text-sm text-slate-500">{settings.spouseName || 'Spouse'}: <span className="text-slate-300 font-semibold">{formatCurrency(spouseTotal)}</span></span>
+            <div style={{ display: 'flex', gap: '1.25rem', marginTop: '0.75rem' }}>
+              <span style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>Me: <span style={{ color: 'var(--text)', fontWeight: '600' }}>{formatCurrency(myTotal)}</span></span>
+              <span style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>{settings.spouseName || 'Spouse'}: <span style={{ color: 'var(--text)', fontWeight: '600' }}>{formatCurrency(spouseTotal)}</span></span>
             </div>
           )}
         </div>
       </div>
 
-      <div className="px-4 space-y-3">
-        {/* Regular income */}
-        {regularIncome.map((item) => (
-          <IncomeCard key={item.id} item={item} onEdit={setEditItem} onDelete={deleteIncome}
-            spouseEnabled={settings.spouseEnabled} spouseName={settings.spouseName}
-            jobs={jobs} shifts={shifts} mk={mk} />
-        ))}
-
-        {/* Work time income entries */}
-        {workTimeIncome.length > 0 && (
-          <>
-            {regularIncome.length > 0 && (
-              <div className="pt-1">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest px-1">Work Time Paychecks</p>
-              </div>
-            )}
-            {workTimeIncome.map((item) => (
+      <div style={{ padding: '0 1rem' }}>
+        {monthIncome.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
+            <TrendingUp size={48} style={{ margin: '0 auto 1rem', opacity: 0.2, color: 'var(--muted)', display: 'block' }} />
+            <p style={{ fontWeight: '700', color: 'var(--text)', fontSize: '1.125rem', marginBottom: '0.5rem' }}>No income yet</p>
+            <p style={{ fontSize: '0.9375rem', color: 'var(--muted)', marginBottom: '1.5rem' }}>Add your income sources to get started.</p>
+            <button onClick={() => setShowAdd(true)} className="app-btn-primary" style={{ maxWidth: '14rem', margin: '0 auto' }}>
+              <Plus size={18} /> Add Income
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {monthIncome.map((item) => (
               <IncomeCard key={item.id} item={item} onEdit={setEditItem} onDelete={deleteIncome}
-                spouseEnabled={settings.spouseEnabled} spouseName={settings.spouseName}
-                jobs={jobs} shifts={shifts} mk={mk} />
+                spouseEnabled={settings.spouseEnabled} spouseName={settings.spouseName} />
             ))}
-          </>
-        )}
-
-        {monthIncome.length === 0 && (
-          <div className="text-center py-16 text-slate-500">
-            <TrendingUp size={44} className="mx-auto mb-3 opacity-30" />
-            <p className="text-base">No income added yet. Tap Add to get started.</p>
           </div>
         )}
       </div>
 
       {showAdd && (
         <Modal title="Add Income" onClose={() => setShowAdd(false)}>
-          <IncomeForm
-            onSave={(data) => { addIncome({ ...data, month: mk }); setShowAdd(false); }}
-            onCancel={() => setShowAdd(false)}
-            spouseEnabled={settings.spouseEnabled}
-            spouseName={settings.spouseName}
-            jobs={jobs}
-          />
+          <IncomeForm onSave={(data) => { addIncome({ ...data, month: mk }); setShowAdd(false); }} onCancel={() => setShowAdd(false)}
+            spouseEnabled={settings.spouseEnabled} spouseName={settings.spouseName} />
         </Modal>
       )}
       {editItem && (
         <Modal title="Edit Income" onClose={() => setEditItem(null)}>
-          <IncomeForm
-            initial={editItem}
-            onSave={(data) => { updateIncome(editItem.id, data); setEditItem(null); }}
-            onCancel={() => setEditItem(null)}
-            spouseEnabled={settings.spouseEnabled}
-            spouseName={settings.spouseName}
-            jobs={jobs}
-          />
+          <IncomeForm initial={editItem} onSave={(data) => { updateIncome(editItem.id, data); setEditItem(null); }} onCancel={() => setEditItem(null)}
+            spouseEnabled={settings.spouseEnabled} spouseName={settings.spouseName} />
         </Modal>
       )}
     </div>

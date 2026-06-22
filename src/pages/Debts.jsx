@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { Pencil, Trash2, MoreVertical, CreditCard, ChevronLeft, ChevronRight, CheckCircle2, Circle } from 'lucide-react';
+import { Pencil, Trash2, MoreVertical, CreditCard, ChevronLeft, ChevronRight, CheckCircle2, Circle, Plus } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatCurrency, monthKey, monthLabel } from '../utils/helpers';
 import Modal from '../components/Modal';
 import DebtForm from '../components/DebtForm';
-import AddButton from '../components/AddButton';
 
 function monthOffset(mk, offset) {
   const [y, m] = mk.split('-').map(Number);
@@ -19,9 +18,14 @@ function normalizeOwner(owner) {
 
 function ownerBadge(owner, myName, spouseName) {
   const normalized = normalizeOwner(owner);
-  if (normalized === 'joint') return <span className="text-[10px] bg-slate-700 text-slate-300 border border-slate-600 px-1.5 py-0.5 rounded-md font-medium">Joint</span>;
-  if (normalized === 'cameron') return <span className="text-[10px] bg-violet-900/60 text-violet-300 border border-violet-700/40 px-1.5 py-0.5 rounded-md font-medium">{spouseName || 'Cameron'}</span>;
-  return <span className="text-[10px] bg-indigo-900/60 text-indigo-300 border border-indigo-700/40 px-1.5 py-0.5 rounded-md font-medium">{myName || 'Aaron'}</span>;
+  if (normalized === 'joint') return (
+    <span style={{ fontSize: '0.75rem', backgroundColor: 'var(--surface2)', color: 'var(--muted)', border: '1px solid var(--border)', padding: '0.125rem 0.5rem', borderRadius: '0.375rem', fontWeight: '600' }}>Joint</span>
+  );
+  return (
+    <span style={{ fontSize: '0.75rem', backgroundColor: 'var(--surface2)', color: 'var(--accent-text)', border: '1px solid var(--border)', padding: '0.125rem 0.5rem', borderRadius: '0.375rem', fontWeight: '600' }}>
+      {normalized === 'cameron' ? (spouseName || 'Cameron') : (myName || 'Aaron')}
+    </span>
+  );
 }
 
 function DebtCard({ debt, month, onTogglePaid, onEdit, onDelete, myName, spouseName }) {
@@ -29,42 +33,46 @@ function DebtCard({ debt, month, onTogglePaid, onEdit, onDelete, myName, spouseN
   const isPaid = (debt.paidMonths || {})[month];
 
   return (
-    <div className={`rounded-2xl border transition-colors p-4 ${isPaid ? 'border-emerald-800/40 bg-emerald-950/10' : 'border-slate-700/50 bg-slate-800/50'}`}>
-      <div className="flex items-start gap-3">
-        <button
-          onClick={() => onTogglePaid(debt.id, month)}
-          className={`mt-0.5 flex-shrink-0 transition-colors ${isPaid ? 'text-emerald-400' : 'text-slate-600 hover:text-slate-400'}`}
-        >
+    <div style={{ backgroundColor: isPaid ? 'var(--surface)' : 'var(--surface)', border: `1px solid ${isPaid ? 'var(--positive-text)' : 'var(--border)'}`, borderRadius: '1rem', padding: '1rem', opacity: isPaid ? 0.75 : 1 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+        <button onClick={() => onTogglePaid(debt.id, month)}
+          style={{ marginTop: '0.125rem', flexShrink: 0, color: isPaid ? 'var(--positive-text)' : 'var(--subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
           {isPaid ? <CheckCircle2 size={24} /> : <Circle size={24} />}
         </button>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap mb-1">
-            <p className={`font-semibold text-base ${isPaid ? 'text-slate-400 line-through' : 'text-white'}`}>{debt.name}</p>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', flexWrap: 'wrap', marginBottom: '0.25rem' }}>
+            <p style={{ fontWeight: '700', fontSize: '1rem', color: isPaid ? 'var(--subtle)' : 'var(--text)', textDecoration: isPaid ? 'line-through' : 'none' }}>{debt.name}</p>
             {ownerBadge(debt.owner, myName, spouseName)}
           </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-sm text-slate-500">Balance: <span className="text-slate-300 font-semibold">{formatCurrency(debt.balance)}</span></span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>Balance: <span style={{ color: 'var(--text)', fontWeight: '600' }}>{formatCurrency(debt.balance)}</span></span>
             {debt.interestRate != null && (
-              <span className="text-xs text-slate-600 bg-slate-700/40 px-2 py-0.5 rounded-lg">{debt.interestRate}% APR</span>
+              <span style={{ fontSize: '0.75rem', backgroundColor: 'var(--surface2)', color: 'var(--subtle)', border: '1px solid var(--border)', padding: '0.125rem 0.5rem', borderRadius: '0.375rem' }}>{debt.interestRate}% APR</span>
             )}
           </div>
-          {debt.notes && <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">{debt.notes}</p>}
+          {debt.notes && <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.375rem', lineHeight: '1.5' }}>{debt.notes}</p>}
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <div className="text-right">
-            <p className={`text-xl font-bold ${isPaid ? 'text-emerald-400' : 'text-amber-400'}`}>{formatCurrency(debt.minPayment)}</p>
-            <p className="text-xs text-slate-500">min/mo</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+          <div style={{ textAlign: 'right' }}>
+            <p style={{ fontSize: '1.25rem', fontWeight: '900', color: isPaid ? 'var(--positive-text)' : 'var(--warn)' }}>{formatCurrency(debt.minPayment)}</p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>min/mo</p>
           </div>
-          <div className="relative">
-            <button onClick={() => setMenuOpen(!menuOpen)} className="p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-700/60 rounded-lg transition-colors">
+          <div style={{ position: 'relative' }}>
+            <button onClick={() => setMenuOpen(!menuOpen)} style={{ padding: '0.375rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}>
               <MoreVertical size={16} />
             </button>
             {menuOpen && (
               <>
-                <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-                <div className="absolute right-0 z-50 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden min-w-[140px]">
-                  <button onClick={() => { onEdit(debt); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-slate-300 hover:bg-slate-700 transition-colors"><Pencil size={14} /> Edit</button>
-                  <button onClick={() => { onDelete(debt.id); setMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-rose-400 hover:bg-slate-700 transition-colors"><Trash2 size={14} /> Delete</button>
+                <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setMenuOpen(false)} />
+                <div style={{ position: 'absolute', right: 0, zIndex: 50, backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem', overflow: 'hidden', minWidth: '9rem', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+                  <button onClick={() => { onEdit(debt); setMenuOpen(false); }}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.875rem 1rem', fontSize: '0.875rem', color: 'var(--text)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+                    <Pencil size={14} /> Edit
+                  </button>
+                  <button onClick={() => { onDelete(debt.id); setMenuOpen(false); }}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.875rem 1rem', fontSize: '0.875rem', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+                    <Trash2 size={14} /> Delete
+                  </button>
                 </div>
               </>
             )}
@@ -99,7 +107,6 @@ export default function Debts() {
   const totalBalance = filtered.reduce((s, d) => s + d.balance, 0);
   const totalMin = filtered.reduce((s, d) => s + d.minPayment, 0);
 
-  // Per-owner breakdown
   const aaronDebts = debts.filter((d) => normalizeOwner(d.owner) === 'aaron');
   const cameronDebts = debts.filter((d) => normalizeOwner(d.owner) === 'cameron');
   const jointDebts = debts.filter((d) => normalizeOwner(d.owner) === 'joint');
@@ -110,74 +117,83 @@ export default function Debts() {
   const combinedTotal = debts.reduce((s, d) => s + d.balance, 0);
 
   return (
-    <div className="pb-36">
-      <div className="px-4 pt-5 pb-4">
-        <div className="flex items-center justify-between gap-3 mb-4">
-          <h1 className="text-2xl font-black text-white tracking-tight">Debts</h1>
-          <AddButton onClick={() => setShowAdd(true)} label="Add Debt" />
+    <div className="app-page">
+      <div className="app-header">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+          <h1 style={{ fontSize: '1.625rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-0.02em' }}>Debts</h1>
+          <button onClick={() => setShowAdd(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.875rem', backgroundColor: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer' }}>
+            <Plus size={16} /> Add Debt
+          </button>
         </div>
 
-        <div className="flex items-center gap-2 mb-4">
-          <button onClick={() => setMk(monthOffset(mk, -1))} className="p-2 rounded-xl hover:bg-slate-800 text-slate-400 transition-colors"><ChevronLeft size={20} /></button>
-          <span className="text-base text-slate-200 font-semibold flex-1 text-center">{monthLabel(mk)}</span>
-          <button onClick={() => setMk(monthOffset(mk, 1))} className="p-2 rounded-xl hover:bg-slate-800 text-slate-400 transition-colors"><ChevronRight size={20} /></button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+          <button onClick={() => setMk(monthOffset(mk, -1))} style={{ padding: '0.5rem', borderRadius: '0.75rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
+            <ChevronLeft size={20} />
+          </button>
+          <span style={{ flex: 1, textAlign: 'center', fontWeight: '700', fontSize: '1rem', color: 'var(--text)' }}>{monthLabel(mk)}</span>
+          <button onClick={() => setMk(monthOffset(mk, 1))} style={{ padding: '0.5rem', borderRadius: '0.75rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
+            <ChevronRight size={20} />
+          </button>
         </div>
 
         {debts.length > 0 && (
           <>
-            {/* Collective total */}
-            <div className="bg-gradient-to-br from-slate-800 to-slate-800/70 rounded-2xl p-4 border border-slate-700/50 mb-3">
-              <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Combined Debt</p>
-              <p className="text-3xl font-black text-rose-400">{formatCurrency(combinedTotal)}</p>
-              <p className="text-xs text-slate-500 mt-1">{debts.length} account{debts.length !== 1 ? 's' : ''} total</p>
+            <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1.25rem', padding: '1.25rem', marginBottom: '0.75rem' }}>
+              <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>Combined Debt</p>
+              <p style={{ fontSize: '2.5rem', fontWeight: '900', color: 'var(--danger)' }}>{formatCurrency(combinedTotal)}</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.25rem' }}>
+                {debts.length} account{debts.length !== 1 ? 's' : ''} · Monthly mins: {formatCurrency(debts.reduce((s, d) => s + d.minPayment, 0))}
+              </p>
             </div>
 
-            {/* Per-owner breakdown */}
-            <div className="grid grid-cols-3 gap-2 mb-4">
-              {aaronDebts.length > 0 && (
-                <div className="bg-indigo-950/30 rounded-xl p-3 border border-indigo-900/40">
-                  <p className="text-[10px] text-indigo-400 uppercase tracking-wide mb-1">{aaronLabel}</p>
-                  <p className="text-base font-bold text-white">{formatCurrency(aaronTotal)}</p>
-                  <p className="text-[10px] text-slate-500">{aaronDebts.length} acct</p>
-                </div>
-              )}
-              {cameronDebts.length > 0 && (
-                <div className="bg-violet-950/30 rounded-xl p-3 border border-violet-900/40">
-                  <p className="text-[10px] text-violet-400 uppercase tracking-wide mb-1">{cameronLabel}</p>
-                  <p className="text-base font-bold text-white">{formatCurrency(cameronTotal)}</p>
-                  <p className="text-[10px] text-slate-500">{cameronDebts.length} acct</p>
-                </div>
-              )}
-              {jointDebts.length > 0 && (
-                <div className="bg-slate-800/60 rounded-xl p-3 border border-slate-700/40">
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-1">Joint</p>
-                  <p className="text-base font-bold text-white">{formatCurrency(jointTotal)}</p>
-                  <p className="text-[10px] text-slate-500">{jointDebts.length} acct</p>
-                </div>
-              )}
-            </div>
+            {(aaronDebts.length > 0 || cameronDebts.length > 0 || jointDebts.length > 0) && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                {aaronDebts.length > 0 && (
+                  <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem', padding: '0.75rem' }}>
+                    <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--accent-text)', marginBottom: '0.25rem' }}>{aaronLabel}</p>
+                    <p style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text)' }}>{formatCurrency(aaronTotal)}</p>
+                    <p style={{ fontSize: '0.625rem', color: 'var(--subtle)' }}>{aaronDebts.length} acct</p>
+                  </div>
+                )}
+                {cameronDebts.length > 0 && (
+                  <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem', padding: '0.75rem' }}>
+                    <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--accent-text)', marginBottom: '0.25rem' }}>{cameronLabel}</p>
+                    <p style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text)' }}>{formatCurrency(cameronTotal)}</p>
+                    <p style={{ fontSize: '0.625rem', color: 'var(--subtle)' }}>{cameronDebts.length} acct</p>
+                  </div>
+                )}
+                {jointDebts.length > 0 && (
+                  <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem', padding: '0.75rem' }}>
+                    <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>Joint</p>
+                    <p style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text)' }}>{formatCurrency(jointTotal)}</p>
+                    <p style={{ fontSize: '0.625rem', color: 'var(--subtle)' }}>{jointDebts.length} acct</p>
+                  </div>
+                )}
+              </div>
+            )}
 
-            {/* Owner filter */}
-            <div className="flex gap-1.5 mb-2">
-              {[['all', 'All', `${formatCurrency(combinedTotal)}`], ['aaron', aaronLabel, formatCurrency(aaronTotal)], ['cameron', cameronLabel, formatCurrency(cameronTotal)], ['joint', 'Joint', formatCurrency(jointTotal)]].map(([val, label]) => (
+            <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.875rem', padding: '0.25rem', gap: '0.25rem' }}>
+              {[['all', 'All'], ['aaron', aaronLabel], ['cameron', cameronLabel], ['joint', 'Joint']].map(([val, label]) => (
                 <button key={val} onClick={() => setOwnerFilter(val)}
-                  className={`flex-1 py-2 rounded-xl text-xs font-medium transition-colors truncate px-1 ${
-                    ownerFilter === val ? 'bg-slate-600 text-white' : 'bg-slate-800/60 text-slate-500 hover:text-slate-300'
-                  }`}>
+                  style={{ flex: 1, padding: '0.5rem 0', borderRadius: '0.625rem', fontSize: '0.8rem', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                    backgroundColor: ownerFilter === val ? 'var(--surface)' : 'transparent',
+                    color: ownerFilter === val ? 'var(--text)' : 'var(--subtle)',
+                    boxShadow: ownerFilter === val ? '0 1px 4px rgba(0,0,0,0.15)' : 'none' }}>
                   {label}
                 </button>
               ))}
             </div>
 
             {ownerFilter !== 'all' && (
-              <div className="grid grid-cols-2 gap-3 mb-1">
-                <div className="bg-slate-800/60 rounded-xl p-3 border border-slate-700/50 text-center">
-                  <p className="text-xs text-slate-500 mb-1">Total Balance</p>
-                  <p className="text-xl font-bold text-rose-400">{formatCurrency(totalBalance)}</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginTop: '0.75rem' }}>
+                <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem', padding: '0.75rem', textAlign: 'center' }}>
+                  <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>Balance</p>
+                  <p style={{ fontSize: '1.25rem', fontWeight: '900', color: 'var(--danger)' }}>{formatCurrency(totalBalance)}</p>
                 </div>
-                <div className="bg-slate-800/60 rounded-xl p-3 border border-slate-700/50 text-center">
-                  <p className="text-xs text-slate-500 mb-1">Monthly Mins</p>
-                  <p className="text-xl font-bold text-amber-400">{formatCurrency(totalMin)}</p>
+                <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem', padding: '0.75rem', textAlign: 'center' }}>
+                  <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>Min/mo</p>
+                  <p style={{ fontSize: '1.25rem', fontWeight: '900', color: 'var(--warn)' }}>{formatCurrency(totalMin)}</p>
                 </div>
               </div>
             )}
@@ -185,12 +201,21 @@ export default function Debts() {
         )}
       </div>
 
-      <div className="px-4 space-y-2.5">
+      <div style={{ padding: '0 1rem', display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
         {sorted.length === 0 ? (
-          <div className="text-center py-16 text-slate-500">
-            <CreditCard size={44} className="mx-auto mb-3 opacity-30" />
-            <p className="text-base">{debts.length === 0 ? 'No debts added.' : 'No debts for this filter.'}</p>
-            {debts.length === 0 && <p className="text-sm mt-1 text-slate-600">Tap Add to track loans, credit cards, etc.</p>}
+          <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
+            <CreditCard size={48} style={{ margin: '0 auto 1rem', opacity: 0.2, color: 'var(--muted)', display: 'block' }} />
+            <p style={{ fontWeight: '700', color: 'var(--text)', fontSize: '1.125rem', marginBottom: '0.5rem' }}>
+              {debts.length === 0 ? 'No debts added' : 'No debts for this filter'}
+            </p>
+            {debts.length === 0 && (
+              <>
+                <p style={{ fontSize: '0.9375rem', color: 'var(--muted)', marginBottom: '1.5rem' }}>Track loans, credit cards, and more.</p>
+                <button onClick={() => setShowAdd(true)} className="app-btn-primary" style={{ maxWidth: '14rem', margin: '0 auto' }}>
+                  <Plus size={18} /> Add Debt
+                </button>
+              </>
+            )}
           </div>
         ) : sorted.map((debt) => (
           <DebtCard key={debt.id} debt={debt} month={mk} onTogglePaid={toggleDebtPaid}
