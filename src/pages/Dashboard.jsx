@@ -1,16 +1,15 @@
 import { useState } from 'react';
 import {
   ChevronLeft, ChevronRight, TrendingUp, Receipt, CreditCard,
-  CheckCircle, AlertCircle, PencilLine, CalendarDays, Plus,
-  Pencil, Trash2, CheckSquare, Square, MoreVertical, Bell,
-  LayoutDashboard, Link, Plane, AlertTriangle, Wallet,
-  ShoppingBag, PiggyBank,
+  CalendarDays, Plus, Pencil, Trash2, CheckSquare, Square,
+  MoreVertical, Bell, LayoutDashboard, Link, Plane, AlertTriangle,
+  Wallet, PiggyBank,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import {
   formatCurrency, monthKey, monthLabel, getBillsForMonth, getIncomeForMonth,
   getPayDatesForMonth, getNextPayDate, getBillStatus, isBillOverdueUnpaid,
-  isReminderOverdue, isReminderSoon, formatDate, timeAgo,
+  isReminderOverdue, isReminderSoon, formatDate,
 } from '../utils/helpers';
 import Modal from '../components/Modal';
 import SavingsForm from '../components/SavingsForm';

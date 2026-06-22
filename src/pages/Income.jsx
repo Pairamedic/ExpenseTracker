@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Plus, Pencil, Trash2, MoreVertical, TrendingUp, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Pencil, Trash2, MoreVertical, TrendingUp, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatCurrency, monthKey, monthLabel, getIncomeForMonth } from '../utils/helpers';
 import Modal from '../components/Modal';
 import IncomeForm from '../components/IncomeForm';
+import AddButton from '../components/AddButton';
 
 function monthOffset(mk, offset) {
   const [y, m] = mk.split('-').map(Number);
@@ -76,12 +77,10 @@ export default function Income() {
 
   return (
     <div className="pb-32">
-      <div className="px-5 pt-5 pb-4">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-3xl font-black text-white tracking-tight">Income</h1>
-          <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors">
-            <Plus size={16} /> Add
-          </button>
+      <div className="px-4 pt-5 pb-4">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <h1 className="text-2xl font-black text-white tracking-tight">Income</h1>
+          <AddButton onClick={() => setShowAdd(true)} label="Add Income" />
         </div>
         <div className="flex items-center gap-2 mb-4">
           <button onClick={() => setMk(monthOffset(mk, -1))} className="p-2 rounded-xl hover:bg-slate-800 text-slate-400 transition-colors"><ChevronLeft size={20} /></button>
@@ -99,7 +98,7 @@ export default function Income() {
           )}
         </div>
       </div>
-      <div className="px-5 space-y-3">
+      <div className="px-4 space-y-3">
         {monthIncome.length === 0 ? (
           <div className="text-center py-16 text-slate-500">
             <TrendingUp size={44} className="mx-auto mb-3 opacity-30" />

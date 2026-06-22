@@ -13,7 +13,7 @@ export default function App() {
   return (
     <AppProvider>
       <BrowserRouter basename="/ExpenseTracker">
-        <div className="max-w-[640px] mx-auto min-h-screen">
+        <div className="min-h-screen">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/bills" element={<Bills />} />
