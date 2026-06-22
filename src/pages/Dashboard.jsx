@@ -101,9 +101,14 @@ function CommitmentRow({ commitment, onToggle, onEdit, onDelete, myLabel, partne
       </button>
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ fontSize: '0.875rem', fontWeight: '600', color: commitment.completed ? 'var(--subtle)' : 'var(--text)', textDecoration: commitment.completed ? 'line-through' : 'none' }}>{commitment.description}</p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.125rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.125rem', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>{personLabel}</span>
           {commitment.amount && <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{formatCurrency(commitment.amount)}</span>}
+          {commitment.endDate && (
+            <span style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>
+              · by {new Date(commitment.endDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </span>
+          )}
         </div>
       </div>
       <div style={{ position: 'relative', flexShrink: 0 }}>
@@ -282,7 +287,11 @@ export default function Dashboard() {
       ? debts.filter((d) => normOwner(d) === 'secondary').reduce((s, d) => s + d.minPayment, 0)
       : debts.reduce((s, d) => s + d.minPayment, 0);
 
-  const availableToSpend = monthlyIncome - totalBills - totalDebtMins;
+  const activePlannedTotal = plannedExpenses
+    .filter((pe) => pe.status !== 'completed')
+    .reduce((s, pe) => s + pe.amount, 0);
+
+  const availableToSpend = monthlyIncome - totalBills - totalDebtMins - activePlannedTotal;
 
   const spendingBudget = monthlySpendingBudget || 0;
   const savingsTarget = monthlySavingsTarget || 0;
@@ -464,6 +473,15 @@ export default function Dashboard() {
                   <span style={{ fontSize: '0.875rem', fontWeight: '600' }}>Debt minimums</span>
                 </div>
                 <span style={{ fontSize: '1.125rem', fontWeight: '700', color: 'var(--text)' }}>− {formatCurrency(totalDebtMins)}</span>
+              </div>
+            )}
+            {activePlannedTotal > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent-text)' }}>
+                  <Plane size={15} />
+                  <span style={{ fontSize: '0.875rem', fontWeight: '600' }}>Planned expenses</span>
+                </div>
+                <span style={{ fontSize: '1.125rem', fontWeight: '700', color: 'var(--text)' }}>− {formatCurrency(activePlannedTotal)}</span>
               </div>
             )}
             <div style={{ borderTop: `1px solid ${availableToSpend >= 0 ? 'var(--border)' : 'var(--danger)'}`, paddingTop: '1rem', marginTop: '0.25rem' }}>

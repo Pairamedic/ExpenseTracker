@@ -5,12 +5,27 @@ import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
 import { formatCurrency, exportAllData, exportAsHTML } from '../utils/helpers';
 
+const ALL_EXPORT_CATS = [
+  { key: 'bills', label: 'Bills' },
+  { key: 'income', label: 'Income' },
+  { key: 'debts', label: 'Debts' },
+  { key: 'savings', label: 'Savings' },
+  { key: 'commitments', label: 'Commitments' },
+  { key: 'planned', label: 'Planned Expenses' },
+  { key: 'purchases', label: 'Spending' },
+];
+
 export default function Settings() {
-  const { settings, setSettings, bills, income, debts, savings, commitments, purchases } = useApp();
+  const { settings, setSettings, bills, income, debts, savings, commitments, plannedExpenses, purchases } = useApp();
   const { user, signOut } = useAuth();
   const [form, setForm] = useState({ ...settings });
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [exportCats, setExportCats] = useState(() => ALL_EXPORT_CATS.map((c) => c.key));
+
+  const toggleCat = (key) => setExportCats((prev) =>
+    prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+  );
 
   const set = (key, val) => setForm((f) => ({ ...f, [key]: val }));
   const save = () => { setSettings(form); setSaved(true); setTimeout(() => setSaved(false), 2000); };
@@ -177,10 +192,23 @@ export default function Settings() {
         {/* Export */}
         <section className="mb-4" style={cardStyle}>
           <p className="mb-1" style={sectionLabelStyle}>Export Data</p>
-          <p className="text-xs mb-3" style={{ color: 'var(--muted)' }}>Download your data as a printable HTML report or CSV files.</p>
+          <p className="text-xs mb-3" style={{ color: 'var(--muted)' }}>Choose which sections to include, then export as a printable HTML report or CSV files.</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+            {ALL_EXPORT_CATS.map(({ key, label }) => {
+              const on = exportCats.includes(key);
+              return (
+                <button key={key} onClick={() => toggleCat(key)}
+                  style={{ padding: '0.375rem 0.75rem', borderRadius: '0.625rem', fontSize: '0.8125rem', fontWeight: 700, border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`, cursor: 'pointer', transition: 'all 0.15s',
+                    backgroundColor: on ? 'var(--accent-soft)' : 'var(--surface2)',
+                    color: on ? 'var(--accent-text)' : 'var(--muted)' }}>
+                  {on ? '✓ ' : ''}{label}
+                </button>
+              );
+            })}
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
             <button
-              onClick={() => exportAsHTML({ bills, income, debts, savings, purchases })}
+              onClick={() => exportAsHTML({ bills, income, debts, savings, purchases, commitments, plannedExpenses, include: exportCats })}
               className="flex items-center gap-2 text-sm font-semibold"
               style={{ color: '#fff', border: 'none', padding: '0.625rem 1rem', borderRadius: '0.75rem', backgroundColor: 'var(--accent)', cursor: 'pointer' }}>
               <Download size={14} /> Export to HTML (Printable)

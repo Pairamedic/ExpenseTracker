@@ -179,9 +179,10 @@ export function exportAllData({ bills, income, debts, savings, purchases }) {
   if (purchases.length) exportToCSV(purchases.map((p) => ({ date: p.date, merchant: p.merchant, amount: p.amount, category: p.category, person: p.person, notes: p.notes || '' })), `spending-${ts}.csv`);
 }
 
-export function exportAsHTML({ bills, income, debts, savings, purchases }) {
+export function exportAsHTML({ bills, income, debts, savings, purchases, commitments = [], plannedExpenses = [], include = null }) {
   const ts = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const fmt = (n) => '$' + (n ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const inc = (key) => !include || include.includes(key);
 
   const table = (headers, rows) => `
     <table>
@@ -233,7 +234,7 @@ export function exportAsHTML({ bills, income, debts, savings, purchases }) {
 <h1>Expense Tracker</h1>
 <p class="subtitle">Exported on ${ts}</p>
 
-${bills.length ? section('Bills', table(
+${inc('bills') && bills.length ? section('Bills', table(
   ['Name', 'Amount', 'Category', 'Owner', 'Due Day', 'Recurring'],
   bills.map((b) => [
     b.name,
@@ -243,9 +244,9 @@ ${bills.length ? section('Bills', table(
     b.dueDay ? `Day ${b.dueDay}` : '—',
     b.isRecurring ? 'Yes' : 'No',
   ])
-)) : ''}
+) : ''}
 
-${income.length ? section('Income', table(
+${inc('income') && income.length ? section('Income', table(
   ['Name', 'Amount', 'Frequency', 'Person'],
   income.map((i) => [
     i.name,
@@ -253,9 +254,9 @@ ${income.length ? section('Income', table(
     i.frequency || '—',
     i.person === 'spouse' ? 'Cameron' : 'Aaron',
   ])
-)) : ''}
+) : ''}
 
-${debts.length ? section('Debts', table(
+${inc('debts') && debts.length ? section('Debts', table(
   ['Name', 'Balance', 'Min Payment', 'Interest Rate', 'Owner'],
   debts.map((d) => [
     d.name,
@@ -264,9 +265,9 @@ ${debts.length ? section('Debts', table(
     d.interestRate != null ? `${d.interestRate}% APR` : '—',
     `<span class="badge badge-${(d.owner === 'mine' ? 'aaron' : d.owner === 'partner' ? 'cameron' : d.owner) || 'aaron'}">${ownerLabel(d.owner)}</span>`,
   ])
-)) : ''}
+) : ''}
 
-${savings.length ? section('Savings', table(
+${inc('savings') && savings.length ? section('Savings', table(
   ['Name', 'Balance', 'Goal', 'Progress'],
   savings.map((s) => [
     s.name,
@@ -274,9 +275,31 @@ ${savings.length ? section('Savings', table(
     s.goal ? fmt(s.goal) : '—',
     s.goal ? `${Math.min(100, Math.round((s.balance / s.goal) * 100))}%` : '—',
   ])
-)) : ''}
+) : ''}
 
-${purchases.length ? section('Spending', table(
+${inc('commitments') && commitments.length ? section('Commitments', table(
+  ['Description', 'Amount', 'Person', 'End Date', 'Status'],
+  commitments.map((c) => [
+    c.description,
+    c.amount ? `<span class="amount">${fmt(c.amount)}</span>` : '—',
+    c.person === 'me' ? 'Me' : c.person === 'partner' ? 'Cameron' : 'Both',
+    c.endDate ? new Date(c.endDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—',
+    c.completed ? '<span class="badge badge-paid">Done</span>' : '<span class="badge badge-unpaid">Open</span>',
+  ])
+) : ''}
+
+${inc('planned') && plannedExpenses.length ? section('Planned Expenses', table(
+  ['Name', 'Amount', 'Target Date', 'From Savings', 'Notes'],
+  plannedExpenses.map((pe) => [
+    pe.name,
+    `<span class="amount amount-neg">${fmt(pe.amount)}</span>`,
+    pe.targetDate ? new Date(pe.targetDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—',
+    pe.fromSavingsId || '—',
+    pe.notes || '',
+  ])
+) : ''}
+
+${inc('purchases') && purchases.length ? section('Spending', table(
   ['Date', 'Merchant', 'Amount', 'Category', 'Person', 'Notes'],
   purchases.map((p) => [
     p.date || '—',
@@ -286,7 +309,7 @@ ${purchases.length ? section('Spending', table(
     p.person === 'spouse' || p.person === 'cameron' ? 'Cameron' : 'Aaron',
     p.notes || '',
   ])
-)) : ''}
+) : ''}
 
 </body>
 </html>`;
