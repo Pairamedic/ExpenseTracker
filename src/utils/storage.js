@@ -11,6 +11,9 @@ const KEYS = {
   PLANNED_EXPENSES: 'bt_planned_expenses',
   JOBS: 'bt_jobs',
   SHIFTS: 'bt_shifts',
+  BUDGET_CATEGORIES: 'bt_budget_categories',
+  BUDGET_SPENDS: 'bt_budget_spends',
+  AGREEMENTS: 'bt_agreements',
 };
 
 function get(key) {
@@ -33,6 +36,22 @@ const DEFAULT_SETTINGS = {
   monthlySpendingBudget: 0,
   monthlySavingsTarget: 0,
   lightMode: false,
+  dashboardSections: {
+    pinnedNotes: true,
+    savings: true,
+    commitments: true,
+    billsStatus: true,
+    spending: true,
+    nextPaycheck: true,
+    payDates: true,
+    plannedExpenses: true,
+    netWorth: true,
+    spendingTrend: true,
+    topCategories: true,
+    spendingByPerson: true,
+    envelopes: true,
+    agreements: true,
+  },
 };
 
 export const storage = {
@@ -71,4 +90,13 @@ export const storage = {
 
   getShifts: () => get(KEYS.SHIFTS) || [],
   setShifts: (v) => set(KEYS.SHIFTS, v),
+
+  getBudgetCategories: () => get(KEYS.BUDGET_CATEGORIES) || [],
+  setBudgetCategories: (v) => set(KEYS.BUDGET_CATEGORIES, v),
+
+  getBudgetSpends: () => get(KEYS.BUDGET_SPENDS) || [],
+  setBudgetSpends: (v) => set(KEYS.BUDGET_SPENDS, v),
+
+  getAgreements: () => get(KEYS.AGREEMENTS) || [],
+  setAgreements: (v) => set(KEYS.AGREEMENTS, v),
 };

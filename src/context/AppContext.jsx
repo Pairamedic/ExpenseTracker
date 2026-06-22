@@ -27,11 +27,14 @@ export function AppProvider({ children, uid }) {
   const [plannedExpenses, setPlannedExpensesState] = useState(() => storage.getPlannedExpenses());
   const [jobs, setJobsState] = useState(() => storage.getJobs());
   const [shifts, setShiftsState] = useState(() => storage.getShifts());
+  const [budgetCategories, setBudgetCategoriesState] = useState(() => storage.getBudgetCategories());
+  const [budgetSpends, setBudgetSpendsState] = useState(() => storage.getBudgetSpends());
+  const [agreements, setAgreementsState] = useState(() => storage.getAgreements());
   const [cloudLoaded, setCloudLoaded] = useState(false);
 
   // Use refs to always have fresh values for the save function
   const stateRef = useRef({});
-  stateRef.current = { bills, income, budget, settings, notes, debts, savings, commitments, purchases, plannedExpenses, jobs, shifts };
+  stateRef.current = { bills, income, budget, settings, notes, debts, savings, commitments, purchases, plannedExpenses, jobs, shifts, budgetCategories, budgetSpends, agreements };
 
   // Load from Firestore on login
   useEffect(() => {
@@ -53,6 +56,9 @@ export function AppProvider({ children, uid }) {
         if (data.plannedExpenses) { setPlannedExpensesState(data.plannedExpenses); storage.setPlannedExpenses(data.plannedExpenses); }
         if (data.jobs) { setJobsState(data.jobs); storage.setJobs(data.jobs); }
         if (data.shifts) { setShiftsState(data.shifts); storage.setShifts(data.shifts); }
+        if (data.budgetCategories) { setBudgetCategoriesState(data.budgetCategories); storage.setBudgetCategories(data.budgetCategories); }
+        if (data.budgetSpends) { setBudgetSpendsState(data.budgetSpends); storage.setBudgetSpends(data.budgetSpends); }
+        if (data.agreements) { setAgreementsState(data.agreements); storage.setAgreements(data.agreements); }
       } else {
         // First login — upload existing localStorage data to Firestore
         saveUserData(uid, stateRef.current);
@@ -128,6 +134,21 @@ export function AppProvider({ children, uid }) {
   const persistShifts = useCallback((next) => {
     setShiftsState(next); storage.setShifts(next);
     debouncedSync({ shifts: next });
+  }, [debouncedSync]);
+
+  const persistBudgetCategories = useCallback((next) => {
+    setBudgetCategoriesState(next); storage.setBudgetCategories(next);
+    debouncedSync({ budgetCategories: next });
+  }, [debouncedSync]);
+
+  const persistBudgetSpends = useCallback((next) => {
+    setBudgetSpendsState(next); storage.setBudgetSpends(next);
+    debouncedSync({ budgetSpends: next });
+  }, [debouncedSync]);
+
+  const persistAgreements = useCallback((next) => {
+    setAgreementsState(next); storage.setAgreements(next);
+    debouncedSync({ agreements: next });
   }, [debouncedSync]);
 
   // ── Bills ──
@@ -221,6 +242,21 @@ export function AppProvider({ children, uid }) {
   const updatePlannedExpense = useCallback((id, u) => persistPlannedExpenses(plannedExpenses.map((pe) => pe.id === id ? { ...pe, ...u } : pe)), [plannedExpenses, persistPlannedExpenses]);
   const deletePlannedExpense = useCallback((id) => persistPlannedExpenses(plannedExpenses.filter((pe) => pe.id !== id)), [plannedExpenses, persistPlannedExpenses]);
 
+  // ── Budget Categories (envelopes) ──
+  const addBudgetCategory = useCallback((cat) => persistBudgetCategories([...budgetCategories, { ...cat, id: generateId(), createdAt: new Date().toISOString() }]), [budgetCategories, persistBudgetCategories]);
+  const updateBudgetCategory = useCallback((id, u) => persistBudgetCategories(budgetCategories.map((c) => c.id === id ? { ...c, ...u } : c)), [budgetCategories, persistBudgetCategories]);
+  const deleteBudgetCategory = useCallback((id) => persistBudgetCategories(budgetCategories.filter((c) => c.id !== id)), [budgetCategories, persistBudgetCategories]);
+
+  // ── Budget Spends ──
+  const addBudgetSpend = useCallback((spend) => persistBudgetSpends([{ ...spend, id: generateId(), createdAt: new Date().toISOString() }, ...budgetSpends]), [budgetSpends, persistBudgetSpends]);
+  const updateBudgetSpend = useCallback((id, u) => persistBudgetSpends(budgetSpends.map((s) => s.id === id ? { ...s, ...u } : s)), [budgetSpends, persistBudgetSpends]);
+  const deleteBudgetSpend = useCallback((id) => persistBudgetSpends(budgetSpends.filter((s) => s.id !== id)), [budgetSpends, persistBudgetSpends]);
+
+  // ── Agreements ──
+  const addAgreement = useCallback((ag) => persistAgreements([{ ...ag, id: generateId(), status: 'active', createdAt: new Date().toISOString() }, ...agreements]), [agreements, persistAgreements]);
+  const updateAgreement = useCallback((id, u) => persistAgreements(agreements.map((a) => a.id === id ? { ...a, ...u } : a)), [agreements, persistAgreements]);
+  const deleteAgreement = useCallback((id) => persistAgreements(agreements.filter((a) => a.id !== id)), [agreements, persistAgreements]);
+
   return (
     <AppContext.Provider value={{
       cloudLoaded,
@@ -235,6 +271,9 @@ export function AppProvider({ children, uid }) {
       plannedExpenses, addPlannedExpense, updatePlannedExpense, deletePlannedExpense,
       jobs, addJob, updateJob, deleteJob,
       shifts, addShift, updateShift, deleteShift, bulkSaveShifts,
+      budgetCategories, addBudgetCategory, updateBudgetCategory, deleteBudgetCategory,
+      budgetSpends, addBudgetSpend, updateBudgetSpend, deleteBudgetSpend,
+      agreements, addAgreement, updateAgreement, deleteAgreement,
       settings, setSettings: persistSettings,
     }}>
       {children}
