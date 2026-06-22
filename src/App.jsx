@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AppProvider } from './context/AppContext';
+import { useEffect } from 'react';
+import { AppProvider, useApp } from './context/AppContext';
 import BottomNav from './components/BottomNav';
 import Dashboard from './pages/Dashboard';
 import BillsDebts from './pages/BillsDebts';
@@ -9,10 +10,26 @@ import Settings from './pages/Settings';
 import Purchases from './pages/Purchases';
 import WorkTime from './pages/WorkTime';
 
+function ThemeSync() {
+  const { settings } = useApp();
+  useEffect(() => {
+    const html = document.documentElement;
+    if (settings.lightMode) {
+      html.classList.add('light');
+      html.classList.remove('dark');
+    } else {
+      html.classList.add('dark');
+      html.classList.remove('light');
+    }
+  }, [settings.lightMode]);
+  return null;
+}
+
 export default function App() {
   return (
     <AppProvider>
       <BrowserRouter basename="/ExpenseTracker">
+        <ThemeSync />
         <div className="min-h-screen">
           <Routes>
             <Route path="/" element={<Dashboard />} />

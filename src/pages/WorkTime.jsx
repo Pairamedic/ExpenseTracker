@@ -1,15 +1,14 @@
 import { useState, useMemo } from 'react';
 import {
   Briefcase, Clock, ChevronLeft, ChevronRight, Plus, Pencil, Trash2,
-  MoreVertical, Check, DollarSign, Calculator, TrendingUp, Save,
-  CalendarDays, Info,
+  MoreVertical, Check, Calculator, Save, Info,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { formatCurrency, generateId, monthKey } from '../utils/helpers';
+import { formatCurrency, monthKey } from '../utils/helpers';
 import { calcPaycheck, calcHoursFromShifts } from '../utils/taxCalc';
 import Modal from '../components/Modal';
 
-// ── helpers ─────────────────────────────────────────────────────────────────
+// ── helpers ──────────────────────────────────────────────────────────────────
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -29,7 +28,6 @@ function periodLabel(start, end) {
   const s = new Date(start + 'T12:00:00');
   const e = new Date(end + 'T12:00:00');
   const opts = { month: 'short', day: 'numeric' };
-  const year = s.getFullYear() !== e.getFullYear() ? `, ${e.getFullYear()}` : '';
   return `${s.toLocaleDateString('en-US', opts)} – ${e.toLocaleDateString('en-US', { ...opts, year: 'numeric' })}`;
 }
 
@@ -39,27 +37,35 @@ function getLastNDaysEnd(n) {
   return { start, end };
 }
 
-function getBiweeklyPeriod(offset = 0) {
-  // Anchor to a known biweekly pay cycle (Monday start)
-  const anchor = new Date('2026-06-08T12:00:00'); // adjust as needed
+function getThisWeekRange() {
   const now = new Date();
-  const msSince = now - anchor;
-  const periodMs = 14 * 24 * 60 * 60 * 1000;
-  const periodNum = Math.floor(msSince / periodMs) + offset;
-  const start = new Date(anchor.getTime() + periodNum * periodMs);
-  const end = new Date(start.getTime() + 13 * 24 * 60 * 60 * 1000);
-  return {
-    start: start.toISOString().slice(0, 10),
-    end: end.toISOString().slice(0, 10),
-  };
+  const dow = now.getDay();
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - ((dow + 6) % 7));
+  const sun = new Date(mon);
+  sun.setDate(mon.getDate() + 6);
+  return { start: mon.toISOString().slice(0, 10), end: sun.toISOString().slice(0, 10) };
 }
 
-// ── JobForm ──────────────────────────────────────────────────────────────────
+// ── Shared styled wrappers ────────────────────────────────────────────────────
 
-const FILING_OPTIONS = [
-  { value: 'single', label: 'Single' },
-  { value: 'mfj', label: 'Married Filing Jointly' },
-];
+function Label({ children }) {
+  return <label className="app-label">{children}</label>;
+}
+
+function Input(props) {
+  return <input {...props} className="app-input" />;
+}
+
+function Select({ children, ...props }) {
+  return (
+    <select {...props} className="app-input">
+      {children}
+    </select>
+  );
+}
+
+// ── Job Form ─────────────────────────────────────────────────────────────────
 
 function JobForm({ initial = {}, onSave, onCancel }) {
   const [form, setForm] = useState({
@@ -76,10 +82,7 @@ function JobForm({ initial = {}, onSave, onCancel }) {
   });
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-
-  const autoOTRate = form.hourlyRate
-    ? (parseFloat(form.hourlyRate) * 1.5).toFixed(2)
-    : '';
+  const autoOT = form.hourlyRate ? (parseFloat(form.hourlyRate) * 1.5).toFixed(2) : '';
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -96,144 +99,95 @@ function JobForm({ initial = {}, onSave, onCancel }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       <div>
-        <label className="text-sm text-slate-400 mb-1 block">Job Name *</label>
-        <input
-          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-          placeholder="e.g. Amazon, Walmart, Side Gig"
-          value={form.name}
-          onChange={(e) => set('name', e.target.value)}
-          required
-        />
+        <Label>Job Name *</Label>
+        <Input placeholder="e.g. Amazon, Walmart, Side Gig" value={form.name}
+          onChange={(e) => set('name', e.target.value)} required />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
         <div>
-          <label className="text-sm text-slate-400 mb-1 block">Hourly Rate *</label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-            <input
-              type="number" min="0" step="0.01"
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-7 pr-3 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-              placeholder="18.50"
-              value={form.hourlyRate}
-              onChange={(e) => set('hourlyRate', e.target.value)}
-              required
-            />
+          <Label>Hourly Rate *</Label>
+          <div style={{ position: 'relative' }}>
+            <span style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontSize: '1rem' }}>$</span>
+            <Input type="number" min="0" step="0.01" placeholder="18.50" value={form.hourlyRate}
+              onChange={(e) => set('hourlyRate', e.target.value)} required
+              style={{ paddingLeft: '1.75rem' }} />
           </div>
         </div>
         <div>
-          <label className="text-sm text-slate-400 mb-1 block">Normal Shift Hrs</label>
-          <input
-            type="number" min="1" max="24" step="0.5"
-            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-            placeholder="8"
-            value={form.normalShiftHours}
-            onChange={(e) => set('normalShiftHours', e.target.value)}
-          />
+          <Label>Shift Hours</Label>
+          <Input type="number" min="1" max="24" step="0.5" placeholder="8" value={form.normalShiftHours}
+            onChange={(e) => set('normalShiftHours', e.target.value)} />
         </div>
       </div>
 
       <div>
-        <div className="flex items-center justify-between mb-1">
-          <label className="text-sm text-slate-400">OT Rate</label>
-          <button
-            type="button"
-            onClick={() => set('otRateAuto', !form.otRateAuto)}
-            className="text-xs text-indigo-400 hover:text-indigo-300"
-          >
-            {form.otRateAuto ? `Auto (1.5× = $${autoOTRate})` : 'Set manually'}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.375rem' }}>
+          <Label>OT Rate</Label>
+          <button type="button" onClick={() => set('otRateAuto', !form.otRateAuto)}
+            style={{ fontSize: '0.75rem', color: 'var(--accent-text)', background: 'none', border: 'none', cursor: 'pointer' }}>
+            {form.otRateAuto ? `Auto (1.5× = $${autoOT || '—'})` : 'Use auto 1.5×'}
           </button>
         </div>
-        {!form.otRateAuto && (
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-            <input
-              type="number" min="0" step="0.01"
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-7 pr-3 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-              placeholder={autoOTRate || '27.75'}
-              value={form.otRate}
-              onChange={(e) => set('otRate', e.target.value)}
-            />
+        {!form.otRateAuto ? (
+          <div style={{ position: 'relative' }}>
+            <span style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }}>$</span>
+            <Input type="number" min="0" step="0.01" placeholder={autoOT || '27.75'} value={form.otRate}
+              onChange={(e) => set('otRate', e.target.value)} style={{ paddingLeft: '1.75rem' }} />
           </div>
-        )}
-        {form.otRateAuto && (
-          <div className="bg-slate-800/60 border border-slate-700/40 rounded-xl px-4 py-3 text-slate-400 text-sm">
-            {autoOTRate ? `$${autoOTRate}/hr` : 'Enter hourly rate first'}
+        ) : (
+          <div className="app-input" style={{ color: 'var(--subtle)', cursor: 'default' }}>
+            {autoOT ? `$${autoOT}/hr (auto)` : 'Enter hourly rate above'}
           </div>
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
         <div>
-          <label className="text-sm text-slate-400 mb-1 block">Pay Frequency</label>
-          <select
-            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
-            value={form.payFrequency}
-            onChange={(e) => set('payFrequency', e.target.value)}
-          >
+          <Label>Pay Frequency</Label>
+          <Select value={form.payFrequency} onChange={(e) => set('payFrequency', e.target.value)}>
             <option value="biweekly">Biweekly</option>
             <option value="weekly">Weekly</option>
-          </select>
+          </Select>
         </div>
         <div>
-          <label className="text-sm text-slate-400 mb-1 block">Filing Status</label>
-          <select
-            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
-            value={form.filingStatus}
-            onChange={(e) => set('filingStatus', e.target.value)}
-          >
-            {FILING_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
+          <Label>Filing Status</Label>
+          <Select value={form.filingStatus} onChange={(e) => set('filingStatus', e.target.value)}>
+            <option value="single">Single</option>
+            <option value="mfj">Married (Joint)</option>
+          </Select>
         </div>
       </div>
 
       <div>
-        <label className="text-sm text-slate-400 mb-1 block">
-          IRA / 401k Pre-tax Deduction
-          <span className="text-slate-600 ml-1">(per paycheck)</span>
-        </label>
-        <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-          <input
-            type="number" min="0" step="0.01"
-            className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-7 pr-3 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-            placeholder="0.00  (optional)"
-            value={form.iraPerPeriod}
-            onChange={(e) => set('iraPerPeriod', e.target.value)}
-          />
+        <Label>IRA / 401k per paycheck (optional)</Label>
+        <div style={{ position: 'relative' }}>
+          <span style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }}>$</span>
+          <Input type="number" min="0" step="0.01" placeholder="0.00" value={form.iraPerPeriod}
+            onChange={(e) => set('iraPerPeriod', e.target.value)} style={{ paddingLeft: '1.75rem' }} />
         </div>
       </div>
 
-      <div className="flex gap-3 pt-2">
-        <button type="button" onClick={onCancel}
-          className="flex-1 py-3 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors">
-          Cancel
-        </button>
-        <button type="submit"
-          className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors">
-          Save Job
-        </button>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', paddingTop: '0.5rem' }}>
+        <button type="button" onClick={onCancel} className="app-btn-secondary">Cancel</button>
+        <button type="submit" className="app-btn-primary">Save Job</button>
       </div>
     </form>
   );
 }
 
-// ── ShiftForm ────────────────────────────────────────────────────────────────
+// ── Shift Form ────────────────────────────────────────────────────────────────
 
 function ShiftForm({ initial = {}, jobs, onSave, onCancel }) {
-  const defaultJobId = jobs[0]?.id || '';
   const [form, setForm] = useState({
     date: today(),
-    jobId: defaultJobId,
+    jobId: jobs[0]?.id || '',
     hoursWorked: '',
     notes: '',
     ...initial,
   });
-
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const selectedJob = jobs.find((j) => j.id === form.jobId);
 
@@ -244,207 +198,155 @@ function ShiftForm({ initial = {}, jobs, onSave, onCancel }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       <div>
-        <label className="text-sm text-slate-400 mb-1 block">Date</label>
-        <input
-          type="date"
-          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
-          value={form.date}
-          onChange={(e) => set('date', e.target.value)}
-          required
-        />
+        <Label>Date</Label>
+        <Input type="date" value={form.date} onChange={(e) => set('date', e.target.value)} required />
       </div>
 
       {jobs.length > 1 && (
         <div>
-          <label className="text-sm text-slate-400 mb-1 block">Job</label>
-          <select
-            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
-            value={form.jobId}
-            onChange={(e) => set('jobId', e.target.value)}
-          >
+          <Label>Job</Label>
+          <Select value={form.jobId} onChange={(e) => set('jobId', e.target.value)}>
             {jobs.map((j) => <option key={j.id} value={j.id}>{j.name}</option>)}
-          </select>
+          </Select>
         </div>
       )}
 
       <div>
-        <label className="text-sm text-slate-400 mb-1 block">
+        <Label>
           Hours Worked
-          {selectedJob && (
-            <span className="text-slate-600 ml-1">
-              (normal shift: {selectedJob.normalShiftHours}h)
-            </span>
-          )}
-        </label>
-        <input
-          type="number" min="0" max="24" step="0.25"
-          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white text-lg placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-          placeholder="8.0"
-          value={form.hoursWorked}
-          onChange={(e) => set('hoursWorked', e.target.value)}
-          required
-          autoFocus
-        />
+          {selectedJob && <span style={{ color: 'var(--subtle)', marginLeft: '0.25rem', fontSize: '0.75rem' }}>(normal: {selectedJob.normalShiftHours}h)</span>}
+        </Label>
+        <Input type="number" min="0" max="24" step="0.25" placeholder="8.0" value={form.hoursWorked}
+          onChange={(e) => set('hoursWorked', e.target.value)} required autoFocus
+          style={{ fontSize: '1.5rem', textAlign: 'center', fontWeight: '700' }} />
       </div>
 
       <div>
-        <label className="text-sm text-slate-400 mb-1 block">Notes (optional)</label>
-        <input
-          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-          placeholder="e.g. Covered a shift, short day"
-          value={form.notes}
-          onChange={(e) => set('notes', e.target.value)}
-        />
+        <Label>Notes (optional)</Label>
+        <Input placeholder="e.g. Covered a shift, short day" value={form.notes}
+          onChange={(e) => set('notes', e.target.value)} />
       </div>
 
-      <div className="flex gap-3 pt-2">
-        <button type="button" onClick={onCancel}
-          className="flex-1 py-3 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors">
-          Cancel
-        </button>
-        <button type="submit"
-          className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors">
-          Log Shift
-        </button>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', paddingTop: '0.5rem' }}>
+        <button type="button" onClick={onCancel} className="app-btn-secondary">Cancel</button>
+        <button type="submit" className="app-btn-primary">Log Shift</button>
       </div>
     </form>
   );
 }
 
-// ── Pay Breakdown Card ───────────────────────────────────────────────────────
+// ── Pay Breakdown ─────────────────────────────────────────────────────────────
+
+function PayRow({ label, value, color, size = 'sm', prefix = '' }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.3rem 0' }}>
+      <span style={{ fontSize: size === 'sm' ? '0.875rem' : '1rem', color: 'var(--muted)' }}>{label}</span>
+      <span style={{ fontSize: size === 'sm' ? '0.875rem' : '1rem', fontWeight: size === 'lg' ? '800' : '600', color: color || 'var(--text)' }}>
+        {prefix}{formatCurrency(value)}
+      </span>
+    </div>
+  );
+}
 
 function PayBreakdown({ result }) {
-  const rows = [
-    { label: `Regular (${result.regularHours}h × $${result.regularHours > 0 ? (result.regularPay / result.regularHours).toFixed(2) : '—'})`, value: result.regularPay, color: 'text-white' },
-    result.overtimeHours > 0 && { label: `Overtime (${result.overtimeHours}h)`, value: result.otPay, color: 'text-amber-300' },
-  ].filter(Boolean);
-
-  const deductions = [
-    result.iraDeduction > 0 && { label: 'IRA / 401k (pre-tax)', value: result.iraDeduction },
-    { label: 'Federal Income Tax (FIT)', value: result.fit },
-    { label: 'Social Security (FICA 6.2%)', value: result.fica },
-    { label: 'Medicare (MEDI 1.45%)', value: result.medi },
-    { label: 'AR State Income Tax (SIT)', value: result.sitAR },
-  ].filter(Boolean);
-
+  const effRate = result.grossPay > 0 ? ((result.totalDeductions / result.grossPay) * 100).toFixed(1) : 0;
   return (
-    <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl overflow-hidden">
-      {/* Gross */}
-      <div className="px-4 pt-4 pb-3 border-b border-slate-700/50">
-        <p className="text-xs text-slate-500 uppercase tracking-widest mb-2">Earnings</p>
-        {rows.map((r) => (
-          <div key={r.label} className="flex justify-between items-center py-1">
-            <span className="text-sm text-slate-400">{r.label}</span>
-            <span className={`text-sm font-semibold ${r.color}`}>{formatCurrency(r.value)}</span>
-          </div>
-        ))}
-        <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-700/40">
-          <span className="text-sm font-bold text-white">Gross Pay</span>
-          <span className="text-base font-black text-white">{formatCurrency(result.grossPay)}</span>
+    <div style={{ border: '1px solid var(--border)', borderRadius: '1rem', overflow: 'hidden' }}>
+      {/* Earnings */}
+      <div style={{ padding: '1rem', borderBottom: '1px solid var(--border)' }}>
+        <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.5rem' }}>Earnings</p>
+        <PayRow label={`Regular (${result.regularHours}h)`} value={result.regularPay} />
+        {result.overtimeHours > 0 && (
+          <PayRow label={`Overtime (${result.overtimeHours}h)`} value={result.otPay} color="var(--warn)" />
+        )}
+        <div style={{ borderTop: '1px solid var(--border)', marginTop: '0.5rem', paddingTop: '0.5rem' }}>
+          <PayRow label="Gross Pay" value={result.grossPay} size="lg" />
         </div>
       </div>
 
       {/* Deductions */}
-      <div className="px-4 pt-3 pb-3 border-b border-slate-700/50">
-        <p className="text-xs text-slate-500 uppercase tracking-widest mb-2">Deductions</p>
+      <div style={{ padding: '1rem', borderBottom: '1px solid var(--border)' }}>
+        <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.5rem' }}>Deductions</p>
         {result.iraDeduction > 0 && (
-          <div className="flex justify-between items-center py-1">
-            <span className="text-sm text-slate-400">IRA / 401k (pre-tax)</span>
-            <span className="text-sm text-rose-400">-{formatCurrency(result.iraDeduction)}</span>
-          </div>
+          <PayRow label="IRA / 401k (pre-tax)" value={result.iraDeduction} color="var(--danger)" prefix="-" />
         )}
         {result.iraDeduction > 0 && (
-          <div className="flex justify-between items-center py-1 mb-1">
-            <span className="text-xs text-slate-500">FIT / SIT Taxable</span>
-            <span className="text-xs text-slate-400">{formatCurrency(result.fitTaxable)}</span>
+          <div style={{ padding: '0.25rem 0' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>FIT/SIT taxable: {formatCurrency(result.fitTaxable)}</span>
           </div>
         )}
-        {[
-          ['Federal Income Tax (FIT)', result.fit],
-          ['Social Security (FICA 6.2%)', result.fica],
-          ['Medicare (MEDI 1.45%)', result.medi],
-          ['AR State Income Tax (SIT)', result.sitAR],
-        ].map(([label, val]) => (
-          <div key={label} className="flex justify-between items-center py-1">
-            <span className="text-sm text-slate-400">{label}</span>
-            <span className="text-sm text-rose-400">-{formatCurrency(val)}</span>
-          </div>
-        ))}
-        <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-700/40">
-          <span className="text-sm font-bold text-slate-300">Total Deductions</span>
-          <span className="text-sm font-bold text-rose-400">-{formatCurrency(result.totalDeductions)}</span>
+        <PayRow label="Federal Income Tax (FIT)" value={result.fit} color="var(--danger)" prefix="-" />
+        <PayRow label="Social Security (FICA 6.2%)" value={result.fica} color="var(--danger)" prefix="-" />
+        <PayRow label="Medicare (MEDI 1.45%)" value={result.medi} color="var(--danger)" prefix="-" />
+        <PayRow label="AR State Income Tax (SIT)" value={result.sitAR} color="var(--danger)" prefix="-" />
+        <div style={{ borderTop: '1px solid var(--border)', marginTop: '0.5rem', paddingTop: '0.5rem' }}>
+          <PayRow label="Total Deductions" value={result.totalDeductions} color="var(--danger)" prefix="-" />
         </div>
       </div>
 
       {/* Net */}
-      <div className="px-4 py-4 bg-emerald-950/30">
-        <div className="flex justify-between items-center">
-          <span className="text-base font-black text-white">Est. Net Pay</span>
-          <span className="text-2xl font-black text-emerald-400">{formatCurrency(result.netPay)}</span>
+      <div style={{ padding: '1rem', backgroundColor: 'var(--positive-soft)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text)' }}>Est. Net Pay</span>
+          <span style={{ fontSize: '1.75rem', fontWeight: '900', color: 'var(--positive-text)' }}>{formatCurrency(result.netPay)}</span>
         </div>
-        <p className="text-xs text-slate-500 mt-1">
-          Effective rate: {result.grossPay > 0 ? ((result.totalDeductions / result.grossPay) * 100).toFixed(1) : 0}% deducted
+        <p style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
+          {effRate}% effective deduction rate
         </p>
       </div>
     </div>
   );
 }
 
-// ── Jobs Tab ─────────────────────────────────────────────────────────────────
+// ── Job Card ──────────────────────────────────────────────────────────────────
 
 function JobCard({ job, onEdit, onDelete }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const otRate = job.otRate || (job.hourlyRate * 1.5);
+  const otRate = job.otRate || job.hourlyRate * 1.5;
 
   return (
-    <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-4 relative">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center flex-shrink-0">
-            <Briefcase size={18} className="text-indigo-400" />
-          </div>
-          <div className="min-w-0">
-            <p className="font-bold text-white text-base">{job.name}</p>
-            <p className="text-sm text-slate-400">
-              {formatCurrency(job.hourlyRate)}/hr · OT {formatCurrency(otRate)}/hr
-            </p>
-          </div>
+    <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', padding: '1rem', position: 'relative' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+        <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: '0.75rem', backgroundColor: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Briefcase size={18} style={{ color: 'var(--accent-text)' }} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontWeight: '700', color: 'var(--text)', fontSize: '1rem' }}>{job.name}</p>
+          <p style={{ fontSize: '0.875rem', color: 'var(--muted)', marginTop: '0.125rem' }}>
+            {formatCurrency(job.hourlyRate)}/hr · OT {formatCurrency(otRate)}/hr
+          </p>
         </div>
         <button onClick={() => setMenuOpen(!menuOpen)}
-          className="p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-700/60 rounded-lg transition-colors flex-shrink-0">
-          <MoreVertical size={16} />
+          style={{ color: 'var(--subtle)', background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', marginTop: '-0.125rem', flexShrink: 0 }}>
+          <MoreVertical size={18} />
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-2 mt-3">
-        <span className="text-xs bg-slate-700/60 text-slate-400 border border-slate-600/40 px-2.5 py-1 rounded-lg">
-          {job.normalShiftHours}h shift
-        </span>
-        <span className="text-xs bg-slate-700/60 text-slate-400 border border-slate-600/40 px-2.5 py-1 rounded-lg capitalize">
-          {job.payFrequency}
-        </span>
-        <span className="text-xs bg-slate-700/60 text-slate-400 border border-slate-600/40 px-2.5 py-1 rounded-lg">
-          {job.filingStatus === 'mfj' ? 'Married' : 'Single'}
-        </span>
-        {job.iraPerPeriod > 0 && (
-          <span className="text-xs bg-amber-900/30 text-amber-400 border border-amber-800/30 px-2.5 py-1 rounded-lg">
-            IRA {formatCurrency(job.iraPerPeriod)}/period
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.75rem' }}>
+        {[
+          `${job.normalShiftHours}h shift`,
+          job.payFrequency.charAt(0).toUpperCase() + job.payFrequency.slice(1),
+          job.filingStatus === 'mfj' ? 'Married (Joint)' : 'Single',
+          job.iraPerPeriod > 0 ? `IRA ${formatCurrency(job.iraPerPeriod)}/pay` : null,
+        ].filter(Boolean).map((t) => (
+          <span key={t} style={{ fontSize: '0.75rem', backgroundColor: 'var(--surface2)', color: 'var(--muted)', border: '1px solid var(--border)', padding: '0.25rem 0.625rem', borderRadius: '0.5rem' }}>
+            {t}
           </span>
-        )}
+        ))}
       </div>
 
       {menuOpen && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-          <div className="absolute right-3 top-12 z-50 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden min-w-[140px]">
+          <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setMenuOpen(false)} />
+          <div style={{ position: 'absolute', right: '0.75rem', top: '3rem', zIndex: 50, backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem', overflow: 'hidden', minWidth: '9rem', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
             <button onClick={() => { onEdit(job); setMenuOpen(false); }}
-              className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-slate-300 hover:bg-slate-700 transition-colors">
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.875rem 1rem', fontSize: '0.875rem', color: 'var(--text)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
               <Pencil size={14} /> Edit
             </button>
             <button onClick={() => { onDelete(job.id); setMenuOpen(false); }}
-              className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-rose-400 hover:bg-slate-700 transition-colors">
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.875rem 1rem', fontSize: '0.875rem', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
               <Trash2 size={14} /> Delete
             </button>
           </div>
@@ -454,123 +356,91 @@ function JobCard({ job, onEdit, onDelete }) {
   );
 }
 
-// ── Hours Tab ────────────────────────────────────────────────────────────────
+// ── Hours Tab ─────────────────────────────────────────────────────────────────
 
 function HoursTab({ jobs, shifts, addShift, updateShift, deleteShift }) {
   const [logDate, setLogDate] = useState(today());
   const [showShiftForm, setShowShiftForm] = useState(false);
   const [editShift, setEditShift] = useState(null);
 
-  // Shifts sorted newest first
-  const recentShifts = useMemo(() => {
-    return [...shifts]
-      .sort((a, b) => b.date.localeCompare(a.date))
-      .slice(0, 30);
-  }, [shifts]);
+  const recentShifts = useMemo(() =>
+    [...shifts].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30),
+    [shifts]);
 
   const shiftsOnDate = shifts.filter((s) => s.date === logDate);
 
-  function navDay(n) {
-    setLogDate(addDays(logDate, n));
-  }
-
   if (jobs.length === 0) {
     return (
-      <div className="text-center py-20 px-6 text-slate-500">
-        <Briefcase size={44} className="mx-auto mb-3 opacity-25" />
-        <p className="text-base font-medium text-slate-400">No jobs yet</p>
-        <p className="text-sm mt-1">Add a job first from the Jobs tab</p>
+      <div style={{ textAlign: 'center', padding: '5rem 1.5rem', color: 'var(--muted)' }}>
+        <Briefcase size={40} style={{ margin: '0 auto 0.75rem', opacity: 0.3, display: 'block' }} />
+        <p style={{ fontWeight: '600', color: 'var(--muted)', marginBottom: '0.25rem' }}>No jobs yet</p>
+        <p style={{ fontSize: '0.875rem', color: 'var(--subtle)' }}>Add a job from the Jobs tab first</p>
       </div>
     );
   }
 
   return (
-    <div className="px-4 pb-2">
+    <div style={{ padding: '0 1rem' }}>
       {/* Date nav */}
-      <div className="flex items-center gap-2 mb-4">
-        <button onClick={() => navDay(-1)}
-          className="p-2 rounded-xl hover:bg-slate-800 text-slate-400 transition-colors">
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+        <button onClick={() => setLogDate(addDays(logDate, -1))}
+          style={{ padding: '0.5rem', borderRadius: '0.75rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
           <ChevronLeft size={20} />
         </button>
-        <input
-          type="date"
-          value={logDate}
-          onChange={(e) => setLogDate(e.target.value)}
-          className="flex-1 text-center bg-transparent text-white font-semibold text-base focus:outline-none"
-        />
-        <button onClick={() => navDay(1)}
-          className="p-2 rounded-xl hover:bg-slate-800 text-slate-400 transition-colors">
+        <input type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)}
+          style={{ flex: 1, textAlign: 'center', background: 'none', border: 'none', color: 'var(--text)', fontWeight: '700', fontSize: '1rem', outline: 'none', cursor: 'pointer' }} />
+        <button onClick={() => setLogDate(addDays(logDate, 1))}
+          style={{ padding: '0.5rem', borderRadius: '0.75rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
           <ChevronRight size={20} />
         </button>
       </div>
 
-      {/* Today's shifts */}
-      {shiftsOnDate.length > 0 ? (
-        <div className="space-y-2 mb-4">
-          {shiftsOnDate.map((sh) => {
-            const job = jobs.find((j) => j.id === sh.jobId);
-            return (
-              <div key={sh.id} className="bg-indigo-950/30 border border-indigo-800/30 rounded-xl p-3 flex items-center justify-between gap-2">
-                <div>
-                  <p className="text-sm font-semibold text-white">{job?.name || 'Unknown'}</p>
-                  <p className="text-xs text-slate-400">{sh.hoursWorked}h logged{sh.notes ? ` · ${sh.notes}` : ''}</p>
-                </div>
-                <div className="flex gap-1">
-                  <button onClick={() => setEditShift(sh)}
-                    className="p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-700/60 rounded-lg transition-colors">
-                    <Pencil size={14} />
-                  </button>
-                  <button onClick={() => deleteShift(sh.id)}
-                    className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-slate-700/60 rounded-lg transition-colors">
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="bg-slate-800/30 border border-dashed border-slate-700/50 rounded-xl p-4 mb-4 text-center">
-          <p className="text-sm text-slate-500">No shift logged for this date</p>
+      {/* Shifts on this date */}
+      {shiftsOnDate.map((sh) => {
+        const job = jobs.find((j) => j.id === sh.jobId);
+        return (
+          <div key={sh.id} style={{ backgroundColor: 'var(--accent-soft)', border: '1px solid var(--border)', borderRadius: '0.875rem', padding: '0.875rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <p style={{ fontWeight: '600', color: 'var(--text)', fontSize: '0.9375rem' }}>{job?.name || 'Unknown'}</p>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--muted)', marginTop: '0.125rem' }}>{sh.hoursWorked}h logged{sh.notes ? ` · ${sh.notes}` : ''}</p>
+            </div>
+            <div style={{ display: 'flex', gap: '0.25rem' }}>
+              <button onClick={() => setEditShift(sh)} style={{ padding: '0.375rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}><Pencil size={15} /></button>
+              <button onClick={() => deleteShift(sh.id)} style={{ padding: '0.375rem', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}><Trash2 size={15} /></button>
+            </div>
+          </div>
+        );
+      })}
+
+      {shiftsOnDate.length === 0 && (
+        <div style={{ backgroundColor: 'var(--surface2)', border: '1px dashed var(--border)', borderRadius: '0.875rem', padding: '1rem', textAlign: 'center', marginBottom: '0.75rem' }}>
+          <p style={{ fontSize: '0.875rem', color: 'var(--subtle)' }}>No shift logged for this date</p>
         </div>
       )}
 
-      <button
-        onClick={() => setShowShiftForm(true)}
-        className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors flex items-center justify-center gap-2"
-      >
+      <button onClick={() => setShowShiftForm(true)} className="app-btn-primary" style={{ marginBottom: '1.5rem' }}>
         <Plus size={18} /> Log Shift
       </button>
 
-      {/* Recent shift history */}
+      {/* Recent shifts */}
       {recentShifts.length > 0 && (
-        <div className="mt-6">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3">Recent Shifts</p>
-          <div className="space-y-2">
+        <div>
+          <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.75rem', padding: '0 0.25rem' }}>Recent Shifts</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             {recentShifts.map((sh) => {
               const job = jobs.find((j) => j.id === sh.jobId);
               return (
-                <div key={sh.id} className="bg-slate-800/40 border border-slate-700/40 rounded-xl px-4 py-3 flex items-center justify-between gap-2">
+                <div key={sh.id} style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.875rem', padding: '0.875rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-white">{fmt(sh.date)}</p>
-                      {jobs.length > 1 && (
-                        <span className="text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded">{job?.name}</span>
-                      )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <p style={{ fontSize: '0.9375rem', fontWeight: '600', color: 'var(--text)' }}>{fmt(sh.date)}</p>
+                      {jobs.length > 1 && <span style={{ fontSize: '0.6875rem', backgroundColor: 'var(--surface2)', color: 'var(--muted)', padding: '0.125rem 0.5rem', borderRadius: '0.375rem' }}>{job?.name}</span>}
                     </div>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      {sh.hoursWorked}h{sh.notes ? ` · ${sh.notes}` : ''}
-                    </p>
+                    <p style={{ fontSize: '0.8125rem', color: 'var(--subtle)', marginTop: '0.125rem' }}>{sh.hoursWorked}h{sh.notes ? ` · ${sh.notes}` : ''}</p>
                   </div>
-                  <div className="flex gap-1">
-                    <button onClick={() => setEditShift(sh)}
-                      className="p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-700/60 rounded-lg transition-colors">
-                      <Pencil size={13} />
-                    </button>
-                    <button onClick={() => deleteShift(sh.id)}
-                      className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-slate-700/60 rounded-lg transition-colors">
-                      <Trash2 size={13} />
-                    </button>
+                  <div style={{ display: 'flex', gap: '0.25rem' }}>
+                    <button onClick={() => setEditShift(sh)} style={{ padding: '0.375rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}><Pencil size={14} /></button>
+                    <button onClick={() => deleteShift(sh.id)} style={{ padding: '0.375rem', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}><Trash2 size={14} /></button>
                   </div>
                 </div>
               );
@@ -581,54 +451,30 @@ function HoursTab({ jobs, shifts, addShift, updateShift, deleteShift }) {
 
       {showShiftForm && (
         <Modal title="Log Shift" onClose={() => setShowShiftForm(false)}>
-          <ShiftForm
-            initial={{ date: logDate }}
-            jobs={jobs}
-            onSave={(data) => { addShift(data); setShowShiftForm(false); }}
-            onCancel={() => setShowShiftForm(false)}
-          />
+          <ShiftForm initial={{ date: logDate }} jobs={jobs}
+            onSave={(d) => { addShift(d); setShowShiftForm(false); }}
+            onCancel={() => setShowShiftForm(false)} />
         </Modal>
       )}
       {editShift && (
         <Modal title="Edit Shift" onClose={() => setEditShift(null)}>
-          <ShiftForm
-            initial={editShift}
-            jobs={jobs}
-            onSave={(data) => { updateShift(editShift.id, data); setEditShift(null); }}
-            onCancel={() => setEditShift(null)}
-          />
+          <ShiftForm initial={editShift} jobs={jobs}
+            onSave={(d) => { updateShift(editShift.id, d); setEditShift(null); }}
+            onCancel={() => setEditShift(null)} />
         </Modal>
       )}
     </div>
   );
 }
 
-// ── Estimate Tab ─────────────────────────────────────────────────────────────
+// ── Estimate Tab ──────────────────────────────────────────────────────────────
 
-const PERIOD_PRESETS = [
+const PRESETS = [
   { label: 'Last 7 days', key: '7d' },
   { label: 'Last 14 days', key: '14d' },
-  { label: 'This Week', key: 'thisWeek' },
+  { label: 'This Week', key: 'week' },
   { label: 'Custom', key: 'custom' },
 ];
-
-function getPresetRange(key) {
-  if (key === '7d') return getLastNDaysEnd(7);
-  if (key === '14d') return getLastNDaysEnd(14);
-  if (key === 'thisWeek') {
-    const now = new Date();
-    const dow = now.getDay();
-    const mon = new Date(now);
-    mon.setDate(now.getDate() - ((dow + 6) % 7));
-    const sun = new Date(mon);
-    sun.setDate(mon.getDate() + 6);
-    return {
-      start: mon.toISOString().slice(0, 10),
-      end: sun.toISOString().slice(0, 10),
-    };
-  }
-  return getLastNDaysEnd(14);
-}
 
 function EstimateTab({ jobs, shifts, addIncome }) {
   const [selectedJobId, setSelectedJobId] = useState(jobs[0]?.id || '');
@@ -638,16 +484,13 @@ function EstimateTab({ jobs, shifts, addIncome }) {
 
   const job = jobs.find((j) => j.id === selectedJobId);
 
-  const periodShifts = useMemo(() => {
-    return shifts.filter(
-      (s) => s.jobId === selectedJobId && s.date >= range.start && s.date <= range.end
-    );
-  }, [shifts, selectedJobId, range]);
+  const periodShifts = useMemo(() =>
+    shifts.filter((s) => s.jobId === selectedJobId && s.date >= range.start && s.date <= range.end),
+    [shifts, selectedJobId, range]);
 
-  const { regularHours, overtimeHours } = useMemo(
-    () => (periodShifts.length > 0 ? calcHoursFromShifts(periodShifts, job || {}) : { regularHours: 0, overtimeHours: 0 }),
-    [periodShifts, job]
-  );
+  const { regularHours, overtimeHours } = useMemo(() =>
+    periodShifts.length > 0 ? calcHoursFromShifts(periodShifts, job || {}) : { regularHours: 0, overtimeHours: 0 },
+    [periodShifts, job]);
 
   const result = useMemo(() => {
     if (!job || (regularHours === 0 && overtimeHours === 0)) return null;
@@ -656,11 +499,13 @@ function EstimateTab({ jobs, shifts, addIncome }) {
 
   function handlePreset(key) {
     setPreset(key);
-    if (key !== 'custom') setRange(getPresetRange(key));
     setSaved(false);
+    if (key === '7d') setRange(getLastNDaysEnd(7));
+    else if (key === '14d') setRange(getLastNDaysEnd(14));
+    else if (key === 'week') setRange(getThisWeekRange());
   }
 
-  function handleSaveAsIncome() {
+  function handleSave() {
     if (!result || !job) return;
     const mk = monthKey(new Date(range.end + 'T12:00:00'));
     addIncome({
@@ -682,31 +527,26 @@ function EstimateTab({ jobs, shifts, addIncome }) {
 
   if (jobs.length === 0) {
     return (
-      <div className="text-center py-20 px-6 text-slate-500">
-        <Calculator size={44} className="mx-auto mb-3 opacity-25" />
-        <p className="text-base font-medium text-slate-400">No jobs yet</p>
-        <p className="text-sm mt-1">Add a job from the Jobs tab to estimate your paycheck</p>
+      <div style={{ textAlign: 'center', padding: '5rem 1.5rem', color: 'var(--muted)' }}>
+        <Calculator size={40} style={{ margin: '0 auto 0.75rem', opacity: 0.3, display: 'block' }} />
+        <p style={{ fontWeight: '600', color: 'var(--muted)', marginBottom: '0.25rem' }}>No jobs yet</p>
+        <p style={{ fontSize: '0.875rem', color: 'var(--subtle)' }}>Add a job from the Jobs tab to estimate your paycheck</p>
       </div>
     );
   }
 
   return (
-    <div className="px-4 pb-2">
+    <div style={{ padding: '0 1rem' }}>
       {/* Job selector */}
       {jobs.length > 1 && (
-        <div className="mb-4">
-          <label className="text-xs text-slate-500 uppercase tracking-widest mb-2 block">Job</label>
-          <div className="flex gap-2 flex-wrap">
+        <div style={{ marginBottom: '1rem' }}>
+          <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.5rem' }}>Job</p>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {jobs.map((j) => (
-              <button
-                key={j.id}
-                onClick={() => { setSelectedJobId(j.id); setSaved(false); }}
-                className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-                  selectedJobId === j.id
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                }`}
-              >
+              <button key={j.id} onClick={() => { setSelectedJobId(j.id); setSaved(false); }}
+                style={{ padding: '0.5rem 1rem', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '600', border: 'none', cursor: 'pointer',
+                  backgroundColor: selectedJobId === j.id ? 'var(--accent)' : 'var(--surface2)',
+                  color: selectedJobId === j.id ? '#fff' : 'var(--muted)' }}>
                 {j.name}
               </button>
             ))}
@@ -714,110 +554,104 @@ function EstimateTab({ jobs, shifts, addIncome }) {
         </div>
       )}
 
-      {/* Period selector */}
-      <div className="mb-4">
-        <label className="text-xs text-slate-500 uppercase tracking-widest mb-2 block">Pay Period</label>
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          {PERIOD_PRESETS.map((p) => (
-            <button
-              key={p.key}
-              onClick={() => handlePreset(p.key)}
-              className={`py-2 rounded-xl text-sm font-medium transition-colors ${
-                preset === p.key
-                  ? 'bg-slate-600 text-white'
-                  : 'bg-slate-800/60 text-slate-400 hover:bg-slate-700'
-              }`}
-            >
+      {/* Period */}
+      <div style={{ marginBottom: '1rem' }}>
+        <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.5rem' }}>Pay Period</p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.75rem' }}>
+          {PRESETS.map((p) => (
+            <button key={p.key} onClick={() => handlePreset(p.key)}
+              style={{ padding: '0.625rem', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '600', border: `1px solid ${preset === p.key ? 'var(--accent)' : 'var(--border)'}`,
+                backgroundColor: preset === p.key ? 'var(--accent-soft)' : 'var(--surface2)',
+                color: preset === p.key ? 'var(--accent-text)' : 'var(--muted)', cursor: 'pointer' }}>
               {p.label}
             </button>
           ))}
         </div>
-
         {preset === 'custom' && (
-          <div className="grid grid-cols-2 gap-3">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.5rem' }}>
             <div>
-              <label className="text-xs text-slate-500 mb-1 block">Start</label>
-              <input
-                type="date"
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500"
-                value={range.start}
-                onChange={(e) => { setRange((r) => ({ ...r, start: e.target.value })); setSaved(false); }}
-              />
+              <Label>Start</Label>
+              <Input type="date" value={range.start} onChange={(e) => { setRange((r) => ({ ...r, start: e.target.value })); setSaved(false); }} />
             </div>
             <div>
-              <label className="text-xs text-slate-500 mb-1 block">End</label>
-              <input
-                type="date"
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500"
-                value={range.end}
-                onChange={(e) => { setRange((r) => ({ ...r, end: e.target.value })); setSaved(false); }}
-              />
+              <Label>End</Label>
+              <Input type="date" value={range.end} onChange={(e) => { setRange((r) => ({ ...r, end: e.target.value })); setSaved(false); }} />
             </div>
           </div>
         )}
-
-        <p className="text-xs text-slate-500 mt-2 text-center">{periodLabel(range.start, range.end)}</p>
+        <p style={{ fontSize: '0.8125rem', color: 'var(--subtle)', textAlign: 'center' }}>{periodLabel(range.start, range.end)}</p>
       </div>
 
       {/* Hours summary */}
       {periodShifts.length > 0 ? (
-        <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl px-4 py-3 mb-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-sm text-slate-400">Shifts logged</p>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {regularHours}h regular{overtimeHours > 0 ? ` + ${overtimeHours}h OT` : ''} · {periodShifts.length} days
-              </p>
-            </div>
-            <p className="text-2xl font-black text-white">{regularHours + overtimeHours}h</p>
+        <div style={{ backgroundColor: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '0.875rem', padding: '0.875rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>Shifts logged</p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.125rem' }}>
+              {regularHours}h regular{overtimeHours > 0 ? ` + ${overtimeHours}h OT` : ''} · {periodShifts.length} days
+            </p>
           </div>
+          <p style={{ fontSize: '2rem', fontWeight: '900', color: 'var(--text)' }}>{regularHours + overtimeHours}h</p>
         </div>
       ) : (
-        <div className="bg-slate-800/30 border border-dashed border-slate-700/40 rounded-xl p-4 mb-4 text-center">
-          <Clock size={28} className="mx-auto mb-2 text-slate-600" />
-          <p className="text-sm text-slate-500">No shifts logged for this period</p>
-          <p className="text-xs text-slate-600 mt-1">Log hours in the Hours tab first</p>
+        <div style={{ border: '1px dashed var(--border)', borderRadius: '0.875rem', padding: '1.5rem', textAlign: 'center', marginBottom: '1rem' }}>
+          <Clock size={28} style={{ margin: '0 auto 0.5rem', color: 'var(--subtle)', display: 'block' }} />
+          <p style={{ fontSize: '0.875rem', color: 'var(--subtle)' }}>No shifts for this period — log hours first</p>
         </div>
       )}
 
-      {/* Pay breakdown */}
-      {result ? (
+      {/* Breakdown */}
+      {result && (
         <>
           <PayBreakdown result={result} />
-
-          <div className="mt-4 p-3 bg-slate-800/30 border border-slate-700/30 rounded-xl">
-            <p className="text-xs text-slate-500 leading-relaxed">
-              <Info size={11} className="inline mr-1 opacity-60" />
-              Estimates use 2025 IRS Pub 15-T (federal) and AR DFA withholding tables.
-              Actual amounts depend on your W-4 and employer elections.
+          <div style={{ marginTop: '0.75rem', padding: '0.75rem', backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', marginBottom: '1rem' }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', lineHeight: '1.4' }}>
+              <Info size={11} style={{ display: 'inline', marginRight: '0.25rem', verticalAlign: 'middle', opacity: 0.6 }} />
+              Estimates use 2025 IRS Pub 15-T and AR DFA withholding tables. Actual amounts depend on your W-4.
             </p>
           </div>
 
           {saved ? (
-            <div className="mt-4 flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-900/30 border border-emerald-800/40 text-emerald-400 font-semibold text-sm">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.875rem', borderRadius: '0.875rem', backgroundColor: 'var(--positive-soft)', color: 'var(--positive-text)', fontWeight: '700' }}>
               <Check size={16} /> Saved to Income
             </div>
           ) : (
-            <button
-              onClick={handleSaveAsIncome}
-              className="mt-4 w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-colors flex items-center justify-center gap-2"
-            >
-              <Save size={18} /> Add to Income ({monthKey(new Date(range.end + 'T12:00:00'))})
+            <button onClick={handleSave} className="app-btn-primary"
+              style={{ backgroundColor: 'var(--positive)', marginTop: '0' }}>
+              <Save size={18} /> Save to Income
             </button>
           )}
         </>
-      ) : null}
+      )}
     </div>
   );
 }
 
-// ── Main Page ────────────────────────────────────────────────────────────────
+// ── Page tabs ─────────────────────────────────────────────────────────────────
 
-const TABS = [
-  { key: 'jobs', label: 'Jobs', Icon: Briefcase },
-  { key: 'hours', label: 'Hours', Icon: Clock },
-  { key: 'estimate', label: 'Estimate', Icon: Calculator },
-];
+const TABS = ['jobs', 'hours', 'estimate'];
+const TAB_LABELS = { jobs: 'Jobs', hours: 'Hours', estimate: 'Estimate' };
+
+function SegmentedControl({ value, onChange, options }) {
+  return (
+    <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.875rem', padding: '0.25rem', gap: '0.25rem' }}>
+      {options.map((o) => (
+        <button key={o} onClick={() => onChange(o)}
+          style={{
+            flex: 1, padding: '0.625rem 0', borderRadius: '0.625rem', fontSize: '0.9375rem', fontWeight: '700',
+            border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+            backgroundColor: value === o ? 'var(--surface)' : 'transparent',
+            color: value === o ? 'var(--text)' : 'var(--subtle)',
+            boxShadow: value === o ? '0 1px 4px rgba(0,0,0,0.15)' : 'none',
+          }}>
+          {TAB_LABELS[o]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function WorkTime() {
   const { jobs, addJob, updateJob, deleteJob, shifts, addShift, updateShift, deleteShift, addIncome } = useApp();
@@ -826,94 +660,65 @@ export default function WorkTime() {
   const [editJob, setEditJob] = useState(null);
 
   return (
-    <div className="pb-36">
-      {/* Header */}
-      <div className="px-4 pt-6 pb-4">
-        <h1 className="text-2xl font-black text-white tracking-tight mb-4">Work Time</h1>
-
-        {/* Tabs */}
-        <div className="flex bg-slate-800/60 rounded-2xl p-1 gap-1">
-          {TABS.map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-                tab === key
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Icon size={15} />
-              {label}
+    <div className="app-page">
+      <div className="app-header">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+          <h1 style={{ fontSize: '1.625rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-0.02em' }}>Work Time</h1>
+          {tab === 'jobs' && jobs.length > 0 && (
+            <button onClick={() => setShowJobForm(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.875rem', backgroundColor: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer' }}>
+              <Plus size={16} /> Add Job
             </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Tab content */}
-      {tab === 'jobs' && (
-        <div className="px-4 space-y-3">
-          {jobs.length === 0 ? (
-            <div className="text-center py-20 text-slate-500">
-              <Briefcase size={48} className="mx-auto mb-3 opacity-25" />
-              <p className="text-base font-medium text-slate-400">No jobs added yet</p>
-              <p className="text-sm mt-1">Add a job to start tracking your hours and pay</p>
-              <button
-                onClick={() => setShowJobForm(true)}
-                className="mt-5 px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors inline-flex items-center gap-2"
-              >
-                <Plus size={18} /> Add First Job
-              </button>
-            </div>
-          ) : (
-            <>
-              {jobs.map((job) => (
-                <JobCard key={job.id} job={job} onEdit={setEditJob} onDelete={deleteJob} />
-              ))}
-              <button
-                onClick={() => setShowJobForm(true)}
-                className="w-full py-3 rounded-xl border border-dashed border-slate-600/60 text-slate-400 hover:text-white hover:border-slate-500 transition-colors flex items-center justify-center gap-2 text-sm font-medium"
-              >
-                <Plus size={16} /> Add Another Job
-              </button>
-            </>
           )}
         </div>
-      )}
+        <SegmentedControl value={tab} onChange={setTab} options={TABS} />
+      </div>
 
-      {tab === 'hours' && (
-        <HoursTab
-          jobs={jobs}
-          shifts={shifts}
-          addShift={addShift}
-          updateShift={updateShift}
-          deleteShift={deleteShift}
-        />
-      )}
+      <div style={{ marginTop: '0.25rem' }}>
+        {/* Jobs tab */}
+        {tab === 'jobs' && (
+          <div style={{ padding: '0 1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {jobs.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
+                <Briefcase size={48} style={{ margin: '0 auto 1rem', opacity: 0.2, color: 'var(--muted)', display: 'block' }} />
+                <p style={{ fontWeight: '700', color: 'var(--text)', fontSize: '1.125rem', marginBottom: '0.5rem' }}>No jobs added yet</p>
+                <p style={{ fontSize: '0.9375rem', color: 'var(--muted)', marginBottom: '1.5rem' }}>Add a job to start tracking your hours and paycheck</p>
+                <button onClick={() => setShowJobForm(true)} className="app-btn-primary"
+                  style={{ maxWidth: '14rem', margin: '0 auto' }}>
+                  <Plus size={18} /> Add First Job
+                </button>
+              </div>
+            ) : (
+              <>
+                {jobs.map((job) => (
+                  <JobCard key={job.id} job={job} onEdit={setEditJob} onDelete={deleteJob} />
+                ))}
+                <button onClick={() => setShowJobForm(true)}
+                  style={{ padding: '0.875rem', border: '1px dashed var(--border)', borderRadius: '0.875rem', color: 'var(--muted)', background: 'none', cursor: 'pointer', fontSize: '0.9375rem', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                  <Plus size={16} /> Add Another Job
+                </button>
+              </>
+            )}
+          </div>
+        )}
 
-      {tab === 'estimate' && (
-        <EstimateTab
-          jobs={jobs}
-          shifts={shifts}
-          addIncome={addIncome}
-        />
-      )}
+        {tab === 'hours' && (
+          <HoursTab jobs={jobs} shifts={shifts} addShift={addShift} updateShift={updateShift} deleteShift={deleteShift} />
+        )}
+
+        {tab === 'estimate' && (
+          <EstimateTab jobs={jobs} shifts={shifts} addIncome={addIncome} />
+        )}
+      </div>
 
       {showJobForm && (
         <Modal title="Add Job" onClose={() => setShowJobForm(false)}>
-          <JobForm
-            onSave={(data) => { addJob(data); setShowJobForm(false); }}
-            onCancel={() => setShowJobForm(false)}
-          />
+          <JobForm onSave={(d) => { addJob(d); setShowJobForm(false); }} onCancel={() => setShowJobForm(false)} />
         </Modal>
       )}
       {editJob && (
         <Modal title="Edit Job" onClose={() => setEditJob(null)}>
-          <JobForm
-            initial={editJob}
-            onSave={(data) => { updateJob(editJob.id, data); setEditJob(null); }}
-            onCancel={() => setEditJob(null)}
-          />
+          <JobForm initial={editJob} onSave={(d) => { updateJob(editJob.id, d); setEditJob(null); }} onCancel={() => setEditJob(null)} />
         </Modal>
       )}
     </div>

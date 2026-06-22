@@ -13,36 +13,32 @@ const links = [
 export default function BottomNav() {
   return (
     <nav
-      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[640px] z-50"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      className="fixed bottom-0 left-0 right-0 z-50"
+      style={{ backgroundColor: 'var(--surface)', borderTop: '1px solid var(--border)' }}
     >
-      {/* Card-style nav with shadow */}
-      <div className="mx-3 mb-3 bg-slate-900/98 backdrop-blur-xl border border-slate-700/60 rounded-2xl shadow-2xl shadow-black/40">
-        <div className="flex items-stretch px-1 py-1">
-          {links.map(({ to, label, Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === '/'}
-              className="flex-1 min-w-0"
-            >
-              {({ isActive }) => (
-                <div className={`flex flex-col items-center gap-1 py-2 px-1 rounded-xl transition-colors ${isActive ? '' : 'hover:bg-slate-800/50'}`}>
-                  <div className={`flex items-center justify-center rounded-xl w-10 h-9 transition-all ${
-                    isActive
-                      ? 'bg-indigo-500/20 text-indigo-400'
-                      : 'text-slate-500'
-                  }`}>
-                    <Icon size={22} strokeWidth={isActive ? 2.25 : 1.75} />
-                  </div>
-                  <span className={`text-[10px] font-semibold leading-none ${isActive ? 'text-indigo-400' : 'text-slate-500'}`}>
-                    {label}
-                  </span>
-                </div>
-              )}
-            </NavLink>
-          ))}
-        </div>
+      <div
+        className="flex max-w-2xl mx-auto"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
+        {links.map(({ to, label, Icon }) => (
+          <NavLink key={to} to={to} end={to === '/'} className="flex-1 min-w-0">
+            {({ isActive }) => (
+              <div className="flex flex-col items-center justify-center h-16 gap-1">
+                <Icon
+                  size={23}
+                  strokeWidth={isActive ? 2.2 : 1.6}
+                  style={{ color: isActive ? 'var(--accent-text)' : 'var(--subtle)' }}
+                />
+                <span
+                  className="text-[10px] font-semibold leading-none"
+                  style={{ color: isActive ? 'var(--accent-text)' : 'var(--subtle)' }}
+                >
+                  {label}
+                </span>
+              </div>
+            )}
+          </NavLink>
+        ))}
       </div>
     </nav>
   );
