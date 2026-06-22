@@ -469,25 +469,13 @@ export default function BillsDebts() {
                 </div>
               )
             ) : (<>
-            {monthBills.length > 0 && (
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                  {[['Unpaid', billTotals.unpaid, 'var(--danger)'], ['Pending', billTotals.pending, 'var(--warn)'], ['Paid', billTotals.paid, 'var(--positive-text)']].map(([lbl, val, col]) => (
-                    <div key={lbl} style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.875rem', padding: '0.75rem', textAlign: 'center' }}>
-                      <p style={{ ...sectionLabel, marginBottom: '0.25rem' }}>{lbl}</p>
-                      <p style={{ fontSize: '1rem', fontWeight: 800, color: col }}>{formatCurrency(val)}</p>
-                    </div>
-                  ))}
-                </div>
-                {overdueCount > 0 && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', backgroundColor: 'var(--danger-soft)', border: '1px solid var(--danger)', borderRadius: '0.875rem', padding: '0.75rem 1rem' }}>
-                    <AlertTriangle size={15} style={{ color: 'var(--danger)', flexShrink: 0 }} />
-                    <p style={{ fontSize: '0.875rem', color: 'var(--danger)', fontWeight: 600 }}>
-                      {overdueCount} bill{overdueCount > 1 ? 's are' : ' is'} overdue
-                    </p>
-                  </div>
-                )}
-              </>
+            {overdueCount > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', backgroundColor: 'var(--danger-soft)', border: '1px solid var(--danger)', borderRadius: '0.875rem', padding: '0.75rem 1rem' }}>
+                <AlertTriangle size={15} style={{ color: 'var(--danger)', flexShrink: 0 }} />
+                <p style={{ fontSize: '0.875rem', color: 'var(--danger)', fontWeight: 600 }}>
+                  {overdueCount} bill{overdueCount > 1 ? 's are' : ' is'} overdue
+                </p>
+              </div>
             )}
 
             {sortedBills.length === 0 ? (
