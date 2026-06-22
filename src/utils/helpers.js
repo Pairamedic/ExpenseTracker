@@ -39,6 +39,7 @@ export function getBillStatus(bill, mk) {
   if (bill.statusMonths?.[mk]) return bill.statusMonths[mk];
   // Backward compat with old paidMonths boolean
   if (bill.paidMonths?.[mk]) return 'paid';
+  if (bill.isPermanent) return 'paid';
   return 'unpaid';
 }
 

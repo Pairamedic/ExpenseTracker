@@ -8,44 +8,63 @@ export default function Modal({ title, onClose, children }) {
   }, []);
 
   return (
-    /* z-[70] — above the z-50 nav */
-    <div className="fixed inset-0 z-[70] flex items-end justify-center">
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 70,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '1rem',
+      }}
+    >
       {/* backdrop */}
       <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
         onClick={onClose}
+        style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
       />
 
-      {/* sheet — no fixed height, let content scroll, leave room for iOS chrome */}
+      {/* centered card */}
       <div
-        className="relative w-full max-w-2xl rounded-t-2xl shadow-2xl overflow-hidden flex flex-col"
         style={{
+          position: 'relative',
+          width: '100%',
+          maxWidth: '26rem',
+          maxHeight: 'calc(100svh - 2rem)',
           backgroundColor: 'var(--surface)',
           border: '1px solid var(--border)',
-          borderBottom: 'none',
-          maxHeight: 'calc(100svh - env(safe-area-inset-top, 44px) - 16px)',
+          borderRadius: '1.25rem',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
         }}
       >
-        {/* sticky header */}
-        <div
-          className="flex items-center justify-between px-5 pt-5 pb-4 flex-shrink-0"
-          style={{ borderBottom: '1px solid var(--border)' }}
-        >
-          <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>{title}</h2>
+        {/* header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '1.125rem 1.25rem',
+          borderBottom: '1px solid var(--border)',
+          flexShrink: 0,
+        }}>
+          <h2 style={{ fontSize: '1.0625rem', fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.01em' }}>{title}</h2>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full transition-colors"
-            style={{ color: 'var(--muted)', backgroundColor: 'var(--surface2)' }}
+            style={{
+              width: '2rem', height: '2rem', borderRadius: '9999px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--muted)', backgroundColor: 'var(--surface2)',
+              border: 'none', cursor: 'pointer', flexShrink: 0,
+            }}
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
 
-        {/* scrollable content — padding-bottom clears iOS bottom bar */}
-        <div
-          className="overflow-y-auto flex-1 px-5 py-5"
-          style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom, 0px))' }}
-        >
+        {/* scrollable content */}
+        <div style={{
+          overflowY: 'auto',
+          flex: 1,
+          padding: '1.25rem',
+          paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom, 0px))',
+        }}>
           {children}
         </div>
       </div>
