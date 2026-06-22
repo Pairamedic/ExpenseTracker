@@ -1,16 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ChevronLeft, ChevronRight, TrendingUp, Receipt, CreditCard,
   CalendarDays, Plus, Pencil, Trash2, CheckSquare, Square,
   MoreVertical, Bell, LayoutDashboard, Link, Plane, AlertTriangle,
-  Wallet, PiggyBank, Settings,
+  Wallet, PiggyBank, Settings, BarChart2, Users,
 } from 'lucide-react';
 import { Link as RouterLink } from 'react-router-dom';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useApp } from '../context/AppContext';
 import {
   formatCurrency, monthKey, monthLabel, getBillsForMonth, getIncomeForMonth,
   getPayDatesForMonth, getNextPayDate, getBillStatus, isBillOverdueUnpaid,
-  isReminderOverdue, isReminderSoon, formatDate,
+  isReminderOverdue, isReminderSoon, formatDate, getSpendingHistory, getCategoryTotals,
 } from '../utils/helpers';
 import Modal from '../components/Modal';
 import SavingsForm from '../components/SavingsForm';
@@ -284,6 +285,44 @@ export default function Dashboard() {
   const monthPurchases = purchases.filter((p) => p.date && p.date.startsWith(mk));
   const monthSpent = monthPurchases.reduce((s, p) => s + p.amount, 0);
 
+  const totalDebt = debts.reduce((s, d) => s + d.balance, 0);
+  const netWorth = totalSavings - totalDebt;
+
+  const spendingHistory = getSpendingHistory(purchases, 6);
+  const categoryTotals = getCategoryTotals(purchases, mk);
+
+  const aaronSpent = monthPurchases.filter((p) => p.person === 'aaron' || p.person === 'me').reduce((s, p) => s + p.amount, 0);
+  const cameronSpent = monthPurchases.filter((p) => p.person === 'cameron' || p.person === 'partner').reduce((s, p) => s + p.amount, 0);
+
+  // Bill reminders — request notification permission and alert on due-soon bills
+  useEffect(() => {
+    if (!('Notification' in window)) return;
+    const lastCheck = localStorage.getItem('lastBillReminderCheck');
+    const today = new Date().toDateString();
+    if (lastCheck === today) return;
+    const dueSoon = bills.filter((b) => {
+      if (!b.dueDay || getBillStatus(b, monthKey()) !== 'unpaid') return false;
+      const diff = b.dueDay - new Date().getDate();
+      return diff >= 0 && diff <= 3;
+    });
+    if (dueSoon.length === 0) return;
+    const show = () => {
+      localStorage.setItem('lastBillReminderCheck', today);
+      dueSoon.forEach((b) => {
+        const diff = b.dueDay - new Date().getDate();
+        new Notification('Bill Due Soon', {
+          body: `${b.name} — ${formatCurrency(b.amount)} due ${diff === 0 ? 'today' : `in ${diff} day${diff > 1 ? 's' : ''}`}`,
+          icon: '/ExpenseTracker/pwa-192x192.png',
+        });
+      });
+    };
+    if (Notification.permission === 'granted') {
+      show();
+    } else if (Notification.permission === 'default') {
+      Notification.requestPermission().then((p) => { if (p === 'granted') show(); });
+    }
+  }, [bills]);
+
   const sectionCard = { backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', overflow: 'hidden', marginBottom: '0' };
   const sectionWrap = { marginBottom: '1.25rem' };
 
@@ -421,7 +460,7 @@ export default function Dashboard() {
         </div>
 
         {/* Spending vs budget */}
-        {spendingBudget > 0 && monthPurchases.length > 0 && (
+        {spendingBudget > 0 && (
           <div style={sectionWrap}>
             <SectionLabel>Spending This Month</SectionLabel>
             <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', padding: '1rem' }}>
@@ -481,6 +520,115 @@ export default function Dashboard() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Net Worth */}
+        <div style={sectionWrap}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.75rem' }}>
+            <BarChart2 size={13} style={{ color: 'var(--positive-text)' }} />
+            <SectionLabel>Net Worth</SectionLabel>
+          </div>
+          <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', padding: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+              <div>
+                <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>Savings</p>
+                <p style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--positive-text)' }}>{formatCurrency(totalSavings)}</p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>Debt</p>
+                <p style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--danger)' }}>− {formatCurrency(totalDebt)}</p>
+              </div>
+            </div>
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <p style={{ fontSize: '0.875rem', color: 'var(--muted)', fontWeight: '600' }}>Net Worth</p>
+              <p style={{ fontSize: '1.5rem', fontWeight: '900', color: netWorth >= 0 ? 'var(--positive-text)' : 'var(--danger)' }}>{formatCurrency(netWorth)}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* 6-month spending chart */}
+        {spendingHistory.some((m) => m.amount > 0) && (
+          <div style={sectionWrap}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.75rem' }}>
+              <TrendingUp size={13} style={{ color: 'var(--accent-text)' }} />
+              <SectionLabel>Spending Trend</SectionLabel>
+            </div>
+            <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', padding: '1rem' }}>
+              <ResponsiveContainer width="100%" height={140}>
+                <BarChart data={spendingHistory} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                  <XAxis dataKey="month" tick={{ fill: 'var(--subtle)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: 'var(--subtle)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v}`} />
+                  <Tooltip
+                    cursor={{ fill: 'rgba(99,102,241,0.08)' }}
+                    contentStyle={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem', fontSize: '0.8125rem', color: 'var(--text)' }}
+                    formatter={(v) => [formatCurrency(v), 'Spent']}
+                  />
+                  <Bar dataKey="amount" radius={[5, 5, 0, 0]}>
+                    {spendingHistory.map((entry) => (
+                      <Cell key={entry.mk} fill={entry.mk === mk ? 'var(--accent)' : 'var(--surface2)'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {/* Category breakdown */}
+        {categoryTotals.length > 0 && (
+          <div style={sectionWrap}>
+            <SectionLabel>Top Categories — {monthLabel(mk)}</SectionLabel>
+            <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+              {categoryTotals.slice(0, 5).map(({ cat, amt }) => {
+                const pct = monthSpent > 0 ? (amt / monthSpent) * 100 : 0;
+                return (
+                  <div key={cat}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                      <span style={{ fontSize: '0.875rem', color: 'var(--text)', fontWeight: '600' }}>{cat}</span>
+                      <span style={{ fontSize: '0.875rem', color: 'var(--muted)', fontWeight: '700' }}>{formatCurrency(amt)}</span>
+                    </div>
+                    <div style={{ height: '0.375rem', backgroundColor: 'var(--surface2)', borderRadius: '9999px', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', backgroundColor: 'var(--accent)', borderRadius: '9999px', width: `${pct}%`, transition: 'width 0.3s' }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Partner view */}
+        {(aaronSpent > 0 || cameronSpent > 0) && (
+          <div style={sectionWrap}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.75rem' }}>
+              <Users size={13} style={{ color: 'var(--accent-text)' }} />
+              <SectionLabel>Spending by Person — {monthLabel(mk)}</SectionLabel>
+            </div>
+            <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', padding: '1rem' }}>
+              {[
+                { label: aaronLabel, amt: aaronSpent, color: 'var(--accent)' },
+                { label: partnerLabel, amt: cameronSpent, color: '#a78bfa' },
+              ].map(({ label, amt, color }) => {
+                const pct = monthSpent > 0 ? (amt / monthSpent) * 100 : 0;
+                return (
+                  <div key={label} style={{ marginBottom: '0.75rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+                      <span style={{ fontSize: '0.9375rem', fontWeight: '700', color: 'var(--text)' }}>{label}</span>
+                      <span style={{ fontSize: '0.9375rem', fontWeight: '800', color: 'var(--text)' }}>{formatCurrency(amt)}</span>
+                    </div>
+                    <div style={{ height: '0.5rem', backgroundColor: 'var(--surface2)', borderRadius: '9999px', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', backgroundColor: color, borderRadius: '9999px', width: `${pct}%`, transition: 'width 0.3s' }} />
+                    </div>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.2rem' }}>{pct.toFixed(0)}% of month total</p>
+                  </div>
+                );
+              })}
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: '0.75rem', display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '0.8125rem', color: 'var(--muted)', fontWeight: '600' }}>Combined</span>
+                <span style={{ fontSize: '0.9375rem', fontWeight: '800', color: 'var(--text)' }}>{formatCurrency(monthSpent)}</span>
+              </div>
             </div>
           </div>
         )}

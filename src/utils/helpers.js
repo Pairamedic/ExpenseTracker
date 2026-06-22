@@ -156,3 +156,66 @@ export function isReminderSoon(reminderDate) {
   const diff = (d - now) / (1000 * 60 * 60 * 24);
   return diff >= 0 && diff <= 3;
 }
+
+// ── CSV Export ──
+export function exportToCSV(data, filename) {
+  const rows = [Object.keys(data[0])];
+  data.forEach((row) => rows.push(Object.values(row).map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`)));
+  const csv = rows.map((r) => r.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+export function exportAllData({ bills, income, debts, savings, purchases }) {
+  const ts = new Date().toISOString().slice(0, 10);
+  if (bills.length) exportToCSV(bills.map((b) => ({ name: b.name, amount: b.amount, category: b.category, owner: b.owner, dueDay: b.dueDay || '', isRecurring: b.isRecurring })), `bills-${ts}.csv`);
+  if (income.length) exportToCSV(income.map((i) => ({ name: i.name, amount: i.amount, frequency: i.frequency, owner: i.owner || '' })), `income-${ts}.csv`);
+  if (debts.length) exportToCSV(debts.map((d) => ({ name: d.name, balance: d.balance, minPayment: d.minPayment, interestRate: d.interestRate || '', owner: d.owner })), `debts-${ts}.csv`);
+  if (savings.length) exportToCSV(savings.map((s) => ({ name: s.name, balance: s.balance, goal: s.goal || '' })), `savings-${ts}.csv`);
+  if (purchases.length) exportToCSV(purchases.map((p) => ({ date: p.date, merchant: p.merchant, amount: p.amount, category: p.category, person: p.person, notes: p.notes || '' })), `spending-${ts}.csv`);
+}
+
+// ── Debt payoff calculator ──
+export function calcDebtPayoff(balance, annualRate, monthlyPayment) {
+  if (!balance || !monthlyPayment) return null;
+  const rate = (annualRate || 0) / 100 / 12;
+  if (monthlyPayment <= balance * rate) return null; // payment too low to payoff
+  let bal = balance;
+  let months = 0;
+  let totalInterest = 0;
+  while (bal > 0 && months < 600) {
+    const interest = bal * rate;
+    totalInterest += interest;
+    bal = bal + interest - monthlyPayment;
+    months++;
+    if (bal < 0) bal = 0;
+  }
+  const payoffDate = new Date();
+  payoffDate.setMonth(payoffDate.getMonth() + months);
+  return { months, totalInterest, payoffDate };
+}
+
+// ── Spending per month (last N months) ──
+export function getSpendingHistory(purchases, months = 6) {
+  const result = [];
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setMonth(d.getMonth() - i);
+    const mk = monthKey(d);
+    const total = purchases.filter((p) => p.date?.startsWith(mk)).reduce((s, p) => s + p.amount, 0);
+    result.push({ month: d.toLocaleDateString('en-US', { month: 'short' }), amount: total, mk });
+  }
+  return result;
+}
+
+// ── Category totals for a month ──
+export function getCategoryTotals(purchases, mk) {
+  const map = {};
+  purchases.filter((p) => p.date?.startsWith(mk)).forEach((p) => {
+    map[p.category] = (map[p.category] || 0) + p.amount;
+  });
+  return Object.entries(map).sort((a, b) => b[1] - a[1]).map(([cat, amt]) => ({ cat, amt }));
+}

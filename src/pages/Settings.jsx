@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { User, Trash2, AlertTriangle, Wallet, PiggyBank, DollarSign, Sun, Moon, LogOut, Mail } from 'lucide-react';
+import { User, Trash2, AlertTriangle, Wallet, PiggyBank, DollarSign, Sun, Moon, LogOut, Mail, Download } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
-import { formatCurrency } from '../utils/helpers';
+import { formatCurrency, exportAllData } from '../utils/helpers';
 
 export default function Settings() {
   const { settings, setSettings, bills, income, debts, savings, commitments, purchases } = useApp();
@@ -171,6 +171,18 @@ export default function Settings() {
             className="flex items-center gap-2 text-sm font-semibold"
             style={{ color: 'var(--muted)', border: '1px solid var(--border)', padding: '0.625rem 1rem', borderRadius: '0.75rem', backgroundColor: 'transparent', cursor: 'pointer', width: '100%', justifyContent: 'center' }}>
             <LogOut size={15} /> Sign Out
+          </button>
+        </section>
+
+        {/* Export */}
+        <section className="mb-4" style={cardStyle}>
+          <p className="mb-1" style={sectionLabelStyle}>Export Data</p>
+          <p className="text-xs mb-3" style={{ color: 'var(--muted)' }}>Download all your data as CSV files — bills, income, debts, savings, and spending.</p>
+          <button
+            onClick={() => exportAllData({ bills, income, debts, savings, purchases })}
+            className="flex items-center gap-2 text-sm font-semibold"
+            style={{ color: 'var(--accent-text)', border: '1px solid var(--accent)', padding: '0.625rem 1rem', borderRadius: '0.75rem', backgroundColor: 'transparent', cursor: 'pointer' }}>
+            <Download size={14} /> Export to CSV
           </button>
         </section>
 
