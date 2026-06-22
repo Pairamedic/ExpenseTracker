@@ -437,85 +437,163 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Hero summary card */}
+        {/* Hero summary card — Available at top, compact 2-col grid below */}
         <div style={{ ...sectionCard, borderRadius: '1.25rem', padding: '1.25rem', marginBottom: '1.25rem' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--positive-text)' }}>
-                <TrendingUp size={15} />
-                <span style={{ fontSize: '0.875rem', fontWeight: '600' }}>Income</span>
+          {/* Available — prominent at top */}
+          <div style={{ marginBottom: '1rem' }}>
+            <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>Available</p>
+            <p style={{ fontSize: '2.5rem', fontWeight: '900', letterSpacing: '-0.02em', color: availableToSpend >= 0 ? 'var(--text)' : 'var(--danger)' }}>
+              {formatCurrency(availableToSpend)}
+            </p>
+          </div>
+          {/* 2-column breakdown */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: (spendingBudget > 0 || savingsTarget > 0) ? '0.75rem' : 0 }}>
+            <div style={{ backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', padding: '0.625rem 0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', marginBottom: '0.2rem' }}>
+                <TrendingUp size={11} style={{ color: 'var(--positive-text)' }} />
+                <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--subtle)' }}>Income</span>
               </div>
-              <span style={{ fontSize: '1.125rem', fontWeight: '700', color: 'var(--text)' }}>{formatCurrency(monthlyIncome)}</span>
+              <p style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text)' }}>{formatCurrency(monthlyIncome)}</p>
+              {viewMode === 'joint' && partnerIncome > 0 && (
+                <p style={{ fontSize: '0.65rem', color: 'var(--subtle)', marginTop: '0.1rem' }}>{aaronLabel} + {partnerLabel}</p>
+              )}
             </div>
-            {viewMode === 'joint' && partnerIncome > 0 && (
-              <div style={{ marginLeft: '1.25rem', backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', padding: '0.625rem 0.875rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
-                  <span style={{ color: 'var(--muted)' }}>{aaronLabel}</span>
-                  <span style={{ color: 'var(--text)', fontWeight: '600' }}>{formatCurrency(myIncome)}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
-                  <span style={{ color: 'var(--muted)' }}>{partnerLabel}</span>
-                  <span style={{ color: 'var(--text)', fontWeight: '600' }}>{formatCurrency(partnerIncome)}</span>
-                </div>
+            <div style={{ backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', padding: '0.625rem 0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', marginBottom: '0.2rem' }}>
+                <Receipt size={11} style={{ color: 'var(--danger)' }} />
+                <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--subtle)' }}>Bills</span>
               </div>
-            )}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--danger)' }}>
-                <Receipt size={15} />
-                <span style={{ fontSize: '0.875rem', fontWeight: '600' }}>Bills</span>
-              </div>
-              <span style={{ fontSize: '1.125rem', fontWeight: '700', color: 'var(--text)' }}>− {formatCurrency(totalBills)}</span>
+              <p style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text)' }}>− {formatCurrency(totalBills)}</p>
             </div>
             {totalDebtMins > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--warn)' }}>
-                  <CreditCard size={15} />
-                  <span style={{ fontSize: '0.875rem', fontWeight: '600' }}>Debt minimums</span>
+              <div style={{ backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', padding: '0.625rem 0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', marginBottom: '0.2rem' }}>
+                  <CreditCard size={11} style={{ color: 'var(--warn)' }} />
+                  <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--subtle)' }}>Debt Mins</span>
                 </div>
-                <span style={{ fontSize: '1.125rem', fontWeight: '700', color: 'var(--text)' }}>− {formatCurrency(totalDebtMins)}</span>
+                <p style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text)' }}>− {formatCurrency(totalDebtMins)}</p>
               </div>
             )}
             {activePlannedTotal > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent-text)' }}>
-                  <Plane size={15} />
-                  <span style={{ fontSize: '0.875rem', fontWeight: '600' }}>Planned expenses</span>
+              <div style={{ backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', padding: '0.625rem 0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', marginBottom: '0.2rem' }}>
+                  <Plane size={11} style={{ color: 'var(--accent-text)' }} />
+                  <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--subtle)' }}>Planned</span>
                 </div>
-                <span style={{ fontSize: '1.125rem', fontWeight: '700', color: 'var(--text)' }}>− {formatCurrency(activePlannedTotal)}</span>
+                <p style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text)' }}>− {formatCurrency(activePlannedTotal)}</p>
               </div>
             )}
-            <div style={{ borderTop: `1px solid ${availableToSpend >= 0 ? 'var(--border)' : 'var(--danger)'}`, paddingTop: '1rem', marginTop: '0.25rem' }}>
-              <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>Available</p>
-              <p style={{ fontSize: '2.5rem', fontWeight: '900', letterSpacing: '-0.02em', color: availableToSpend >= 0 ? 'var(--text)' : 'var(--danger)' }}>
-                {formatCurrency(availableToSpend)}
-              </p>
+          </div>
+          {/* Budget targets */}
+          {(spendingBudget > 0 || savingsTarget > 0) && (
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '0.625rem', display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+              {spendingBudget > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                    <Wallet size={12} style={{ color: 'var(--accent-text)' }} />
+                    <span style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>Spending budget</span>
+                  </div>
+                  <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--accent-text)' }}>{formatCurrency(spendingBudget)}</span>
+                </div>
+              )}
+              {savingsTarget > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                    <PiggyBank size={12} style={{ color: 'var(--positive-text)' }} />
+                    <span style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>Savings target</span>
+                  </div>
+                  <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--positive-text)' }}>{formatCurrency(savingsTarget)}</span>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>Unallocated</span>
+                <span style={{ fontSize: '0.75rem', fontWeight: '700', color: unallocated >= 0 ? 'var(--text)' : 'var(--danger)' }}>{formatCurrency(unallocated)}</span>
+              </div>
             </div>
-            {(spendingBudget > 0 || savingsTarget > 0) && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingTop: '0.25rem' }}>
-                {spendingBudget > 0 && (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent-text)' }}>
-                      <Wallet size={13} />
-                      <span style={{ fontSize: '0.75rem', fontWeight: '600' }}>Spending budget</span>
-                    </div>
-                    <span style={{ fontSize: '0.875rem', fontWeight: '700', color: 'var(--accent-text)' }}>{formatCurrency(spendingBudget)}</span>
-                  </div>
-                )}
-                {savingsTarget > 0 && (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--positive-text)' }}>
-                      <PiggyBank size={13} />
-                      <span style={{ fontSize: '0.75rem', fontWeight: '600' }}>Savings target</span>
-                    </div>
-                    <span style={{ fontSize: '0.875rem', fontWeight: '700', color: 'var(--positive-text)' }}>{formatCurrency(savingsTarget)}</span>
-                  </div>
-                )}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '0.25rem', borderTop: '1px solid var(--border)' }}>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>Unallocated</span>
-                  <span style={{ fontSize: '0.875rem', fontWeight: '700', color: unallocated >= 0 ? 'var(--text)' : 'var(--danger)' }}>{formatCurrency(unallocated)}</span>
+          )}
+        </div>
+
+        {/* Savings — quick access near top */}
+        <div style={sectionWrap}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <SectionLabel>Savings</SectionLabel>
+              {savings.length > 0 && <span style={{ fontSize: '0.875rem', color: 'var(--positive-text)', fontWeight: '700', marginBottom: '0.75rem' }}>{formatCurrency(totalSavings)}</span>}
+            </div>
+            <button onClick={() => setShowAddSaving(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.875rem', color: 'var(--accent-text)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600' }}>
+              <Plus size={14} /> Add
+            </button>
+          </div>
+          {savings.length === 0 ? (
+            <div style={{ backgroundColor: 'var(--surface)', border: '1px dashed var(--border)', borderRadius: '1rem', padding: '1.25rem', textAlign: 'center' }}>
+              <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>No savings accounts yet.</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+              {savings.map((s) => (
+                <SavingCard key={s.id} saving={s} onEdit={setEditSaving} onDelete={deleteSaving} />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Commitments — quick access near top */}
+        <div style={sectionWrap}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+            <SectionLabel>Commitments</SectionLabel>
+            <button onClick={() => setShowAddCommitment(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.875rem', color: 'var(--accent-text)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600' }}>
+              <Plus size={14} /> Add
+            </button>
+          </div>
+          {commitments.length === 0 ? (
+            <div style={{ backgroundColor: 'var(--surface)', border: '1px dashed var(--border)', borderRadius: '1rem', padding: '1.25rem', textAlign: 'center' }}>
+              <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>No commitments — add financial to-dos.</p>
+            </div>
+          ) : (
+            <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', overflow: 'hidden' }}>
+              {openCommitments.map((c, i) => (
+                <div key={c.id} style={{ borderBottom: i < openCommitments.length - 1 || doneCommitments.length > 0 ? '1px solid var(--border)' : 'none' }}>
+                  <CommitmentRow commitment={c} onToggle={toggleCommitment}
+                    onEdit={setEditCommitment} onDelete={deleteCommitment} myLabel={aaronLabel} partnerLabel={partnerLabel} />
                 </div>
-              </div>
-            )}
+              ))}
+              {doneCommitments.length > 0 && (
+                <button onClick={() => setShowDoneCommitments(!showDoneCommitments)}
+                  style={{ width: '100%', padding: '0.75rem 1rem', fontSize: '0.75rem', color: 'var(--subtle)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', borderBottom: showDoneCommitments ? '1px solid var(--border)' : 'none' }}>
+                  {showDoneCommitments ? '▾' : '▸'} {doneCommitments.length} completed
+                </button>
+              )}
+              {showDoneCommitments && doneCommitments.map((c, i) => (
+                <div key={c.id} style={{ borderBottom: i < doneCommitments.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <CommitmentRow commitment={c} onToggle={toggleCommitment}
+                    onEdit={setEditCommitment} onDelete={deleteCommitment} myLabel={aaronLabel} partnerLabel={partnerLabel} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Bills status */}
+        <div style={sectionWrap}>
+          <SectionLabel>Bills Status</SectionLabel>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
+            {[
+              { label: 'Unpaid', color: 'var(--danger)', amount: unpaidTotal, count: unpaidBills.length, status: 'unpaid' },
+              { label: 'Pending', color: 'var(--warn)', amount: pendingBills.reduce((s, b) => s + b.amount, 0), count: pendingBills.length, status: 'pending' },
+              { label: 'Paid', color: 'var(--positive-text)', amount: paidTotal, count: paidBills.length, status: 'paid' },
+            ].map(({ label, color, amount, count, status }) => (
+              <button key={status} onClick={() => navigate(`/bills?status=${status}`)}
+                style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem', padding: '0.75rem', textAlign: 'center', cursor: 'pointer', transition: 'border-color 0.15s' }}
+                onMouseEnter={(e) => e.currentTarget.style.borderColor = color}
+                onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
+              >
+                <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>{label}</p>
+                <p style={{ fontSize: '1rem', fontWeight: '700', color }}>{formatCurrency(amount)}</p>
+                <p style={{ fontSize: '0.625rem', color: 'var(--subtle)' }}>{count} bill{count !== 1 ? 's' : ''}</p>
+              </button>
+            ))}
           </div>
         </div>
 
@@ -583,6 +661,35 @@ export default function Dashboard() {
             </div>
           </div>
         )}
+
+        {/* Planned expenses */}
+        <div style={sectionWrap}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+            <SectionLabel>Planned Expenses</SectionLabel>
+            <button onClick={() => setShowAddPlanned(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.875rem', color: 'var(--accent-text)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600' }}>
+              <Plus size={14} /> Add
+            </button>
+          </div>
+          {plannedExpenses.filter((pe) => pe.status !== 'completed').length === 0 ? (
+            <div style={{ backgroundColor: 'var(--surface)', border: '1px dashed var(--border)', borderRadius: '1rem', padding: '1.25rem', textAlign: 'center' }}>
+              <Plane size={28} style={{ margin: '0 auto 0.5rem', display: 'block', color: 'var(--subtle)' }} />
+              <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>No planned expenses — add trips, purchases, or events from savings.</p>
+            </div>
+          ) : (
+            <div style={{ ...sectionCard }}>
+              {plannedExpenses.filter((pe) => pe.status !== 'completed').map((pe, i, arr) => (
+                <div key={pe.id} style={i === arr.length - 1 ? { borderBottom: 'none' } : {}}>
+                  <PlannedExpenseCard pe={pe} savings={savings} onEdit={setEditPlanned} onDelete={deletePlannedExpense} />
+                </div>
+              ))}
+              <div style={{ padding: '0.75rem 1rem', backgroundColor: 'var(--surface2)', display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontWeight: '600' }}>Total Planned</span>
+                <span style={{ fontSize: '0.875rem', fontWeight: '700', color: 'var(--text)' }}>{formatCurrency(plannedExpenses.filter((pe) => pe.status !== 'completed').reduce((s, pe) => s + pe.amount, 0))}</span>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Net Worth */}
         <div style={sectionWrap}>
@@ -692,119 +799,6 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-
-        {/* Bills status */}
-        <div style={sectionWrap}>
-          <SectionLabel>Bills Status</SectionLabel>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
-            {[
-              { label: 'Unpaid', color: 'var(--danger)', amount: unpaidTotal, count: unpaidBills.length, status: 'unpaid' },
-              { label: 'Pending', color: 'var(--warn)', amount: pendingBills.reduce((s, b) => s + b.amount, 0), count: pendingBills.length, status: 'pending' },
-              { label: 'Paid', color: 'var(--positive-text)', amount: paidTotal, count: paidBills.length, status: 'paid' },
-            ].map(({ label, color, amount, count, status }) => (
-              <button key={status} onClick={() => navigate(`/bills?status=${status}`)}
-                style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem', padding: '0.75rem', textAlign: 'center', cursor: 'pointer', transition: 'border-color 0.15s' }}
-                onMouseEnter={(e) => e.currentTarget.style.borderColor = color}
-                onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
-              >
-                <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>{label}</p>
-                <p style={{ fontSize: '1rem', fontWeight: '700', color }}>{formatCurrency(amount)}</p>
-                <p style={{ fontSize: '0.625rem', color: 'var(--subtle)' }}>{count} bill{count !== 1 ? 's' : ''}</p>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Planned expenses */}
-        <div style={sectionWrap}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <SectionLabel>Planned Expenses</SectionLabel>
-            <button onClick={() => setShowAddPlanned(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.875rem', color: 'var(--accent-text)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600' }}>
-              <Plus size={14} /> Add
-            </button>
-          </div>
-          {plannedExpenses.filter((pe) => pe.status !== 'completed').length === 0 ? (
-            <div style={{ backgroundColor: 'var(--surface)', border: '1px dashed var(--border)', borderRadius: '1rem', padding: '1.25rem', textAlign: 'center' }}>
-              <Plane size={28} style={{ margin: '0 auto 0.5rem', display: 'block', color: 'var(--subtle)' }} />
-              <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>No planned expenses — add trips, purchases, or events from savings.</p>
-            </div>
-          ) : (
-            <div style={{ ...sectionCard }}>
-              {plannedExpenses.filter((pe) => pe.status !== 'completed').map((pe, i, arr) => (
-                <div key={pe.id} style={i === arr.length - 1 ? { borderBottom: 'none' } : {}}>
-                  <PlannedExpenseCard pe={pe} savings={savings} onEdit={setEditPlanned} onDelete={deletePlannedExpense} />
-                </div>
-              ))}
-              <div style={{ padding: '0.75rem 1rem', backgroundColor: 'var(--surface2)', display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontWeight: '600' }}>Total Planned</span>
-                <span style={{ fontSize: '0.875rem', fontWeight: '700', color: 'var(--text)' }}>{formatCurrency(plannedExpenses.filter((pe) => pe.status !== 'completed').reduce((s, pe) => s + pe.amount, 0))}</span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Savings */}
-        <div style={sectionWrap}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <SectionLabel>Savings</SectionLabel>
-              {savings.length > 0 && <span style={{ fontSize: '0.875rem', color: 'var(--positive-text)', fontWeight: '700', marginBottom: '0.75rem' }}>{formatCurrency(totalSavings)}</span>}
-            </div>
-            <button onClick={() => setShowAddSaving(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.875rem', color: 'var(--accent-text)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600' }}>
-              <Plus size={14} /> Add
-            </button>
-          </div>
-          {savings.length === 0 ? (
-            <div style={{ backgroundColor: 'var(--surface)', border: '1px dashed var(--border)', borderRadius: '1rem', padding: '1.25rem', textAlign: 'center' }}>
-              <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>No savings accounts yet.</p>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-              {savings.map((s) => (
-                <SavingCard key={s.id} saving={s} onEdit={setEditSaving} onDelete={deleteSaving} />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Commitments */}
-        <div style={sectionWrap}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <SectionLabel>Commitments</SectionLabel>
-            <button onClick={() => setShowAddCommitment(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.875rem', color: 'var(--accent-text)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600' }}>
-              <Plus size={14} /> Add
-            </button>
-          </div>
-          {commitments.length === 0 ? (
-            <div style={{ backgroundColor: 'var(--surface)', border: '1px dashed var(--border)', borderRadius: '1rem', padding: '1.25rem', textAlign: 'center' }}>
-              <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>No commitments — add financial to-dos.</p>
-            </div>
-          ) : (
-            <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', overflow: 'hidden' }}>
-              {openCommitments.map((c, i) => (
-                <div key={c.id} style={{ borderBottom: i < openCommitments.length - 1 || doneCommitments.length > 0 ? '1px solid var(--border)' : 'none' }}>
-                  <CommitmentRow commitment={c} onToggle={toggleCommitment}
-                    onEdit={setEditCommitment} onDelete={deleteCommitment} myLabel={aaronLabel} partnerLabel={partnerLabel} />
-                </div>
-              ))}
-              {doneCommitments.length > 0 && (
-                <button onClick={() => setShowDoneCommitments(!showDoneCommitments)}
-                  style={{ width: '100%', padding: '0.75rem 1rem', fontSize: '0.75rem', color: 'var(--subtle)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', borderBottom: showDoneCommitments ? '1px solid var(--border)' : 'none' }}>
-                  {showDoneCommitments ? '▾' : '▸'} {doneCommitments.length} completed
-                </button>
-              )}
-              {showDoneCommitments && doneCommitments.map((c, i) => (
-                <div key={c.id} style={{ borderBottom: i < doneCommitments.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                  <CommitmentRow commitment={c} onToggle={toggleCommitment}
-                    onEdit={setEditCommitment} onDelete={deleteCommitment} myLabel={aaronLabel} partnerLabel={partnerLabel} />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
 
       </div>
 
