@@ -64,8 +64,10 @@ export function calcPaycheck({ job, regularHours, overtimeHours }) {
   const otPay = round2(overtimeHours * otRate);
   const grossPay = round2(regularPay + otPay);
 
-  // IRA/401k is pre-tax for FIT and SIT, but not FICA/Medicare
-  const iraDeduction = round2(job.iraPerPeriod || 0);
+  // IRA/401k: supports flat $ or % of gross (pre-tax for FIT/SIT, not FICA)
+  const iraDeduction = job.iraType === 'percent'
+    ? round2(grossPay * ((job.iraPercent || 0) / 100))
+    : round2(job.iraPerPeriod || 0);
   const ficaTaxable = grossPay;
   const fitTaxable = round2(grossPay - iraDeduction);
 
@@ -81,7 +83,8 @@ export function calcPaycheck({ job, regularHours, overtimeHours }) {
 
   return {
     regularHours, overtimeHours, regularPay, otPay, grossPay,
-    iraDeduction, fitTaxable, ficaTaxable,
+    iraDeduction, iraPercent: job.iraType === 'percent' ? (job.iraPercent || 0) : 0,
+    fitTaxable, ficaTaxable,
     fit, fica, medi, sitAR,
     totalDeductions, netPay,
     periodsPerYear,
@@ -89,16 +92,18 @@ export function calcPaycheck({ job, regularHours, overtimeHours }) {
 }
 
 // Calculate OT breakdown from an array of shifts for a job
-// Uses weekly OT (FLSA standard: >40 hrs/week = OT)
+// weekStartDay: 0=Sun (default for EMS/fire/many employers), 1=Mon (FLSA default)
 export function calcHoursFromShifts(shifts, job) {
-  // Group shifts by ISO week
+  const weekStartDay = job.weekStartDay ?? 0; // default Sunday
   const byWeek = {};
+
   for (const sh of shifts) {
     const d = new Date(sh.date + 'T12:00:00');
-    const day = d.getDay(); // 0=Sun
-    const monday = new Date(d);
-    monday.setDate(d.getDate() - ((day + 6) % 7));
-    const wk = monday.toISOString().slice(0, 10);
+    const dow = d.getDay();
+    const daysFromStart = (dow - weekStartDay + 7) % 7;
+    const weekStart = new Date(d);
+    weekStart.setDate(d.getDate() - daysFromStart);
+    const wk = weekStart.toISOString().slice(0, 10);
     byWeek[wk] = (byWeek[wk] || 0) + sh.hoursWorked;
   }
 
@@ -112,4 +117,32 @@ export function calcHoursFromShifts(shifts, job) {
   }
 
   return { regularHours: round2(regularHours), overtimeHours: round2(overtimeHours) };
+}
+
+// Given a job with payPeriodStartDate and payFrequency, return current & previous pay period date ranges
+export function getPayPeriodBounds(job) {
+  if (!job.payPeriodStartDate) return null;
+  const cycle = job.payFrequency === 'weekly' ? 7 : 14;
+  const refMs = new Date(job.payPeriodStartDate + 'T12:00:00').getTime();
+  const nowMs = new Date().setHours(12, 0, 0, 0);
+  const dayMs = 1000 * 60 * 60 * 24;
+  const daysDiff = Math.floor((nowMs - refMs) / dayMs);
+  const periodIdx = Math.floor(daysDiff / cycle);
+
+  const addD = (base, n) => {
+    const d = new Date(base + 'T12:00:00');
+    d.setDate(d.getDate() + n);
+    return d.toISOString().slice(0, 10);
+  };
+
+  return {
+    current: {
+      start: addD(job.payPeriodStartDate, periodIdx * cycle),
+      end: addD(job.payPeriodStartDate, (periodIdx + 1) * cycle - 1),
+    },
+    previous: {
+      start: addD(job.payPeriodStartDate, (periodIdx - 1) * cycle),
+      end: addD(job.payPeriodStartDate, periodIdx * cycle - 1),
+    },
+  };
 }

@@ -256,11 +256,12 @@ export default function Dashboard() {
       ? allMonthBills.filter((b) => normOwner(b) === 'secondary')
       : allMonthBills;
 
-  const viewIncome = viewMode === 'primary'
+  const viewIncome = (viewMode === 'primary'
     ? monthIncome.filter((i) => i.person !== 'spouse')
     : viewMode === 'secondary'
       ? monthIncome.filter((i) => i.person === 'spouse')
-      : monthIncome;
+      : monthIncome
+  ).filter((i) => i.includeInAvailability !== false);
 
   const paidBills = monthBills.filter((b) => getBillStatus(b, mk) === 'paid');
   const unpaidBills = monthBills.filter((b) => getBillStatus(b, mk) === 'unpaid');
