@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   ExternalLink, MoreVertical, Pencil, Trash2,
   ChevronLeft, ChevronRight, Receipt, Info, X,
@@ -200,6 +201,7 @@ function DebtCard({ debt, month, onTogglePaid, onEdit, onDelete, myName, spouseN
 
 export default function BillsDebts() {
   const { bills, addBill, updateBill, deleteBill, setBillStatusDirect, debts, addDebt, updateDebt, deleteDebt, toggleDebtPaid, settings } = useApp();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [tab, setTab] = useState('bills');
   const [mk, setMk] = useState(() => monthKey(new Date()));
   const [showAddBill, setShowAddBill] = useState(false);
@@ -207,13 +209,20 @@ export default function BillsDebts() {
   const [showAddDebt, setShowAddDebt] = useState(false);
   const [editDebt, setEditDebt] = useState(null);
   const [ownerFilter, setOwnerFilter] = useState(null);
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') || null);
+
+  useEffect(() => {
+    const s = searchParams.get('status');
+    if (s) { setStatusFilter(s); setSearchParams({}, { replace: true }); }
+  }, []);
 
   const { myName, spouseName } = settings;
   const aaronLabel = myName || 'Aaron';
   const cameronLabel = spouseName || 'Cameron';
 
   const monthBills = getBillsForMonth(bills, mk);
-  const filteredBills = ownerFilter ? monthBills.filter((b) => normalizeOwner(b.owner) === ownerFilter) : monthBills;
+  const ownerFiltered = ownerFilter ? monthBills.filter((b) => normalizeOwner(b.owner) === ownerFilter) : monthBills;
+  const filteredBills = statusFilter ? ownerFiltered.filter((b) => getBillStatus(b, mk) === statusFilter) : ownerFiltered;
   const sortedBills = [...filteredBills].sort((a, b) => {
     const order = { unpaid: 0, pending: 1, paid: 2 };
     const aS = getBillStatus(a, mk), bS = getBillStatus(b, mk);
@@ -281,12 +290,26 @@ export default function BillsDebts() {
       <div style={{ padding: '0 1rem' }}>
         {/* Owner filter */}
         {(tab === 'bills' ? monthBills : debts).length > 0 && (
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.625rem' }}>
             {[['aaron', aaronLabel], ['cameron', cameronLabel], ['joint', 'Joint']].map(([val, label]) => (
               <button key={val} onClick={() => toggleOwner(val)}
                 style={{ flex: 1, padding: '0.5rem 0', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: 700, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
                   backgroundColor: ownerFilter === val ? 'var(--accent)' : 'var(--surface2)',
                   color: ownerFilter === val ? '#fff' : 'var(--muted)' }}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Status filter (bills only) */}
+        {tab === 'bills' && monthBills.length > 0 && (
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+            {[['unpaid', 'Unpaid', 'var(--danger)'], ['pending', 'Pending', 'var(--warn)'], ['paid', 'Paid', 'var(--positive-text)']].map(([val, label, color]) => (
+              <button key={val} onClick={() => setStatusFilter(statusFilter === val ? null : val)}
+                style={{ flex: 1, padding: '0.5rem 0', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: 700, border: `1px solid ${statusFilter === val ? color : 'transparent'}`, cursor: 'pointer', transition: 'all 0.15s',
+                  backgroundColor: statusFilter === val ? 'var(--surface)' : 'var(--surface2)',
+                  color: statusFilter === val ? color : 'var(--muted)' }}>
                 {label}
               </button>
             ))}

@@ -5,7 +5,7 @@ import {
   MoreVertical, Bell, LayoutDashboard, Link, Plane, AlertTriangle,
   Wallet, PiggyBank, Settings, BarChart2, Users,
 } from 'lucide-react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useApp } from '../context/AppContext';
 import {
@@ -231,6 +231,7 @@ export default function Dashboard() {
   const [showDoneCommitments, setShowDoneCommitments] = useState(false);
   const [showAddPlanned, setShowAddPlanned] = useState(false);
   const [editPlanned, setEditPlanned] = useState(null);
+  const navigate = useNavigate();
 
   const { spouseName, myName, monthlySpendingBudget, monthlySavingsTarget } = settings;
   const partnerLabel = spouseName || 'Cameron';
@@ -332,8 +333,8 @@ export default function Dashboard() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
           <h1 style={{ fontSize: '1.625rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-0.02em' }}>Budget Tracker</h1>
           <RouterLink to="/settings"
-            style={{ padding: '0.5rem', borderRadius: '0.75rem', color: 'var(--muted)', display: 'flex', alignItems: 'center' }}>
-            <Settings size={20} />
+            style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.875rem', backgroundColor: 'var(--surface2)', color: 'var(--muted)', border: '1px solid var(--border)', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', textDecoration: 'none' }}>
+            <Settings size={15} /> Settings
           </RouterLink>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -637,21 +638,21 @@ export default function Dashboard() {
         <div style={sectionWrap}>
           <SectionLabel>Bills Status</SectionLabel>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
-            <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem', padding: '0.75rem', textAlign: 'center' }}>
-              <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>Unpaid</p>
-              <p style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--danger)' }}>{formatCurrency(unpaidTotal)}</p>
-              <p style={{ fontSize: '0.625rem', color: 'var(--subtle)' }}>{unpaidBills.length} bills</p>
-            </div>
-            <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem', padding: '0.75rem', textAlign: 'center' }}>
-              <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>Pending</p>
-              <p style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--warn)' }}>{formatCurrency(pendingBills.reduce((s, b) => s + b.amount, 0))}</p>
-              <p style={{ fontSize: '0.625rem', color: 'var(--subtle)' }}>{pendingBills.length} bills</p>
-            </div>
-            <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem', padding: '0.75rem', textAlign: 'center' }}>
-              <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>Paid</p>
-              <p style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--positive-text)' }}>{formatCurrency(paidTotal)}</p>
-              <p style={{ fontSize: '0.625rem', color: 'var(--subtle)' }}>{paidBills.length} bills</p>
-            </div>
+            {[
+              { label: 'Unpaid', color: 'var(--danger)', amount: unpaidTotal, count: unpaidBills.length, status: 'unpaid' },
+              { label: 'Pending', color: 'var(--warn)', amount: pendingBills.reduce((s, b) => s + b.amount, 0), count: pendingBills.length, status: 'pending' },
+              { label: 'Paid', color: 'var(--positive-text)', amount: paidTotal, count: paidBills.length, status: 'paid' },
+            ].map(({ label, color, amount, count, status }) => (
+              <button key={status} onClick={() => navigate(`/bills?status=${status}`)}
+                style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem', padding: '0.75rem', textAlign: 'center', cursor: 'pointer', transition: 'border-color 0.15s' }}
+                onMouseEnter={(e) => e.currentTarget.style.borderColor = color}
+                onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
+              >
+                <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>{label}</p>
+                <p style={{ fontSize: '1rem', fontWeight: '700', color }}>{formatCurrency(amount)}</p>
+                <p style={{ fontSize: '0.625rem', color: 'var(--subtle)' }}>{count} bill{count !== 1 ? 's' : ''}</p>
+              </button>
+            ))}
           </div>
         </div>
 
