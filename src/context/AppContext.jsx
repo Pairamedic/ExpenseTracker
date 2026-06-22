@@ -15,6 +15,8 @@ export function AppProvider({ children }) {
   const [commitments, setCommitmentsState] = useState(() => storage.getCommitments());
   const [purchases, setPurchasesState] = useState(() => storage.getPurchases());
   const [plannedExpenses, setPlannedExpensesState] = useState(() => storage.getPlannedExpenses());
+  const [jobs, setJobsState] = useState(() => storage.getJobs());
+  const [shifts, setShiftsState] = useState(() => storage.getShifts());
 
   const persistBills = useCallback((next) => { setBillsState(next); storage.setBills(next); }, []);
   const persistIncome = useCallback((next) => { setIncomeState(next); storage.setIncome(next); }, []);
@@ -25,6 +27,8 @@ export function AppProvider({ children }) {
   const persistCommitments = useCallback((next) => { setCommitmentsState(next); storage.setCommitments(next); }, []);
   const persistPurchases = useCallback((next) => { setPurchasesState(next); storage.setPurchases(next); }, []);
   const persistPlannedExpenses = useCallback((next) => { setPlannedExpensesState(next); storage.setPlannedExpenses(next); }, []);
+  const persistJobs = useCallback((next) => { setJobsState(next); storage.setJobs(next); }, []);
+  const persistShifts = useCallback((next) => { setShiftsState(next); storage.setShifts(next); }, []);
 
   // Bills
   const addBill = useCallback((bill) => {
@@ -147,6 +151,20 @@ export function AppProvider({ children }) {
     persistPurchases(purchases.filter((p) => p.id !== id));
   }, [purchases, persistPurchases]);
 
+  // Jobs
+  const addJob = useCallback((job) => {
+    persistJobs([...jobs, { ...job, id: generateId(), createdAt: new Date().toISOString() }]);
+  }, [jobs, persistJobs]);
+  const updateJob = useCallback((id, u) => persistJobs(jobs.map((j) => j.id === id ? { ...j, ...u } : j)), [jobs, persistJobs]);
+  const deleteJob = useCallback((id) => persistJobs(jobs.filter((j) => j.id !== id)), [jobs, persistJobs]);
+
+  // Shifts
+  const addShift = useCallback((sh) => {
+    persistShifts([{ ...sh, id: generateId(), createdAt: new Date().toISOString() }, ...shifts]);
+  }, [shifts, persistShifts]);
+  const updateShift = useCallback((id, u) => persistShifts(shifts.map((s) => s.id === id ? { ...s, ...u } : s)), [shifts, persistShifts]);
+  const deleteShift = useCallback((id) => persistShifts(shifts.filter((s) => s.id !== id)), [shifts, persistShifts]);
+
   // Planned Expenses
   const addPlannedExpense = useCallback((pe) => {
     persistPlannedExpenses([...plannedExpenses, { ...pe, id: generateId(), status: 'planned', createdAt: new Date().toISOString() }]);
@@ -171,6 +189,8 @@ export function AppProvider({ children }) {
       commitments, addCommitment, updateCommitment, deleteCommitment, toggleCommitment,
       purchases, addPurchase, updatePurchase, deletePurchase,
       plannedExpenses, addPlannedExpense, updatePlannedExpense, deletePlannedExpense,
+      jobs, addJob, updateJob, deleteJob,
+      shifts, addShift, updateShift, deleteShift,
       settings, setSettings: persistSettings,
     }}>
       {children}

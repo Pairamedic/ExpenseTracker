@@ -3,8 +3,9 @@ import {
   ChevronLeft, ChevronRight, TrendingUp, Receipt, CreditCard,
   CalendarDays, Plus, Pencil, Trash2, CheckSquare, Square,
   MoreVertical, Bell, LayoutDashboard, Link, Plane, AlertTriangle,
-  Wallet, PiggyBank,
+  Wallet, PiggyBank, Settings,
 } from 'lucide-react';
+import { Link as RouterLink } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import {
   formatCurrency, monthKey, monthLabel, getBillsForMonth, getIncomeForMonth,
@@ -275,11 +276,15 @@ export default function Dashboard() {
   const monthSpent = monthPurchases.reduce((s, p) => s + p.amount, 0);
 
   return (
-    <div className="pb-32">
+    <div className="pb-36">
       {/* Header */}
-      <div className="px-4 pt-5 pb-2">
+      <div className="px-4 pt-6 pb-2">
         <div className="flex items-center justify-between mb-1">
           <h1 className="text-2xl font-black text-white tracking-tight">Budget Tracker</h1>
+          <RouterLink to="/settings"
+            className="p-2 rounded-xl text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition-colors">
+            <Settings size={20} />
+          </RouterLink>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setMk(monthOffset(mk, -1))} className="p-2 rounded-xl hover:bg-slate-800 text-slate-400 transition-colors">

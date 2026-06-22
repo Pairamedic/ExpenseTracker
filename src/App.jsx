@@ -1,13 +1,13 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import BottomNav from './components/BottomNav';
 import Dashboard from './pages/Dashboard';
-import Bills from './pages/Bills';
+import BillsDebts from './pages/BillsDebts';
 import Income from './pages/Income';
-import Debts from './pages/Debts';
 import Notes from './pages/Notes';
 import Settings from './pages/Settings';
 import Purchases from './pages/Purchases';
+import WorkTime from './pages/WorkTime';
 
 export default function App() {
   return (
@@ -16,12 +16,13 @@ export default function App() {
         <div className="min-h-screen">
           <Routes>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/bills" element={<Bills />} />
+            <Route path="/bills" element={<BillsDebts />} />
+            <Route path="/debts" element={<Navigate to="/bills" replace />} />
             <Route path="/income" element={<Income />} />
-            <Route path="/debts" element={<Debts />} />
             <Route path="/notes" element={<Notes />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/purchases" element={<Purchases />} />
+            <Route path="/work" element={<WorkTime />} />
           </Routes>
         </div>
         <BottomNav />

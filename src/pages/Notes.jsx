@@ -211,7 +211,7 @@ export default function Notes() {
   };
 
   return (
-    <div className="pb-32">
+    <div className="pb-36">
       <div className="px-4 pt-5 pb-4">
         <div className="flex items-center justify-between gap-3 mb-4">
           <h1 className="text-2xl font-black text-white tracking-tight">Notes</h1>
