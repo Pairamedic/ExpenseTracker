@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import {
   Pin, PinOff, Pencil, Trash2, MoreVertical, NotebookPen,
-  X, Bell, Link, LayoutDashboard, AlertCircle,
+  X, Bell, Link, LayoutDashboard, AlertCircle, Plus,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import Modal from '../components/Modal';
-import AddButton from '../components/AddButton';
 import { timeAgo, isReminderOverdue, isReminderSoon, formatDate } from '../utils/helpers';
 
 function NoteForm({ initial = {}, onSave, onCancel, bills = [] }) {
@@ -26,22 +25,23 @@ function NoteForm({ initial = {}, onSave, onCancel, bills = [] }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       <div>
-        <label className="text-sm text-slate-400 mb-1.5 block">Title <span className="text-slate-600">(optional)</span></label>
+        <label className="app-label">Title <span style={{ color: 'var(--subtle)' }}>(optional)</span></label>
         <input
-          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
+          className="app-input"
           placeholder="e.g. Call insurance, Tax reminder..."
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
       </div>
       <div>
-        <label className="text-sm text-slate-400 mb-1.5 block">Note *</label>
+        <label className="app-label">Note *</label>
         <textarea
           autoFocus
           rows={5}
-          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors resize-none leading-relaxed"
+          className="app-input"
+          style={{ resize: 'none', lineHeight: '1.6' }}
           placeholder="Write anything — reminders, account numbers, goals..."
           value={content}
           onChange={(e) => setContent(e.target.value)}
@@ -49,19 +49,23 @@ function NoteForm({ initial = {}, onSave, onCancel, bills = [] }) {
         />
       </div>
       <div>
-        <label className="text-sm text-slate-400 mb-1.5 flex items-center gap-1.5"><Bell size={13} /> Reminder date <span className="text-slate-600">(optional)</span></label>
+        <label className="app-label" style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+          <Bell size={13} /> Reminder date <span style={{ color: 'var(--subtle)' }}>(optional)</span>
+        </label>
         <input
           type="date"
-          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-colors"
+          className="app-input"
           value={reminderDate}
           onChange={(e) => setReminderDate(e.target.value)}
         />
       </div>
       {bills.length > 0 && (
         <div>
-          <label className="text-sm text-slate-400 mb-1.5 flex items-center gap-1.5"><Link size={13} /> Link to bill <span className="text-slate-600">(optional)</span></label>
+          <label className="app-label" style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+            <Link size={13} /> Link to bill <span style={{ color: 'var(--subtle)' }}>(optional)</span>
+          </label>
           <select
-            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-colors"
+            className="app-input"
             value={linkedBillId}
             onChange={(e) => setLinkedBillId(e.target.value)}
           >
@@ -72,9 +76,9 @@ function NoteForm({ initial = {}, onSave, onCancel, bills = [] }) {
           </select>
         </div>
       )}
-      <div className="flex gap-3 pt-1">
-        <button type="button" onClick={onCancel} className="flex-1 py-3 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors">Cancel</button>
-        <button type="submit" className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors">Save Note</button>
+      <div style={{ display: 'flex', gap: '0.75rem', paddingTop: '0.25rem' }}>
+        <button type="button" onClick={onCancel} className="app-btn-secondary" style={{ flex: 1 }}>Cancel</button>
+        <button type="submit" className="app-btn-primary" style={{ flex: 1 }}>Save Note</button>
       </div>
     </form>
   );
@@ -89,90 +93,89 @@ function NoteCard({ note, onEdit, onDelete, onPin, onDashboardPin, linkedBillNam
   const overdue = isReminderOverdue(note.reminderDate);
   const soon = !overdue && isReminderSoon(note.reminderDate);
 
-  const borderClass = note.pinnedToDashboard
-    ? 'border-indigo-600/60'
+  const borderColor = note.pinnedToDashboard
+    ? 'var(--accent)'
     : note.pinned
-    ? 'border-slate-600/70'
+    ? 'var(--border)'
     : overdue
-    ? 'border-red-900/50'
+    ? 'var(--danger)'
     : soon
-    ? 'border-amber-900/40'
-    : 'border-slate-700/50';
+    ? 'var(--warn)'
+    : 'var(--border)';
 
   return (
-    <div className={`relative rounded-2xl border bg-slate-800/50 transition-all ${borderClass}`}>
+    <div style={{ position: 'relative', backgroundColor: 'var(--surface)', border: `1px solid ${borderColor}`, borderRadius: '1rem', padding: '1rem' }}>
       {note.pinnedToDashboard && (
-        <div className="absolute top-3 right-10 text-indigo-400">
+        <div style={{ position: 'absolute', top: '0.75rem', right: '2.5rem', color: 'var(--accent-text)' }}>
           <LayoutDashboard size={12} />
         </div>
       )}
       {note.pinned && !note.pinnedToDashboard && (
-        <div className="absolute top-3 right-10 text-slate-500">
+        <div style={{ position: 'absolute', top: '0.75rem', right: '2.5rem', color: 'var(--subtle)' }}>
           <Pin size={12} />
         </div>
       )}
-      <div className="p-4">
-        {/* Reminder badge */}
-        {note.reminderDate && (
-          <div className={`flex items-center gap-1.5 text-xs mb-2 px-2.5 py-1.5 rounded-lg w-fit ${
-            overdue ? 'bg-red-950/50 text-red-300 border border-red-900/40' :
-            soon ? 'bg-amber-950/50 text-amber-300 border border-amber-900/40' :
-            'bg-slate-700/50 text-slate-400 border border-slate-600/40'
-          }`}>
-            {overdue ? <AlertCircle size={11} /> : <Bell size={11} />}
-            <span>{overdue ? 'Overdue: ' : soon ? 'Soon: ' : ''}{formatDate(note.reminderDate)}</span>
-          </div>
-        )}
 
-        <div className="flex items-start justify-between gap-2 mb-1.5">
-          <div className="flex-1 min-w-0">
-            {note.title && <p className="font-semibold text-base text-white leading-tight mb-1.5">{note.title}</p>}
-            <p
-              className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap break-words cursor-pointer"
-              onClick={() => isLong && setExpanded(!expanded)}
-            >
-              {displayContent}
-            </p>
-            {isLong && (
-              <button onClick={() => setExpanded(!expanded)} className="text-xs text-indigo-400 hover:text-indigo-300 mt-1.5 transition-colors">
-                {expanded ? 'Show less' : 'Show more'}
-              </button>
-            )}
-          </div>
-          <button onClick={() => setMenuOpen(!menuOpen)} className="flex-shrink-0 p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-700/60 rounded-lg transition-colors">
-            <MoreVertical size={16} />
-          </button>
+      {note.reminderDate && (
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.75rem',
+          marginBottom: '0.5rem', padding: '0.375rem 0.625rem', borderRadius: '0.5rem',
+          backgroundColor: overdue ? 'rgba(239,68,68,0.1)' : soon ? 'rgba(245,158,11,0.1)' : 'var(--surface2)',
+          color: overdue ? 'var(--danger)' : soon ? 'var(--warn)' : 'var(--muted)',
+          border: `1px solid ${overdue ? 'var(--danger)' : soon ? 'var(--warn)' : 'var(--border)'}`,
+        }}>
+          {overdue ? <AlertCircle size={11} /> : <Bell size={11} />}
+          <span>{overdue ? 'Overdue: ' : soon ? 'Soon: ' : ''}{formatDate(note.reminderDate)}</span>
         </div>
+      )}
 
-        {/* Linked bill */}
-        {linkedBillName && (
-          <div className="flex items-center gap-1.5 mt-2">
-            <Link size={11} className="text-slate-500" />
-            <span className="text-xs text-slate-500">Linked to: <span className="text-slate-400">{linkedBillName}</span></span>
-          </div>
-        )}
-
-        <p className="text-xs text-slate-600 mt-2">{timeAgo(note.updatedAt)}</p>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.375rem' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {note.title && <p style={{ fontWeight: '700', fontSize: '1rem', color: 'var(--text)', marginBottom: '0.375rem', lineHeight: 1.3 }}>{note.title}</p>}
+          <p
+            style={{ fontSize: '0.875rem', color: 'var(--muted)', lineHeight: '1.6', whiteSpace: 'pre-wrap', wordBreak: 'break-words', cursor: isLong ? 'pointer' : 'default' }}
+            onClick={() => isLong && setExpanded(!expanded)}
+          >
+            {displayContent}
+          </p>
+          {isLong && (
+            <button onClick={() => setExpanded(!expanded)} style={{ fontSize: '0.75rem', color: 'var(--accent-text)', background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem 0', marginTop: '0.25rem' }}>
+              {expanded ? 'Show less' : 'Show more'}
+            </button>
+          )}
+        </div>
+        <button onClick={() => setMenuOpen(!menuOpen)} style={{ flexShrink: 0, padding: '0.375rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}>
+          <MoreVertical size={16} />
+        </button>
       </div>
+
+      {linkedBillName && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginTop: '0.5rem' }}>
+          <Link size={11} style={{ color: 'var(--subtle)' }} />
+          <span style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>Linked to: <span style={{ color: 'var(--muted)' }}>{linkedBillName}</span></span>
+        </div>
+      )}
+
+      <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.5rem' }}>{timeAgo(note.updatedAt)}</p>
 
       {menuOpen && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-          <div className="absolute right-3 top-10 z-50 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden min-w-[170px]">
+          <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setMenuOpen(false)} />
+          <div style={{ position: 'absolute', right: '0.75rem', top: '2.5rem', zIndex: 50, backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem', overflow: 'hidden', minWidth: '10.5rem', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
             <button onClick={() => { onDashboardPin(note.id); setMenuOpen(false); }}
-              className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-slate-300 hover:bg-slate-700 transition-colors">
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.875rem 1rem', fontSize: '0.875rem', color: 'var(--text)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
               <LayoutDashboard size={14} /> {note.pinnedToDashboard ? 'Remove from dashboard' : 'Pin to dashboard'}
             </button>
             <button onClick={() => { onPin(note.id); setMenuOpen(false); }}
-              className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-slate-300 hover:bg-slate-700 transition-colors">
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.875rem 1rem', fontSize: '0.875rem', color: 'var(--text)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
               {note.pinned ? <PinOff size={14} /> : <Pin size={14} />} {note.pinned ? 'Unpin from top' : 'Pin to top'}
             </button>
             <button onClick={() => { onEdit(note); setMenuOpen(false); }}
-              className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-slate-300 hover:bg-slate-700 transition-colors">
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.875rem 1rem', fontSize: '0.875rem', color: 'var(--text)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
               <Pencil size={14} /> Edit
             </button>
             <button onClick={() => { onDelete(note.id); setMenuOpen(false); }}
-              className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-rose-400 hover:bg-slate-700 transition-colors">
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.875rem 1rem', fontSize: '0.875rem', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
               <Trash2 size={14} /> Delete
             </button>
           </div>
@@ -199,7 +202,6 @@ export default function Notes() {
     .sort((a, b) => {
       if (a.pinnedToDashboard !== b.pinnedToDashboard) return a.pinnedToDashboard ? -1 : 1;
       if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-      // Reminders with upcoming dates bubble up
       if (a.reminderDate && !b.reminderDate) return -1;
       if (!a.reminderDate && b.reminderDate) return 1;
       return new Date(b.updatedAt) - new Date(a.updatedAt);
@@ -211,22 +213,26 @@ export default function Notes() {
   };
 
   return (
-    <div className="pb-36">
-      <div className="px-4 pt-5 pb-4">
-        <div className="flex items-center justify-between gap-3 mb-4">
-          <h1 className="text-2xl font-black text-white tracking-tight">Notes</h1>
-          <AddButton onClick={() => setShowAdd(true)} label="Add Note" />
+    <div className="app-page">
+      <div className="app-header">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+          <h1 style={{ fontSize: '1.625rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-0.02em' }}>Notes</h1>
+          <button onClick={() => setShowAdd(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.875rem', backgroundColor: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer' }}>
+            <Plus size={16} /> Add Note
+          </button>
         </div>
+
         {notes.length > 2 && (
-          <div className="relative mb-4">
+          <div style={{ position: 'relative', marginBottom: '1rem' }}>
             <input
-              className="w-full bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 text-sm transition-colors"
+              className="app-input"
               placeholder="Search notes..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
             {search && (
-              <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors">
+              <button onClick={() => setSearch('')} style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
                 <X size={15} />
               </button>
             )}
@@ -234,27 +240,32 @@ export default function Notes() {
         )}
       </div>
 
-      <div className="px-4 space-y-3">
+      <div style={{ padding: '0 1rem' }}>
         {filtered.length === 0 && notes.length === 0 ? (
-          <div className="text-center py-16 text-slate-500">
-            <NotebookPen size={44} className="mx-auto mb-3 opacity-30" />
-            <p className="text-base font-medium">No notes yet.</p>
-            <p className="text-sm mt-1 text-slate-600">Add reminders, budget goals,<br />and account details.</p>
+          <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
+            <NotebookPen size={48} style={{ margin: '0 auto 1rem', opacity: 0.2, color: 'var(--muted)', display: 'block' }} />
+            <p style={{ fontWeight: '700', color: 'var(--text)', fontSize: '1.125rem', marginBottom: '0.5rem' }}>No notes yet</p>
+            <p style={{ fontSize: '0.9375rem', color: 'var(--muted)', marginBottom: '1.5rem' }}>Add reminders, budget goals, and account details.</p>
+            <button onClick={() => setShowAdd(true)} className="app-btn-primary" style={{ maxWidth: '14rem', margin: '0 auto' }}>
+              <Plus size={18} /> Add Note
+            </button>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-12 text-slate-500 text-sm">No notes match your search.</div>
+          <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--muted)', fontSize: '0.9375rem' }}>No notes match your search.</div>
         ) : (
-          filtered.map((note) => (
-            <NoteCard
-              key={note.id}
-              note={note}
-              onEdit={setEditNote}
-              onDelete={deleteNote}
-              onPin={toggleNotePin}
-              onDashboardPin={toggleNoteDashboardPin}
-              linkedBillName={note.linkedBillId ? getBillName(note.linkedBillId) : null}
-            />
-          ))
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {filtered.map((note) => (
+              <NoteCard
+                key={note.id}
+                note={note}
+                onEdit={setEditNote}
+                onDelete={deleteNote}
+                onPin={toggleNotePin}
+                onDashboardPin={toggleNoteDashboardPin}
+                linkedBillName={note.linkedBillId ? getBillName(note.linkedBillId) : null}
+              />
+            ))}
+          </div>
         )}
       </div>
 
