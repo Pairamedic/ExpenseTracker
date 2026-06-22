@@ -12,7 +12,9 @@ export default function IncomeForm({ initial = {}, onSave, onCancel, spouseEnabl
     person: 'me',
     notes: '',
     linkedJobId: '',
+    includeInAvailability: true,
     ...initial,
+    includeInAvailability: initial.includeInAvailability !== false,
   });
 
   const set = (key, val) => setForm((f) => ({ ...f, [key]: val }));
@@ -20,7 +22,7 @@ export default function IncomeForm({ initial = {}, onSave, onCancel, spouseEnabl
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!form.source || !form.amount) return;
-    onSave({ ...form, amount: parseFloat(form.amount), linkedJobId: form.linkedJobId || null });
+    onSave({ ...form, amount: parseFloat(form.amount), linkedJobId: form.linkedJobId || null, includeInAvailability: form.includeInAvailability });
   };
 
   return (
@@ -90,6 +92,19 @@ export default function IncomeForm({ initial = {}, onSave, onCancel, spouseEnabl
       <div>
         <label className="app-label">Notes</label>
         <input className="app-input" placeholder="Optional" value={form.notes} onChange={(e) => set('notes', e.target.value)} />
+      </div>
+
+      <div style={{ backgroundColor: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '0.875rem', padding: '0.875rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <p style={{ fontSize: '0.875rem', fontWeight: '700', color: 'var(--text)' }}>Factor into Availability</p>
+          <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.125rem' }}>Include in the Dashboard available amount</p>
+        </div>
+        <button type="button" onClick={() => set('includeInAvailability', !form.includeInAvailability)}
+          style={{ width: '2.75rem', height: '1.5rem', borderRadius: '9999px', border: 'none', cursor: 'pointer', transition: 'background 0.2s', position: 'relative', flexShrink: 0,
+            backgroundColor: form.includeInAvailability ? 'var(--accent)' : 'var(--border2)' }}>
+          <span style={{ position: 'absolute', top: '2px', width: '1.125rem', height: '1.125rem', borderRadius: '9999px', backgroundColor: '#fff', transition: 'left 0.2s',
+            left: form.includeInAvailability ? 'calc(100% - 1.25rem)' : '2px' }} />
+        </button>
       </div>
 
       <label className="flex items-center gap-3 cursor-pointer">
