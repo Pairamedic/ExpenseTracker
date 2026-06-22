@@ -179,6 +179,127 @@ export function exportAllData({ bills, income, debts, savings, purchases }) {
   if (purchases.length) exportToCSV(purchases.map((p) => ({ date: p.date, merchant: p.merchant, amount: p.amount, category: p.category, person: p.person, notes: p.notes || '' })), `spending-${ts}.csv`);
 }
 
+export function exportAsHTML({ bills, income, debts, savings, purchases }) {
+  const ts = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const fmt = (n) => '$' + (n ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const table = (headers, rows) => `
+    <table>
+      <thead><tr>${headers.map((h) => `<th>${h}</th>`).join('')}</tr></thead>
+      <tbody>${rows.map((r) => `<tr>${r.map((c) => `<td>${c ?? ''}</td>`).join('')}</tr>`).join('')}</tbody>
+    </table>`;
+
+  const section = (title, content) => `
+    <section>
+      <h2>${title}</h2>
+      ${content}
+    </section>`;
+
+  const ownerLabel = (o) => o === 'mine' ? 'Aaron' : o === 'partner' ? 'Cameron' : o ? o.charAt(0).toUpperCase() + o.slice(1) : '';
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Expense Tracker Export — ${ts}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; color: #111; background: #fff; padding: 2rem; }
+  h1 { font-size: 1.75rem; font-weight: 800; margin-bottom: 0.25rem; }
+  .subtitle { color: #666; font-size: 0.875rem; margin-bottom: 2rem; }
+  section { margin-bottom: 2.5rem; page-break-inside: avoid; }
+  h2 { font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #444; border-bottom: 2px solid #e5e7eb; padding-bottom: 0.5rem; margin-bottom: 1rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { text-align: left; padding: 0.5rem 0.75rem; background: #f3f4f6; font-weight: 700; color: #374151; border: 1px solid #e5e7eb; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+  td { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; color: #111; vertical-align: top; }
+  tr:nth-child(even) td { background: #f9fafb; }
+  .badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 0.375rem; font-size: 11px; font-weight: 700; }
+  .badge-paid { background: #d1fae5; color: #065f46; }
+  .badge-pending { background: #fef3c7; color: #92400e; }
+  .badge-unpaid { background: #fee2e2; color: #991b1b; }
+  .badge-aaron { background: #e0e7ff; color: #3730a3; }
+  .badge-cameron { background: #ede9fe; color: #5b21b6; }
+  .badge-joint { background: #d1fae5; color: #065f46; }
+  .amount { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .amount-neg { color: #dc2626; }
+  .amount-pos { color: #059669; }
+  @media print {
+    body { padding: 1rem; }
+    section { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<h1>Expense Tracker</h1>
+<p class="subtitle">Exported on ${ts}</p>
+
+${bills.length ? section('Bills', table(
+  ['Name', 'Amount', 'Category', 'Owner', 'Due Day', 'Recurring'],
+  bills.map((b) => [
+    b.name,
+    `<span class="amount">${fmt(b.amount)}</span>`,
+    b.category || '—',
+    `<span class="badge badge-${(b.owner === 'mine' ? 'aaron' : b.owner === 'partner' ? 'cameron' : b.owner) || 'aaron'}">${ownerLabel(b.owner)}</span>`,
+    b.dueDay ? `Day ${b.dueDay}` : '—',
+    b.isRecurring ? 'Yes' : 'No',
+  ])
+)) : ''}
+
+${income.length ? section('Income', table(
+  ['Name', 'Amount', 'Frequency', 'Person'],
+  income.map((i) => [
+    i.name,
+    `<span class="amount amount-pos">${fmt(i.amount)}</span>`,
+    i.frequency || '—',
+    i.person === 'spouse' ? 'Cameron' : 'Aaron',
+  ])
+)) : ''}
+
+${debts.length ? section('Debts', table(
+  ['Name', 'Balance', 'Min Payment', 'Interest Rate', 'Owner'],
+  debts.map((d) => [
+    d.name,
+    `<span class="amount amount-neg">${fmt(d.balance)}</span>`,
+    `<span class="amount">${fmt(d.minPayment)}/mo</span>`,
+    d.interestRate != null ? `${d.interestRate}% APR` : '—',
+    `<span class="badge badge-${(d.owner === 'mine' ? 'aaron' : d.owner === 'partner' ? 'cameron' : d.owner) || 'aaron'}">${ownerLabel(d.owner)}</span>`,
+  ])
+)) : ''}
+
+${savings.length ? section('Savings', table(
+  ['Name', 'Balance', 'Goal', 'Progress'],
+  savings.map((s) => [
+    s.name,
+    `<span class="amount amount-pos">${fmt(s.balance)}</span>`,
+    s.goal ? fmt(s.goal) : '—',
+    s.goal ? `${Math.min(100, Math.round((s.balance / s.goal) * 100))}%` : '—',
+  ])
+)) : ''}
+
+${purchases.length ? section('Spending', table(
+  ['Date', 'Merchant', 'Amount', 'Category', 'Person', 'Notes'],
+  purchases.map((p) => [
+    p.date || '—',
+    p.merchant || '—',
+    `<span class="amount amount-neg">${fmt(p.amount)}</span>`,
+    p.category || '—',
+    p.person === 'spouse' || p.person === 'cameron' ? 'Cameron' : 'Aaron',
+    p.notes || '',
+  ])
+)) : ''}
+
+</body>
+</html>`;
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `expense-tracker-${new Date().toISOString().slice(0, 10)}.html`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ── Debt payoff calculator ──
 export function calcDebtPayoff(balance, annualRate, monthlyPayment) {
   if (!balance || !monthlyPayment) return null;

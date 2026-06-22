@@ -366,10 +366,10 @@ export default function Dashboard() {
         </div>
         {/* View mode toggle */}
         <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.875rem', padding: '0.25rem', gap: '0.25rem', marginBottom: '0.75rem' }}>
-          {[['primary', aaronLabel], ['secondary', partnerLabel], ['joint', 'Joint']].map(([mode, label]) => (
+          {[['primary', aaronLabel, 'var(--accent)', 'rgba(99,102,241,0.15)'], ['secondary', partnerLabel, '#a78bfa', 'rgba(167,139,250,0.15)'], ['joint', 'Joint', '#10b981', 'rgba(16,185,129,0.15)']].map(([mode, label, activeColor, inactiveBg]) => (
             <button key={mode} onClick={() => setViewMode(mode)}
               style={{ flex: 1, padding: '0.5rem 0', borderRadius: '0.625rem', fontSize: '0.875rem', fontWeight: 700, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
-                backgroundColor: viewMode === mode ? 'var(--accent)' : 'transparent',
+                backgroundColor: viewMode === mode ? activeColor : 'transparent',
                 color: viewMode === mode ? '#fff' : 'var(--subtle)',
                 boxShadow: viewMode === mode ? '0 1px 4px rgba(0,0,0,0.2)' : 'none' }}>
               {label}

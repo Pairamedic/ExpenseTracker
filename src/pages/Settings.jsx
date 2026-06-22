@@ -3,7 +3,7 @@ import { User, Trash2, AlertTriangle, Wallet, PiggyBank, DollarSign, Sun, Moon, 
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
-import { formatCurrency, exportAllData } from '../utils/helpers';
+import { formatCurrency, exportAllData, exportAsHTML } from '../utils/helpers';
 
 export default function Settings() {
   const { settings, setSettings, bills, income, debts, savings, commitments, purchases } = useApp();
@@ -177,13 +177,21 @@ export default function Settings() {
         {/* Export */}
         <section className="mb-4" style={cardStyle}>
           <p className="mb-1" style={sectionLabelStyle}>Export Data</p>
-          <p className="text-xs mb-3" style={{ color: 'var(--muted)' }}>Download all your data as CSV files — bills, income, debts, savings, and spending.</p>
-          <button
-            onClick={() => exportAllData({ bills, income, debts, savings, purchases })}
-            className="flex items-center gap-2 text-sm font-semibold"
-            style={{ color: 'var(--accent-text)', border: '1px solid var(--accent)', padding: '0.625rem 1rem', borderRadius: '0.75rem', backgroundColor: 'transparent', cursor: 'pointer' }}>
-            <Download size={14} /> Export to CSV
-          </button>
+          <p className="text-xs mb-3" style={{ color: 'var(--muted)' }}>Download your data as a printable HTML report or CSV files.</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+            <button
+              onClick={() => exportAsHTML({ bills, income, debts, savings, purchases })}
+              className="flex items-center gap-2 text-sm font-semibold"
+              style={{ color: '#fff', border: 'none', padding: '0.625rem 1rem', borderRadius: '0.75rem', backgroundColor: 'var(--accent)', cursor: 'pointer' }}>
+              <Download size={14} /> Export to HTML (Printable)
+            </button>
+            <button
+              onClick={() => exportAllData({ bills, income, debts, savings, purchases })}
+              className="flex items-center gap-2 text-sm font-semibold"
+              style={{ color: 'var(--accent-text)', border: '1px solid var(--accent)', padding: '0.625rem 1rem', borderRadius: '0.75rem', backgroundColor: 'transparent', cursor: 'pointer' }}>
+              <Download size={14} /> Export to CSV
+            </button>
+          </div>
         </section>
 
         {/* Danger zone */}
