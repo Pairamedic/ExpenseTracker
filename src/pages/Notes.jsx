@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import {
-  Plus, Pin, PinOff, Pencil, Trash2, MoreVertical, NotebookPen,
-  X, Bell, Link, LayoutDashboard, BellOff, AlertCircle,
+  Pin, PinOff, Pencil, Trash2, MoreVertical, NotebookPen,
+  X, Bell, Link, LayoutDashboard, AlertCircle,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import Modal from '../components/Modal';
+import AddButton from '../components/AddButton';
 import { timeAgo, isReminderOverdue, isReminderSoon, formatDate } from '../utils/helpers';
 
 function NoteForm({ initial = {}, onSave, onCancel, bills = [] }) {
@@ -212,12 +213,9 @@ export default function Notes() {
   return (
     <div className="pb-32">
       <div className="px-4 pt-5 pb-4">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between gap-3 mb-4">
           <h1 className="text-2xl font-black text-white tracking-tight">Notes</h1>
-          <button onClick={() => setShowAdd(true)}
-            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors">
-            <Plus size={15} /> Add
-          </button>
+          <AddButton onClick={() => setShowAdd(true)} label="Add Note" />
         </div>
         {notes.length > 2 && (
           <div className="relative mb-4">

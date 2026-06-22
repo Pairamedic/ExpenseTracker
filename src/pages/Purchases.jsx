@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Plus, ShoppingBag, Pencil, Trash2, MoreVertical, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ShoppingBag, Pencil, Trash2, MoreVertical, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatCurrency, monthKey, monthLabel } from '../utils/helpers';
 import Modal from '../components/Modal';
 import PurchaseForm from '../components/PurchaseForm';
+import AddButton from '../components/AddButton';
 
 function monthOffset(mk, offset) {
   const [y, m] = mk.split('-').map(Number);
@@ -116,12 +117,9 @@ export default function Purchases() {
   return (
     <div className="pb-32">
       <div className="px-4 pt-5 pb-4">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-black text-white tracking-tight">Purchases</h1>
-          <button onClick={() => setShowAdd(true)}
-            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors">
-            <Plus size={15} /> Add
-          </button>
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <h1 className="text-2xl font-black text-white tracking-tight">Spending</h1>
+          <AddButton onClick={() => setShowAdd(true)} label="Log Purchase" />
         </div>
 
         <div className="flex items-center gap-2 mb-4">

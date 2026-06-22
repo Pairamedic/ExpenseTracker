@@ -14,27 +14,29 @@ const links = [
 export default function BottomNav() {
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 bg-slate-900/96 backdrop-blur-lg border-t border-slate-800/80"
+      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[640px] z-50 bg-slate-900/95 backdrop-blur-lg border-t border-slate-800"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      <div className="max-w-[640px] mx-auto flex">
+      <div className="flex items-stretch px-1">
         {links.map(({ to, label, Icon }) => (
           <NavLink
             key={to}
             to={to}
             end={to === '/'}
-            className={({ isActive }) =>
-              `flex-1 flex flex-col items-center gap-0.5 pt-2 pb-1.5 text-[9px] font-medium transition-colors ${
-                isActive ? 'text-indigo-400' : 'text-slate-600 hover:text-slate-400'
-              }`
-            }
+            className="flex-1 min-w-0 flex flex-col items-center gap-1 pt-2 pb-1.5"
           >
             {({ isActive }) => (
               <>
-                <div className={`rounded-xl px-2 py-1 transition-all ${isActive ? 'bg-indigo-500/15' : ''}`}>
-                  <Icon size={19} strokeWidth={isActive ? 2 : 1.75} />
+                <div
+                  className={`flex items-center justify-center rounded-xl w-full max-w-[44px] py-1.5 transition-colors ${
+                    isActive ? 'bg-indigo-500/15 text-indigo-400' : 'text-slate-500'
+                  }`}
+                >
+                  <Icon size={20} strokeWidth={isActive ? 2.25 : 1.75} />
                 </div>
-                <span>{label}</span>
+                <span className={`text-[9px] font-medium leading-none truncate w-full text-center ${isActive ? 'text-indigo-400' : 'text-slate-500'}`}>
+                  {label}
+                </span>
               </>
             )}
           </NavLink>
