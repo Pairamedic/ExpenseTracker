@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Trash2, AlertTriangle, Wallet, PiggyBank, DollarSign, Sun, Moon, LogOut, Phone } from 'lucide-react';
+import { User, Trash2, AlertTriangle, Wallet, PiggyBank, DollarSign, Sun, Moon, LogOut, Mail } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
@@ -160,11 +160,11 @@ export default function Settings() {
           <p className="mb-3" style={sectionLabelStyle}>Account</p>
           <div className="flex items-center gap-3 mb-3">
             <div style={{ width: '2.25rem', height: '2.25rem', borderRadius: '0.75rem', backgroundColor: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <Phone size={16} style={{ color: 'var(--accent-text)' }} />
+              <Mail size={16} style={{ color: 'var(--accent-text)' }} />
             </div>
             <div>
-              <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Phone</p>
-              <p className="text-xs" style={{ color: 'var(--muted)' }}>{user?.phoneNumber || '—'}</p>
+              <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Email</p>
+              <p className="text-xs" style={{ color: 'var(--muted)' }}>{user?.email || '—'}</p>
             </div>
           </div>
           <button onClick={signOut}
