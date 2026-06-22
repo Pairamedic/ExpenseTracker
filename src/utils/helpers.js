@@ -34,6 +34,42 @@ export function getDueDateColor(dayOfMonth, isPaid) {
   return 'text-slate-400';
 }
 
+// New 3-state bill status helpers
+export function getBillStatus(bill, mk) {
+  if (bill.statusMonths?.[mk]) return bill.statusMonths[mk];
+  // Backward compat with old paidMonths boolean
+  if (bill.paidMonths?.[mk]) return 'paid';
+  return 'unpaid';
+}
+
+export function nextBillStatus(current) {
+  if (current === 'unpaid') return 'pending';
+  if (current === 'pending') return 'paid';
+  return 'unpaid';
+}
+
+export function getBillStatusColor(status, dueDay) {
+  if (status === 'paid') return 'text-emerald-400';
+  if (status === 'pending') return 'text-amber-400';
+  if (dueDay) {
+    const today = new Date().getDate();
+    const diff = dueDay - today;
+    if (diff < 0) return 'text-red-400';
+    if (diff <= 3) return 'text-orange-400';
+  }
+  return 'text-slate-400';
+}
+
+export function isBillOverdueUnpaid(bill, mk) {
+  const status = getBillStatus(bill, mk);
+  if (status === 'paid') return false;
+  if (!bill.dueDay) return false;
+  const today = new Date();
+  const currentMk = monthKey(today);
+  if (mk !== currentMk) return false;
+  return bill.dueDay < today.getDate();
+}
+
 export function generateId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
@@ -46,7 +82,6 @@ export function getIncomeForMonth(allIncome, mk) {
   return allIncome.filter((i) => i.isRecurring || i.month === mk);
 }
 
-// Returns pay dates (Date objects) for a biweekly/weekly income item within a given month
 export function getPayDatesForMonth(item, mk) {
   if (!item.startDate || item.frequency === 'monthly') return [];
   const [year, month] = mk.split('-').map(Number);
@@ -69,7 +104,6 @@ export function getPayDatesForMonth(item, mk) {
   return dates;
 }
 
-// Returns { date, daysUntil } for the next upcoming pay date for an income item
 export function getNextPayDate(item) {
   if (!item.startDate || item.frequency === 'monthly') return null;
   const today = new Date();
@@ -92,4 +126,33 @@ export function getNextPayDate(item) {
   const next = new Date(start.getTime() + (n + 1) * intervalDays * MS_PER_DAY);
   next.setHours(0, 0, 0, 0);
   return { date: next, daysUntil: Math.round((next - today) / MS_PER_DAY) };
+}
+
+export function timeAgo(iso) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+export function formatDate(dateStr) {
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+export function isReminderOverdue(reminderDate) {
+  if (!reminderDate) return false;
+  return new Date(reminderDate + 'T23:59:59') < new Date();
+}
+
+export function isReminderSoon(reminderDate) {
+  if (!reminderDate) return false;
+  const d = new Date(reminderDate + 'T23:59:59');
+  const now = new Date();
+  const diff = (d - now) / (1000 * 60 * 60 * 24);
+  return diff >= 0 && diff <= 3;
 }

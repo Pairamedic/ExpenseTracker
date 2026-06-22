@@ -7,6 +7,8 @@ const KEYS = {
   DEBTS: 'bt_debts',
   SAVINGS: 'bt_savings',
   COMMITMENTS: 'bt_commitments',
+  PURCHASES: 'bt_purchases',
+  PLANNED_EXPENSES: 'bt_planned_expenses',
 };
 
 function get(key) {
@@ -22,6 +24,14 @@ function set(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
+const DEFAULT_SETTINGS = {
+  spouseEnabled: true,
+  spouseName: 'Cameron',
+  myName: 'Aaron',
+  monthlySpendingBudget: 0,
+  monthlySavingsTarget: 0,
+};
+
 export const storage = {
   getBills: () => get(KEYS.BILLS) || [],
   setBills: (bills) => set(KEYS.BILLS, bills),
@@ -32,7 +42,7 @@ export const storage = {
   getBudget: () => get(KEYS.BUDGET) || {},
   setBudget: (budget) => set(KEYS.BUDGET, budget),
 
-  getSettings: () => get(KEYS.SETTINGS) || { spouseEnabled: false, spouseName: '', myName: 'Me' },
+  getSettings: () => ({ ...DEFAULT_SETTINGS, ...(get(KEYS.SETTINGS) || {}) }),
   setSettings: (settings) => set(KEYS.SETTINGS, settings),
 
   getNotes: () => get(KEYS.NOTES) || [],
@@ -46,4 +56,10 @@ export const storage = {
 
   getCommitments: () => get(KEYS.COMMITMENTS) || [],
   setCommitments: (c) => set(KEYS.COMMITMENTS, c),
+
+  getPurchases: () => get(KEYS.PURCHASES) || [],
+  setPurchases: (p) => set(KEYS.PURCHASES, p),
+
+  getPlannedExpenses: () => get(KEYS.PLANNED_EXPENSES) || [],
+  setPlannedExpenses: (p) => set(KEYS.PLANNED_EXPENSES, p),
 };
