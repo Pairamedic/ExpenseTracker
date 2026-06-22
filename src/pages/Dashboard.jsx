@@ -3,7 +3,7 @@ import {
   ChevronLeft, ChevronRight, TrendingUp, Receipt, CreditCard,
   CalendarDays, Plus, Pencil, Trash2, CheckSquare, Square,
   MoreVertical, Bell, LayoutDashboard, Link, Plane, AlertTriangle,
-  Wallet, PiggyBank, Settings, BarChart2, Users,
+  Wallet, PiggyBank, Settings, BarChart2, Users, LayoutGrid,
 } from 'lucide-react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -237,6 +237,12 @@ export default function Dashboard() {
   const [showAddPlanned, setShowAddPlanned] = useState(false);
   const [editPlanned, setEditPlanned] = useState(null);
   const [viewMode, setViewMode] = useState('joint'); // 'primary' | 'secondary' | 'joint'
+  const [showCustomize, setShowCustomize] = useState(false);
+
+  // Section visibility helpers — default true if key not set
+  const sectionPrefs = settings.dashboardSections || {};
+  const sec = (key) => sectionPrefs[key] !== false;
+  const toggleSec = (key) => setSettings({ ...settings, dashboardSections: { ...sectionPrefs, [key]: !sec(key) } });
   const navigate = useNavigate();
 
   const { spouseName, myName, monthlySpendingBudget, monthlySavingsTarget } = settings;
@@ -369,10 +375,16 @@ export default function Dashboard() {
       <div className="app-header">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
           <h1 style={{ fontSize: '1.625rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-0.02em' }}>Budget Tracker</h1>
-          <RouterLink to="/settings"
-            style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.875rem', backgroundColor: 'var(--surface2)', color: 'var(--muted)', border: '1px solid var(--border)', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', textDecoration: 'none' }}>
-            <Settings size={15} /> Settings
-          </RouterLink>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <button onClick={() => setShowCustomize(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.75rem', backgroundColor: 'var(--surface2)', color: 'var(--muted)', border: '1px solid var(--border)', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer' }}>
+              <LayoutGrid size={15} />
+            </button>
+            <RouterLink to="/settings"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.875rem', backgroundColor: 'var(--surface2)', color: 'var(--muted)', border: '1px solid var(--border)', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', textDecoration: 'none' }}>
+              <Settings size={15} />
+            </RouterLink>
+          </div>
         </div>
         {/* View mode toggle */}
         <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.875rem', padding: '0.25rem', gap: '0.25rem', marginBottom: '0.75rem' }}>
@@ -422,7 +434,7 @@ export default function Dashboard() {
         )}
 
         {/* Pinned notes */}
-        {pinnedNotes.length > 0 && (
+        {sec('pinnedNotes') && pinnedNotes.length > 0 && (
           <div style={sectionWrap}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.75rem' }}>
               <LayoutDashboard size={13} style={{ color: 'var(--accent-text)' }} />
@@ -514,7 +526,7 @@ export default function Dashboard() {
         </div>
 
         {/* Savings — quick access near top */}
-        <div style={sectionWrap}>
+        {sec('savings') && <div style={sectionWrap}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <SectionLabel>Savings</SectionLabel>
@@ -536,10 +548,10 @@ export default function Dashboard() {
               ))}
             </div>
           )}
-        </div>
+        </div>}
 
         {/* Commitments — quick access near top */}
-        <div style={sectionWrap}>
+        {sec('commitments') && <div style={sectionWrap}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
             <SectionLabel>Commitments</SectionLabel>
             <button onClick={() => setShowAddCommitment(true)}
@@ -573,10 +585,10 @@ export default function Dashboard() {
               ))}
             </div>
           )}
-        </div>
+        </div>}
 
         {/* Bills status */}
-        <div style={sectionWrap}>
+        {sec('billsStatus') && <div style={sectionWrap}>
           <SectionLabel>Bills Status</SectionLabel>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
             {[
@@ -595,10 +607,10 @@ export default function Dashboard() {
               </button>
             ))}
           </div>
-        </div>
+        </div>}
 
         {/* Spending vs budget */}
-        {spendingBudget > 0 && (
+        {sec('spending') && spendingBudget > 0 && (
           <div style={sectionWrap}>
             <SectionLabel>Spending This Month</SectionLabel>
             <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', padding: '1rem' }}>
@@ -627,7 +639,7 @@ export default function Dashboard() {
         )}
 
         {/* Next paycheck banner */}
-        {isCurrentMonth && nextPaychecks.length > 0 && nextPaychecks[0].daysUntil <= 7 && (
+        {sec('nextPaycheck') && isCurrentMonth && nextPaychecks.length > 0 && nextPaychecks[0].daysUntil <= 7 && (
           <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--accent)', borderRadius: '1rem', padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
             <CalendarDays size={18} style={{ color: 'var(--accent-text)', flexShrink: 0 }} />
             <div>
@@ -642,7 +654,7 @@ export default function Dashboard() {
         )}
 
         {/* Pay schedule */}
-        {payDates.length > 0 && (
+        {sec('payDates') && payDates.length > 0 && (
           <div style={sectionWrap}>
             <SectionLabel>Pay Dates — {monthLabel(mk)}</SectionLabel>
             <div style={{ ...sectionCard }}>
@@ -663,7 +675,7 @@ export default function Dashboard() {
         )}
 
         {/* Planned expenses */}
-        <div style={sectionWrap}>
+        {sec('plannedExpenses') && <div style={sectionWrap}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
             <SectionLabel>Planned Expenses</SectionLabel>
             <button onClick={() => setShowAddPlanned(true)}
@@ -689,10 +701,10 @@ export default function Dashboard() {
               </div>
             </div>
           )}
-        </div>
+        </div>}
 
         {/* Net Worth */}
-        <div style={sectionWrap}>
+        {sec('netWorth') && <div style={sectionWrap}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.75rem' }}>
             <BarChart2 size={13} style={{ color: 'var(--positive-text)' }} />
             <SectionLabel>Net Worth</SectionLabel>
@@ -713,10 +725,10 @@ export default function Dashboard() {
               <p style={{ fontSize: '1.5rem', fontWeight: '900', color: netWorth >= 0 ? 'var(--positive-text)' : 'var(--danger)' }}>{formatCurrency(netWorth)}</p>
             </div>
           </div>
-        </div>
+        </div>}
 
         {/* 6-month spending chart */}
-        {spendingHistory.some((m) => m.amount > 0) && (
+        {sec('spendingTrend') && spendingHistory.some((m) => m.amount > 0) && (
           <div style={sectionWrap}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.75rem' }}>
               <TrendingUp size={13} style={{ color: 'var(--accent-text)' }} />
@@ -744,7 +756,7 @@ export default function Dashboard() {
         )}
 
         {/* Category breakdown */}
-        {categoryTotals.length > 0 && (
+        {sec('topCategories') && categoryTotals.length > 0 && (
           <div style={sectionWrap}>
             <SectionLabel>Top Categories — {monthLabel(mk)}</SectionLabel>
             <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
@@ -767,7 +779,7 @@ export default function Dashboard() {
         )}
 
         {/* Partner view */}
-        {(aaronSpent > 0 || cameronSpent > 0) && (
+        {sec('spendingByPerson') && (aaronSpent > 0 || cameronSpent > 0) && (
           <div style={sectionWrap}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.75rem' }}>
               <Users size={13} style={{ color: 'var(--accent-text)' }} />
@@ -840,6 +852,45 @@ export default function Dashboard() {
             onCancel={() => setEditPlanned(null)}
             savings={savings}
           />
+        </Modal>
+      )}
+
+      {/* Dashboard Customize modal */}
+      {showCustomize && (
+        <Modal title="Customize Dashboard" onClose={() => setShowCustomize(false)}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <p style={{ fontSize: '0.8125rem', color: 'var(--subtle)', marginBottom: '0.75rem' }}>
+              Toggle sections on or off to simplify your dashboard.
+            </p>
+            {[
+              ['savings',         'Savings'],
+              ['commitments',     'Commitments'],
+              ['billsStatus',     'Bills Status'],
+              ['spending',        'Spending This Month'],
+              ['nextPaycheck',    'Next Paycheck Banner'],
+              ['payDates',        'Pay Dates'],
+              ['plannedExpenses', 'Planned Expenses'],
+              ['netWorth',        'Net Worth'],
+              ['spendingTrend',   'Spending Trend'],
+              ['topCategories',   'Top Categories'],
+              ['spendingByPerson','Spending by Person'],
+              ['pinnedNotes',     'Pinned Notes'],
+            ].map(([key, label]) => {
+              const on = sec(key);
+              return (
+                <button key={key} onClick={() => toggleSec(key)}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.875rem 1rem', borderRadius: '0.875rem', border: '1px solid var(--border)', backgroundColor: 'var(--surface2)', cursor: 'pointer', width: '100%', textAlign: 'left' }}>
+                  <span style={{ fontSize: '0.9375rem', fontWeight: 600, color: on ? 'var(--text)' : 'var(--subtle)' }}>{label}</span>
+                  <div style={{ width: '2.75rem', height: '1.5rem', borderRadius: '9999px', position: 'relative', flexShrink: 0, transition: 'background 0.2s',
+                    backgroundColor: on ? 'var(--accent)' : 'var(--border2)' }}>
+                    <span style={{ position: 'absolute', top: '2px', width: '1.125rem', height: '1.125rem', borderRadius: '9999px', backgroundColor: '#fff', transition: 'left 0.2s',
+                      left: on ? 'calc(100% - 1.25rem)' : '2px' }} />
+                  </div>
+                </button>
+              );
+            })}
+            <button onClick={() => setShowCustomize(false)} className="app-btn-primary" style={{ marginTop: '0.5rem' }}>Done</button>
+          </div>
         </Modal>
       )}
     </div>

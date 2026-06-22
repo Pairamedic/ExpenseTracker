@@ -35,6 +35,20 @@ const DEFAULT_SETTINGS = {
   monthlySpendingBudget: 0,
   monthlySavingsTarget: 0,
   lightMode: false,
+  dashboardSections: {
+    pinnedNotes: true,
+    savings: true,
+    commitments: true,
+    billsStatus: true,
+    spending: true,
+    nextPaycheck: true,
+    payDates: true,
+    plannedExpenses: true,
+    netWorth: true,
+    spendingTrend: true,
+    topCategories: true,
+    spendingByPerson: true,
+  },
 };
 
 export const storage = {
