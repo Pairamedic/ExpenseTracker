@@ -4,6 +4,7 @@ import {
   ChevronLeft, ChevronRight, Receipt, Info, X,
   CalendarOff, AlertTriangle, CreditCard,
   CheckCircle2, Circle, Plus, TrendingDown,
+  Wallet, SlidersHorizontal, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import {
@@ -341,8 +342,100 @@ function BillCalendarView({ bills, income, mk, onSetStatus, myName, spouseName }
   );
 }
 
+// ── Budget Envelope Colors ────────────────────────────────────────────────────
+const CAT_COLORS = ['#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#f97316'];
+function catColor(idx) { return CAT_COLORS[idx % CAT_COLORS.length]; }
+
+function CategoryForm({ initial = {}, onSave, onCancel }) {
+  const [name, setName] = useState(initial.name || '');
+  const [limit, setLimit] = useState(initial.monthlyLimit != null ? String(initial.monthlyLimit) : '');
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); if (!name || !limit) return; onSave({ name, monthlyLimit: parseFloat(limit) }); }} className="flex flex-col gap-4">
+      <div>
+        <label className="app-label">Category Name *</label>
+        <input autoFocus className="app-input" placeholder="e.g. Gas, Leisure, Food"
+          value={name} onChange={(e) => setName(e.target.value)} required />
+      </div>
+      <div>
+        <label className="app-label">Monthly Limit *</label>
+        <input type="number" min="0" step="0.01" className="app-input" placeholder="0.00"
+          value={limit} onChange={(e) => setLimit(e.target.value)} required />
+      </div>
+      <div className="flex gap-3 pt-1">
+        <button type="button" onClick={onCancel} className="app-btn-secondary flex-1">Cancel</button>
+        <button type="submit" className="app-btn-primary flex-1">Save</button>
+      </div>
+    </form>
+  );
+}
+
+function SpendForm({ initial = {}, categories = [], defaultCategoryId = '', onSave, onCancel }) {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [form, setForm] = useState({
+    categoryId: defaultCategoryId,
+    amount: '',
+    description: '',
+    date: todayStr,
+    account: '',
+    notes: '',
+    ...initial,
+    amount: initial.amount != null ? String(initial.amount) : '',
+  });
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const needsCatSelect = !defaultCategoryId || initial.categoryId;
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); if (!form.categoryId || !form.description || !form.amount) return; onSave({ ...form, amount: parseFloat(form.amount) }); }} className="flex flex-col gap-4">
+      {(needsCatSelect || categories.length > 1) && (
+        <div>
+          <label className="app-label">Category *</label>
+          <select className="app-input" value={form.categoryId} onChange={(e) => set('categoryId', e.target.value)} required>
+            <option value="">Select category</option>
+            {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+      )}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+        <div>
+          <label className="app-label">Amount *</label>
+          <input autoFocus={!needsCatSelect} type="number" min="0" step="0.01" className="app-input" placeholder="0.00"
+            value={form.amount} onChange={(e) => set('amount', e.target.value)} required />
+        </div>
+        <div>
+          <label className="app-label">Date</label>
+          <input type="date" className="app-input" value={form.date} onChange={(e) => set('date', e.target.value)} />
+        </div>
+      </div>
+      <div>
+        <label className="app-label">Description *</label>
+        <input className="app-input" placeholder="e.g. Costco, Wedding hotel"
+          value={form.description} onChange={(e) => set('description', e.target.value)} required />
+      </div>
+      <div>
+        <label className="app-label">Account / Card</label>
+        <input className="app-input" placeholder="e.g. Wells Fargo, Chase"
+          value={form.account} onChange={(e) => set('account', e.target.value)} />
+      </div>
+      <div>
+        <label className="app-label">Notes</label>
+        <input className="app-input" placeholder="Optional"
+          value={form.notes} onChange={(e) => set('notes', e.target.value)} />
+      </div>
+      <div className="flex gap-3 pt-1">
+        <button type="button" onClick={onCancel} className="app-btn-secondary flex-1">Cancel</button>
+        <button type="submit" className="app-btn-primary flex-1">Save</button>
+      </div>
+    </form>
+  );
+}
+
 export default function BillsDebts() {
-  const { bills, addBill, updateBill, deleteBill, setBillStatusDirect, debts, addDebt, updateDebt, deleteDebt, toggleDebtPaid, settings, income } = useApp();
+  const {
+    bills, addBill, updateBill, deleteBill, setBillStatusDirect,
+    debts, addDebt, updateDebt, deleteDebt, toggleDebtPaid,
+    budgetCategories, addBudgetCategory, updateBudgetCategory, deleteBudgetCategory,
+    budgetSpends, addBudgetSpend, updateBudgetSpend, deleteBudgetSpend,
+    settings, income,
+  } = useApp();
   const [tab, setTab] = useState('bills');
   const [mk, setMk] = useState(() => monthKey(new Date()));
   const [showAddBill, setShowAddBill] = useState(false);
@@ -351,6 +444,13 @@ export default function BillsDebts() {
   const [editDebt, setEditDebt] = useState(null);
   const [ownerFilter, setOwnerFilter] = useState(null);
   const [calView, setCalView] = useState(false);
+
+  // Budget tab state
+  const [showManageCategories, setShowManageCategories] = useState(false);
+  const [editCategory, setEditCategory] = useState(null);
+  const [showAddSpend, setShowAddSpend] = useState(null); // null | { categoryId }
+  const [editSpend, setEditSpend] = useState(null);
+  const [expandedCats, setExpandedCats] = useState(new Set());
 
   const { myName, spouseName } = settings;
   const aaronLabel = myName || 'Aaron';
@@ -388,6 +488,16 @@ export default function BillsDebts() {
 
   const toggleOwner = (val) => setOwnerFilter((cur) => cur === val ? null : val);
 
+  // Budget envelope computed values
+  const monthBudgetSpends = useMemo(() => budgetSpends.filter((s) => s.month === mk), [budgetSpends, mk]);
+  const categoryData = useMemo(() => budgetCategories.map((cat, idx) => {
+    const spends = monthBudgetSpends.filter((s) => s.categoryId === cat.id).sort((a, b) => b.date.localeCompare(a.date));
+    const spent = spends.reduce((sum, s) => sum + s.amount, 0);
+    return { ...cat, spent, remaining: cat.monthlyLimit - spent, spends, color: catColor(idx) };
+  }), [budgetCategories, monthBudgetSpends]);
+  const totalBudgetLimit = budgetCategories.reduce((s, c) => s + c.monthlyLimit, 0);
+  const totalBudgetSpent = monthBudgetSpends.reduce((s, sp) => s + sp.amount, 0);
+
   const sectionLabel = { fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)' };
 
   return (
@@ -395,18 +505,34 @@ export default function BillsDebts() {
       <div className="app-header">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
           <h1 style={{ fontSize: '1.625rem', fontWeight: 900, color: 'var(--text)', letterSpacing: '-0.02em' }}>Bills & Debts</h1>
-          <button
-            onClick={() => tab === 'bills' ? setShowAddBill(true) : setShowAddDebt(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.875rem', backgroundColor: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: 700, cursor: 'pointer' }}>
-            <Plus size={16} /> {tab === 'bills' ? 'Add Bill' : 'Add Debt'}
-          </button>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            {tab === 'budget' && (
+              <button onClick={() => setShowManageCategories(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.75rem', backgroundColor: 'var(--surface2)', color: 'var(--muted)', border: '1px solid var(--border)', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: 700, cursor: 'pointer' }}>
+                <SlidersHorizontal size={15} />
+              </button>
+            )}
+            <button
+              onClick={() => {
+                if (tab === 'bills') setShowAddBill(true);
+                else if (tab === 'debts') setShowAddDebt(true);
+                else if (tab === 'budget') {
+                  if (budgetCategories.length === 0) setShowManageCategories(true);
+                  else setShowAddSpend({ categoryId: '' });
+                }
+              }}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.875rem', backgroundColor: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: 700, cursor: 'pointer' }}>
+              <Plus size={16} />
+              {tab === 'bills' ? 'Add Bill' : tab === 'debts' ? 'Add Debt' : budgetCategories.length === 0 ? 'Setup' : 'Add Spend'}
+            </button>
+          </div>
         </div>
 
         {/* Segmented tabs */}
         <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.875rem', padding: '0.25rem', gap: '0.25rem', marginBottom: '1rem' }}>
-          {[['bills', <Receipt size={15} />, 'Bills'], ['debts', <CreditCard size={15} />, 'Debts']].map(([t, icon, label]) => (
+          {[['bills', <Receipt size={14} />, 'Bills'], ['budget', <Wallet size={14} />, 'Budget'], ['debts', <CreditCard size={14} />, 'Debts']].map(([t, icon, label]) => (
             <button key={t} onClick={() => setTab(t)}
-              style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem', padding: '0.625rem 0', borderRadius: '0.625rem', fontSize: '0.9375rem', fontWeight: 700, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+              style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', padding: '0.625rem 0', borderRadius: '0.625rem', fontSize: '0.875rem', fontWeight: 700, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
                 backgroundColor: tab === t ? 'var(--surface)' : 'transparent',
                 color: tab === t ? 'var(--text)' : 'var(--subtle)',
                 boxShadow: tab === t ? '0 1px 4px rgba(0,0,0,0.15)' : 'none' }}>
@@ -498,6 +624,130 @@ export default function BillsDebts() {
                 onEdit={setEditBill} onDelete={deleteBill} myName={myName} spouseName={spouseName} />
             ))}
             </>)}
+          </div>
+        )}
+
+        {/* ── Budget Envelopes ── */}
+        {tab === 'budget' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {budgetCategories.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
+                <Wallet size={48} style={{ margin: '0 auto 1rem', opacity: 0.2, color: 'var(--muted)', display: 'block' }} />
+                <p style={{ fontWeight: 700, color: 'var(--text)', fontSize: '1.125rem', marginBottom: '0.5rem' }}>No budget envelopes yet</p>
+                <p style={{ fontSize: '0.9375rem', color: 'var(--muted)', marginBottom: '1.5rem' }}>Create categories like Gas, Leisure, or Food with monthly limits</p>
+                <button onClick={() => setShowManageCategories(true)} className="app-btn-primary" style={{ maxWidth: '14rem', margin: '0 auto' }}>
+                  <Plus size={18} /> Set Up Envelopes
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Month overview */}
+                <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1.25rem', padding: '1.25rem' }}>
+                  <p style={{ ...sectionLabel, marginBottom: '0.25rem' }}>Monthly Budget</p>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '2rem', fontWeight: 900, color: totalBudgetSpent > totalBudgetLimit ? 'var(--danger)' : 'var(--text)' }}>{formatCurrency(totalBudgetLimit - totalBudgetSpent)}</span>
+                    <span style={{ fontSize: '0.875rem', color: 'var(--subtle)', paddingBottom: '0.3rem' }}>remaining</span>
+                  </div>
+                  <div style={{ height: '6px', borderRadius: '9999px', backgroundColor: 'var(--border)', overflow: 'hidden', marginBottom: '0.5rem' }}>
+                    <div style={{ height: '100%', width: `${Math.min(100, totalBudgetLimit > 0 ? (totalBudgetSpent / totalBudgetLimit) * 100 : 0)}%`, borderRadius: '9999px',
+                      backgroundColor: totalBudgetSpent >= totalBudgetLimit ? 'var(--danger)' : totalBudgetSpent / totalBudgetLimit > 0.75 ? 'var(--warn)' : 'var(--accent)' }} />
+                  </div>
+                  <p style={{ fontSize: '0.8125rem', color: 'var(--subtle)' }}>
+                    {formatCurrency(totalBudgetSpent)} spent of {formatCurrency(totalBudgetLimit)} total
+                  </p>
+                </div>
+
+                {/* Category cards */}
+                {categoryData.map((cat) => {
+                  const pct = cat.monthlyLimit > 0 ? Math.min(100, (cat.spent / cat.monthlyLimit) * 100) : 0;
+                  const over = cat.spent > cat.monthlyLimit;
+                  const warn = !over && pct >= 75;
+                  const barColor = over ? 'var(--danger)' : warn ? 'var(--warn)' : cat.color;
+                  const isExpanded = expandedCats.has(cat.id);
+                  const toggleExpand = () => setExpandedCats((prev) => {
+                    const next = new Set(prev);
+                    next.has(cat.id) ? next.delete(cat.id) : next.add(cat.id);
+                    return next;
+                  });
+
+                  return (
+                    <div key={cat.id} style={{ backgroundColor: 'var(--surface)', border: `1px solid var(--border)`, borderRadius: '1rem', overflow: 'hidden' }}>
+                      {/* Color bar */}
+                      <div style={{ height: '3px', backgroundColor: cat.color }} />
+                      <div style={{ padding: '1rem' }}>
+                        {/* Header row */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.625rem' }}>
+                          <span style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text)' }}>{cat.name}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--subtle)' }}>{formatCurrency(cat.monthlyLimit)}/mo</span>
+                            <button onClick={() => setEditCategory(cat)} style={{ padding: '0.25rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}><Pencil size={13} /></button>
+                            <button onClick={() => deleteBudgetCategory(cat.id)} style={{ padding: '0.25rem', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}><Trash2 size={13} /></button>
+                          </div>
+                        </div>
+
+                        {/* Progress bar */}
+                        <div style={{ height: '6px', borderRadius: '9999px', backgroundColor: 'var(--border)', overflow: 'hidden', marginBottom: '0.375rem' }}>
+                          <div style={{ height: '100%', width: `${pct}%`, borderRadius: '9999px', backgroundColor: barColor, transition: 'width 0.3s' }} />
+                        </div>
+
+                        {/* Spent / remaining */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                          <span style={{ fontSize: '0.8125rem', color: 'var(--subtle)' }}>
+                            {formatCurrency(cat.spent)} spent
+                          </span>
+                          <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: over ? 'var(--danger)' : warn ? 'var(--warn)' : 'var(--positive-text)' }}>
+                            {over ? `${formatCurrency(cat.spent - cat.monthlyLimit)} over` : `${formatCurrency(cat.remaining)} left`}
+                          </span>
+                        </div>
+
+                        {/* Actions */}
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button onClick={() => setShowAddSpend({ categoryId: cat.id })}
+                            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem', padding: '0.5rem', borderRadius: '0.75rem', fontSize: '0.8125rem', fontWeight: 700, border: '1px solid var(--border)', backgroundColor: 'var(--surface2)', color: 'var(--muted)', cursor: 'pointer' }}>
+                            <Plus size={14} /> Add Spend
+                          </button>
+                          {cat.spends.length > 0 && (
+                            <button onClick={toggleExpand}
+                              style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', padding: '0.5rem 0.75rem', borderRadius: '0.75rem', fontSize: '0.8125rem', fontWeight: 600, border: '1px solid var(--border)', backgroundColor: 'var(--surface2)', color: 'var(--muted)', cursor: 'pointer' }}>
+                              {cat.spends.length} {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Expanded spend list */}
+                        {isExpanded && cat.spends.length > 0 && (
+                          <div style={{ marginTop: '0.75rem', borderTop: '1px solid var(--border)', paddingTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            {cat.spends.map((sp) => (
+                              <div key={sp.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sp.description}</p>
+                                  <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>
+                                    {new Date(sp.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                    {sp.account ? ` · ${sp.account}` : ''}
+                                    {sp.notes ? ` · ${sp.notes}` : ''}
+                                  </p>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexShrink: 0 }}>
+                                  <span style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text)' }}>{formatCurrency(sp.amount)}</span>
+                                  <button onClick={() => setEditSpend(sp)} style={{ padding: '0.25rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}><Pencil size={12} /></button>
+                                  <button onClick={() => deleteBudgetSpend(sp.id)} style={{ padding: '0.25rem', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}><Trash2 size={12} /></button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Add category shortcut */}
+                <button onClick={() => setShowManageCategories(true)}
+                  style={{ padding: '0.875rem', border: '1px dashed var(--border)', borderRadius: '0.875rem', color: 'var(--muted)', background: 'none', cursor: 'pointer', fontSize: '0.9375rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                  <Plus size={16} /> Add / Manage Envelopes
+                </button>
+              </>
+            )}
           </div>
         )}
 
@@ -605,6 +855,70 @@ export default function BillsDebts() {
       {editDebt && (
         <Modal title="Edit Debt" onClose={() => setEditDebt(null)}>
           <DebtForm initial={editDebt} onSave={(data) => { updateDebt(editDebt.id, data); setEditDebt(null); }} onCancel={() => setEditDebt(null)} myName={myName} spouseName={spouseName} />
+        </Modal>
+      )}
+
+      {/* ── Budget modals ── */}
+      {showManageCategories && (
+        <Modal title="Manage Envelopes" onClose={() => { setShowManageCategories(false); setEditCategory(null); }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {budgetCategories.map((cat, idx) => (
+              editCategory?.id === cat.id ? (
+                <div key={cat.id} style={{ border: '1px solid var(--accent)', borderRadius: '0.875rem', padding: '0.875rem' }}>
+                  <CategoryForm initial={cat} onSave={(data) => { updateBudgetCategory(cat.id, data); setEditCategory(null); }} onCancel={() => setEditCategory(null)} />
+                </div>
+              ) : (
+                <div key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', backgroundColor: 'var(--surface2)', borderRadius: '0.875rem', border: '1px solid var(--border)' }}>
+                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: catColor(idx), flexShrink: 0 }} />
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--text)' }}>{cat.name}</p>
+                    <p style={{ fontSize: '0.8125rem', color: 'var(--subtle)' }}>{formatCurrency(cat.monthlyLimit)}/mo</p>
+                  </div>
+                  <button onClick={() => setEditCategory(cat)} style={{ padding: '0.375rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}><Pencil size={14} /></button>
+                  <button onClick={() => deleteBudgetCategory(cat.id)} style={{ padding: '0.375rem', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}><Trash2 size={14} /></button>
+                </div>
+              )
+            ))}
+            {editCategory?.id === '__new__' ? (
+              <div style={{ border: '1px solid var(--accent)', borderRadius: '0.875rem', padding: '0.875rem' }}>
+                <CategoryForm onSave={(data) => { addBudgetCategory(data); setEditCategory(null); }} onCancel={() => setEditCategory(null)} />
+              </div>
+            ) : (
+              <button onClick={() => setEditCategory({ id: '__new__' })}
+                style={{ padding: '0.875rem', border: '1px dashed var(--border)', borderRadius: '0.875rem', color: 'var(--muted)', background: 'none', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                <Plus size={16} /> Add Envelope
+              </button>
+            )}
+            <button onClick={() => { setShowManageCategories(false); setEditCategory(null); }} className="app-btn-secondary">Done</button>
+          </div>
+        </Modal>
+      )}
+
+      {showAddSpend && (
+        <Modal title="Add Spend" onClose={() => setShowAddSpend(null)}>
+          <SpendForm
+            defaultCategoryId={showAddSpend.categoryId}
+            categories={budgetCategories}
+            onSave={(data) => {
+              addBudgetSpend({ ...data, month: mk });
+              setShowAddSpend(null);
+            }}
+            onCancel={() => setShowAddSpend(null)}
+          />
+        </Modal>
+      )}
+
+      {editSpend && (
+        <Modal title="Edit Spend" onClose={() => setEditSpend(null)}>
+          <SpendForm
+            initial={editSpend}
+            categories={budgetCategories}
+            onSave={(data) => {
+              updateBudgetSpend(editSpend.id, { ...data, month: mk });
+              setEditSpend(null);
+            }}
+            onCancel={() => setEditSpend(null)}
+          />
         </Modal>
       )}
     </div>

@@ -11,6 +11,8 @@ const KEYS = {
   PLANNED_EXPENSES: 'bt_planned_expenses',
   JOBS: 'bt_jobs',
   SHIFTS: 'bt_shifts',
+  BUDGET_CATEGORIES: 'bt_budget_categories',
+  BUDGET_SPENDS: 'bt_budget_spends',
 };
 
 function get(key) {
@@ -71,4 +73,10 @@ export const storage = {
 
   getShifts: () => get(KEYS.SHIFTS) || [],
   setShifts: (v) => set(KEYS.SHIFTS, v),
+
+  getBudgetCategories: () => get(KEYS.BUDGET_CATEGORIES) || [],
+  setBudgetCategories: (v) => set(KEYS.BUDGET_CATEGORIES, v),
+
+  getBudgetSpends: () => get(KEYS.BUDGET_SPENDS) || [],
+  setBudgetSpends: (v) => set(KEYS.BUDGET_SPENDS, v),
 };
