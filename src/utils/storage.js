@@ -9,6 +9,8 @@ const KEYS = {
   COMMITMENTS: 'bt_commitments',
   PURCHASES: 'bt_purchases',
   PLANNED_EXPENSES: 'bt_planned_expenses',
+  JOBS: 'bt_jobs',
+  SHIFTS: 'bt_shifts',
 };
 
 function get(key) {
@@ -62,4 +64,10 @@ export const storage = {
 
   getPlannedExpenses: () => get(KEYS.PLANNED_EXPENSES) || [],
   setPlannedExpenses: (p) => set(KEYS.PLANNED_EXPENSES, p),
+
+  getJobs: () => get(KEYS.JOBS) || [],
+  setJobs: (v) => set(KEYS.JOBS, v),
+
+  getShifts: () => get(KEYS.SHIFTS) || [],
+  setShifts: (v) => set(KEYS.SHIFTS, v),
 };

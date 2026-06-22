@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 const FREQUENCIES = ['monthly', 'biweekly', 'weekly'];
 
-export default function IncomeForm({ initial = {}, onSave, onCancel, spouseEnabled, spouseName }) {
+export default function IncomeForm({ initial = {}, onSave, onCancel, spouseEnabled, spouseName, jobs = [] }) {
   const [form, setForm] = useState({
     source: '',
     amount: '',
@@ -11,6 +11,7 @@ export default function IncomeForm({ initial = {}, onSave, onCancel, spouseEnabl
     startDate: '',
     person: 'me',
     notes: '',
+    linkedJobId: '',
     ...initial,
   });
 
@@ -19,7 +20,7 @@ export default function IncomeForm({ initial = {}, onSave, onCancel, spouseEnabl
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!form.source || !form.amount) return;
-    onSave({ ...form, amount: parseFloat(form.amount) });
+    onSave({ ...form, amount: parseFloat(form.amount), linkedJobId: form.linkedJobId || null });
   };
 
   return (
@@ -38,9 +39,7 @@ export default function IncomeForm({ initial = {}, onSave, onCancel, spouseEnabl
       <div>
         <label className="text-sm text-slate-400 mb-1 block">Amount (per paycheck) *</label>
         <input
-          type="number"
-          min="0"
-          step="0.01"
+          type="number" min="0" step="0.01"
           className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
           placeholder="0.00"
           value={form.amount}
@@ -93,6 +92,23 @@ export default function IncomeForm({ initial = {}, onSave, onCancel, spouseEnabl
         </div>
       )}
 
+      {jobs.length > 0 && (
+        <div>
+          <label className="text-sm text-slate-400 mb-1 block">
+            Link to Job
+            <span className="text-slate-600 ml-1 text-xs">(enables hours toggle)</span>
+          </label>
+          <select
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
+            value={form.linkedJobId || ''}
+            onChange={(e) => set('linkedJobId', e.target.value)}
+          >
+            <option value="">None</option>
+            {jobs.map((j) => <option key={j.id} value={j.id}>{j.name}</option>)}
+          </select>
+        </div>
+      )}
+
       <div>
         <label className="text-sm text-slate-400 mb-1 block">Notes</label>
         <input
@@ -114,10 +130,12 @@ export default function IncomeForm({ initial = {}, onSave, onCancel, spouseEnabl
       </label>
 
       <div className="flex gap-3 pt-2">
-        <button type="button" onClick={onCancel} className="flex-1 py-3 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors">
+        <button type="button" onClick={onCancel}
+          className="flex-1 py-3 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors">
           Cancel
         </button>
-        <button type="submit" className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors">
+        <button type="submit"
+          className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors">
           Save
         </button>
       </div>

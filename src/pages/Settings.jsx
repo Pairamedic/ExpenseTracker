@@ -15,7 +15,7 @@ export default function Settings() {
   const clearAll = () => { localStorage.clear(); window.location.reload(); };
 
   return (
-    <div className="pb-32">
+    <div className="pb-36">
       <div className="px-4 pt-5 pb-6">
         <h1 className="text-2xl font-black text-white tracking-tight mb-6">Settings</h1>
 
