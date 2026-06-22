@@ -751,7 +751,7 @@ function BulkShiftForm({ jobs, shifts, onSave, onCancel }) {
 
 // ── Hours Tab ─────────────────────────────────────────────────────────────────
 
-function HoursTab({ jobs, shifts, addShift, updateShift, deleteShift }) {
+function HoursTab({ jobs, shifts, addShift, updateShift, deleteShift, bulkSaveShifts }) {
   const [logDate, setLogDate] = useState(today());
   const [showShiftForm, setShowShiftForm] = useState(false);
   const [showBulkForm, setShowBulkForm] = useState(false);
@@ -886,10 +886,7 @@ function HoursTab({ jobs, shifts, addShift, updateShift, deleteShift }) {
             jobs={jobs}
             shifts={shifts}
             onSave={(entries) => {
-              entries.forEach(({ existingId, date, jobId, hoursWorked, otExempt, notes }) => {
-                if (existingId) updateShift(existingId, { date, jobId, hoursWorked, otExempt, notes });
-                else addShift({ date, jobId, hoursWorked, otExempt, notes });
-              });
+              bulkSaveShifts(entries);
               setShowBulkForm(false);
             }}
             onCancel={() => setShowBulkForm(false)}
@@ -1220,7 +1217,7 @@ function SegmentedControl({ value, onChange, options }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function WorkTime() {
-  const { jobs, addJob, updateJob, deleteJob, shifts, addShift, updateShift, deleteShift, addIncome } = useApp();
+  const { jobs, addJob, updateJob, deleteJob, shifts, addShift, updateShift, deleteShift, bulkSaveShifts, addIncome } = useApp();
   const [tab, setTab] = useState('jobs');
   const [showJobForm, setShowJobForm] = useState(false);
   const [editJob, setEditJob] = useState(null);
@@ -1269,7 +1266,7 @@ export default function WorkTime() {
         )}
 
         {tab === 'hours' && (
-          <HoursTab jobs={jobs} shifts={shifts} addShift={addShift} updateShift={updateShift} deleteShift={deleteShift} />
+          <HoursTab jobs={jobs} shifts={shifts} addShift={addShift} updateShift={updateShift} deleteShift={deleteShift} bulkSaveShifts={bulkSaveShifts} />
         )}
 
         {tab === 'estimate' && (

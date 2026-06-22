@@ -204,6 +204,17 @@ export function AppProvider({ children, uid }) {
   const addShift = useCallback((sh) => persistShifts([{ ...sh, id: generateId(), createdAt: new Date().toISOString() }, ...shifts]), [shifts, persistShifts]);
   const updateShift = useCallback((id, u) => persistShifts(shifts.map((s) => s.id === id ? { ...s, ...u } : s)), [shifts, persistShifts]);
   const deleteShift = useCallback((id) => persistShifts(shifts.filter((s) => s.id !== id)), [shifts, persistShifts]);
+  const bulkSaveShifts = useCallback((entries) => {
+    let updated = [...shifts];
+    for (const { existingId, ...data } of entries) {
+      if (existingId) {
+        updated = updated.map((s) => s.id === existingId ? { ...s, ...data } : s);
+      } else {
+        updated = [{ ...data, id: generateId(), createdAt: new Date().toISOString() }, ...updated];
+      }
+    }
+    persistShifts(updated);
+  }, [shifts, persistShifts]);
 
   // ── Planned Expenses ──
   const addPlannedExpense = useCallback((pe) => persistPlannedExpenses([...plannedExpenses, { ...pe, id: generateId(), status: 'planned', createdAt: new Date().toISOString() }]), [plannedExpenses, persistPlannedExpenses]);
@@ -223,7 +234,7 @@ export function AppProvider({ children, uid }) {
       purchases, addPurchase, updatePurchase, deletePurchase,
       plannedExpenses, addPlannedExpense, updatePlannedExpense, deletePlannedExpense,
       jobs, addJob, updateJob, deleteJob,
-      shifts, addShift, updateShift, deleteShift,
+      shifts, addShift, updateShift, deleteShift, bulkSaveShifts,
       settings, setSettings: persistSettings,
     }}>
       {children}
