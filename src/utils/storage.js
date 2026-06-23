@@ -37,6 +37,7 @@ const DEFAULT_SETTINGS = {
   monthlySpendingBudget: 0,
   monthlySavingsTarget: 0,
   lightMode: false,
+  purchasesInAvailable: false,
   dashboardSections: {
     pinnedNotes: true,
     savings: true,

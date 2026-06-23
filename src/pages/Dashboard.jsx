@@ -290,7 +290,7 @@ export default function Dashboard() {
   const toggleSec = (key) => setSettings({ ...settings, dashboardSections: { ...sectionPrefs, [key]: !sec(key) } });
   const navigate = useNavigate();
 
-  const { spouseName, myName, monthlySpendingBudget, monthlySavingsTarget } = settings;
+  const { spouseName, myName, monthlySpendingBudget, monthlySavingsTarget, purchasesInAvailable } = settings;
   const partnerLabel = spouseName || 'Cameron';
   const aaronLabel = myName || 'Aaron';
 
@@ -342,7 +342,10 @@ export default function Dashboard() {
     .filter((pe) => pe.status !== 'completed')
     .reduce((s, pe) => s + pe.amount, 0);
 
-  const availableToSpend = monthlyIncome - totalBills - totalDebtMins - activePlannedTotal;
+  const monthPurchases = purchases.filter((p) => p.date && p.date.startsWith(mk));
+  const monthSpent = monthPurchases.reduce((s, p) => s + p.amount, 0);
+
+  const availableToSpend = monthlyIncome - totalBills - totalDebtMins - activePlannedTotal - (purchasesInAvailable ? monthSpent : 0);
 
   const spendingBudget = monthlySpendingBudget || 0;
   const savingsTarget = monthlySavingsTarget || 0;
@@ -370,9 +373,6 @@ export default function Dashboard() {
   const totalSavings = savings.reduce((s, a) => s + a.balance, 0);
 
   const pinnedNotes = notes.filter((n) => n.pinnedToDashboard);
-
-  const monthPurchases = purchases.filter((p) => p.date && p.date.startsWith(mk));
-  const monthSpent = monthPurchases.reduce((s, p) => s + p.amount, 0);
 
   const totalDebt = debts.reduce((s, d) => s + d.balance, 0);
   const netWorth = totalSavings - totalDebt;
@@ -1326,6 +1326,20 @@ export default function Dashboard() {
                 </button>
               );
             })}
+            <div style={{ height: '1px', backgroundColor: 'var(--border)', margin: '0.5rem 0' }} />
+            <p style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', padding: '0.25rem 0' }}>Spending Limit</p>
+            <button onClick={() => setSettings({ ...settings, purchasesInAvailable: !purchasesInAvailable })}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.875rem 1rem', borderRadius: '0.875rem', border: '1px solid var(--border)', backgroundColor: 'var(--surface2)', cursor: 'pointer', width: '100%', textAlign: 'left' }}>
+              <div>
+                <span style={{ fontSize: '0.9375rem', fontWeight: 600, color: purchasesInAvailable ? 'var(--text)' : 'var(--subtle)', display: 'block' }}>Deduct Spending from Available</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Subtracts logged purchases from Available to Spend</span>
+              </div>
+              <div style={{ width: '2.75rem', height: '1.5rem', borderRadius: '9999px', position: 'relative', flexShrink: 0, transition: 'background 0.2s',
+                backgroundColor: purchasesInAvailable ? 'var(--accent)' : 'var(--border2)' }}>
+                <span style={{ position: 'absolute', top: '2px', width: '1.125rem', height: '1.125rem', borderRadius: '9999px', backgroundColor: '#fff', transition: 'left 0.2s',
+                  left: purchasesInAvailable ? 'calc(100% - 1.25rem)' : '2px' }} />
+              </div>
+            </button>
             <button onClick={() => setShowCustomize(false)} className="app-btn-primary" style={{ marginTop: '0.5rem' }}>Done</button>
           </div>
         </Modal>
