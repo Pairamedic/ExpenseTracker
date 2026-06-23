@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { ShoppingBag, Pencil, Trash2, MoreVertical, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { ShoppingBag, Pencil, Trash2, MoreVertical, ChevronLeft, ChevronRight, Plus, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatCurrency, monthKey, monthLabel } from '../utils/helpers';
 import Modal from '../components/Modal';
 import PurchaseForm from '../components/PurchaseForm';
+import BillForm from '../components/BillForm';
 
 function monthOffset(mk, offset) {
   const [y, m] = mk.split('-').map(Number);
@@ -60,11 +61,13 @@ function PurchaseRow({ purchase, onEdit, onDelete, myName, spouseName }) {
 }
 
 export default function Purchases() {
-  const { purchases, addPurchase, updatePurchase, deletePurchase, settings } = useApp();
+  const { purchases, addPurchase, updatePurchase, deletePurchase, settings, bills, addBill } = useApp();
   const [mk, setMk] = useState(() => monthKey(new Date()));
   const [showAdd, setShowAdd] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [personFilter, setPersonFilter] = useState('all');
+  const [showRecurring, setShowRecurring] = useState(false);
+  const [addRecurringBill, setAddRecurringBill] = useState(null);
 
   const { myName, spouseName } = settings;
   const aaronLabel = myName || 'Aaron';
@@ -96,6 +99,27 @@ export default function Purchases() {
     .slice(0, 4);
 
   const filteredTotal = filtered.reduce((s, p) => s + p.amount, 0);
+
+  const recurringCandidates = useMemo(() => {
+    const byMerchant = {};
+    purchases.forEach((p) => {
+      if (!p.merchant || !p.date) return;
+      const key = p.merchant.toLowerCase().trim();
+      if (!byMerchant[key]) byMerchant[key] = { merchant: p.merchant, months: new Set(), amounts: [] };
+      byMerchant[key].months.add(p.date.slice(0, 7));
+      byMerchant[key].amounts.push(p.amount);
+    });
+    const billNames = new Set(bills.map((b) => b.name.toLowerCase().trim()));
+    return Object.values(byMerchant)
+      .filter((v) => v.months.size >= 2 && !billNames.has(v.merchant.toLowerCase().trim()))
+      .map((v) => ({
+        merchant: v.merchant,
+        monthCount: v.months.size,
+        avgAmount: Math.round((v.amounts.reduce((s, a) => s + a, 0) / v.amounts.length) * 100) / 100,
+      }))
+      .sort((a, b) => b.monthCount - a.monthCount)
+      .slice(0, 10);
+  }, [purchases, bills]);
 
   return (
     <div className="app-page">
@@ -189,6 +213,37 @@ export default function Purchases() {
         )}
       </div>
 
+      {/* Recurring suggestions */}
+      {recurringCandidates.length > 0 && (
+        <div style={{ padding: '0 1rem', marginTop: '1rem' }}>
+          <button onClick={() => setShowRecurring(!showRecurring)}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left', padding: '0 0 0.75rem 0' }}>
+            {showRecurring ? <ChevronUp size={14} style={{ color: 'var(--subtle)', flexShrink: 0 }} /> : <ChevronDown size={14} style={{ color: 'var(--subtle)', flexShrink: 0 }} />}
+            <RefreshCw size={13} style={{ color: 'var(--accent-text)', flexShrink: 0 }} />
+            <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)' }}>Likely Recurring ({recurringCandidates.length})</span>
+          </button>
+          {showRecurring && (
+            <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', overflow: 'hidden' }}>
+              {recurringCandidates.map((r, i) => (
+                <div key={r.merchant} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', borderBottom: i < recurringCandidates.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--text)' }}>{r.merchant}</p>
+                    <p style={{ fontSize: '0.7rem', color: 'var(--subtle)' }}>avg {formatCurrency(r.avgAmount)} · {r.monthCount} months</p>
+                  </div>
+                  <button onClick={() => setAddRecurringBill({ name: r.merchant, amount: r.avgAmount })}
+                    style={{ fontSize: '0.75rem', fontWeight: '700', padding: '0.35rem 0.625rem', borderRadius: '0.5rem', backgroundColor: 'rgba(99,102,241,0.12)', color: 'var(--accent-text)', border: 'none', cursor: 'pointer', flexShrink: 0 }}>
+                    + Bill
+                  </button>
+                </div>
+              ))}
+              <div style={{ padding: '0.5rem 1rem', backgroundColor: 'var(--surface2)' }}>
+                <p style={{ fontSize: '0.7rem', color: 'var(--subtle)' }}>These merchants appear in 2+ months and aren't in your bills list</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {showAdd && (
         <Modal title="Log Purchase" onClose={() => setShowAdd(false)}>
           <PurchaseForm
@@ -205,6 +260,17 @@ export default function Purchases() {
             initial={editItem}
             onSave={(data) => { updatePurchase(editItem.id, data); setEditItem(null); }}
             onCancel={() => setEditItem(null)}
+            myName={myName}
+            spouseName={spouseName}
+          />
+        </Modal>
+      )}
+      {addRecurringBill && (
+        <Modal title="Add as Bill" onClose={() => setAddRecurringBill(null)}>
+          <BillForm
+            initial={{ name: addRecurringBill.name, amount: addRecurringBill.amount, isRecurring: true }}
+            onSave={(data) => { addBill(data); setAddRecurringBill(null); }}
+            onCancel={() => setAddRecurringBill(null)}
             myName={myName}
             spouseName={spouseName}
           />
