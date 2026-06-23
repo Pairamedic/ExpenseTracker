@@ -64,6 +64,23 @@ function getCalendarGrid(year, month) {
   return days;
 }
 
+function getPaydaysInMonth(job, year, month) {
+  if (!job.payPeriodStartDate || !job.payFrequency) return [];
+  const freqDays = job.payFrequency === 'weekly' ? 7 : 14;
+  const ref = new Date(job.payPeriodStartDate + 'T12:00:00');
+  ref.setDate(ref.getDate() + freqDays - 1);
+  const monthStart = new Date(year, month, 1);
+  const monthEnd = new Date(year, month + 1, 0);
+  const result = [];
+  let pd = new Date(ref);
+  while (pd > monthStart) pd = new Date(pd.getTime() - freqDays * 86400000);
+  while (pd <= monthEnd) {
+    if (pd >= monthStart) result.push(pd.toISOString().slice(0, 10));
+    pd = new Date(pd.getTime() + freqDays * 86400000);
+  }
+  return result;
+}
+
 function getWeekStartStr(dateStr, weekStartDay) {
   const d = new Date(dateStr + 'T12:00:00');
   const dow = d.getDay();
@@ -532,10 +549,87 @@ function ShiftCalendarView({ jobs, shifts }) {
   );
 }
 
+// ── Job Calendar View ─────────────────────────────────────────────────────────
+
+function JobCalendarView({ job, shifts, onAddShift }) {
+  const now = new Date();
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth());
+
+  const grid = getCalendarGrid(year, month);
+  const todayStr = today();
+  const jobShiftDates = new Set(shifts.filter((s) => s.jobId === job.id).map((s) => s.date));
+  const paydays = new Set(getPaydaysInMonth(job, year, month));
+
+  const prevMonth = () => { if (month === 0) { setYear(y => y - 1); setMonth(11); } else setMonth(m => m - 1); };
+  const nextMonth = () => { if (month === 11) { setYear(y => y + 1); setMonth(0); } else setMonth(m => m + 1); };
+
+  const monthName = new Date(year, month, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+  return (
+    <div style={{ marginTop: '0.75rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+        <button onClick={prevMonth} style={{ padding: '0.375rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', borderRadius: '0.5rem' }}>
+          <ChevronLeft size={16} />
+        </button>
+        <span style={{ fontSize: '0.875rem', fontWeight: '700', color: 'var(--text)' }}>{monthName}</span>
+        <button onClick={nextMonth} style={{ padding: '0.375rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', borderRadius: '0.5rem' }}>
+          <ChevronRight size={16} />
+        </button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px', marginBottom: '0.25rem' }}>
+        {DOW_LABELS.map((d) => (
+          <div key={d} style={{ textAlign: 'center', fontSize: '0.65rem', fontWeight: '700', color: 'var(--subtle)', padding: '0.25rem 0' }}>{d}</div>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px' }}>
+        {grid.map(({ date, cur }, i) => {
+          const ds = date.toISOString().slice(0, 10);
+          const isToday = ds === todayStr;
+          const hasShift = jobShiftDates.has(ds);
+          const isPayday = paydays.has(ds);
+          return (
+            <button key={i} onClick={() => cur && onAddShift(ds)}
+              disabled={!cur}
+              style={{
+                padding: '0.25rem',
+                borderRadius: '0.5rem',
+                textAlign: 'center',
+                fontSize: '0.8125rem',
+                fontWeight: isToday ? '800' : '500',
+                border: isPayday && cur ? '2px solid var(--positive-text)' : '1px solid transparent',
+                backgroundColor: hasShift && cur ? 'var(--accent)' : isToday && cur ? 'var(--surface2)' : 'transparent',
+                color: hasShift && cur ? '#fff' : cur ? 'var(--text)' : 'var(--border2)',
+                cursor: cur ? 'pointer' : 'default',
+                position: 'relative',
+              }}>
+              {date.getDate()}
+              {isPayday && cur && (
+                <span style={{ position: 'absolute', bottom: '2px', left: '50%', transform: 'translateX(-50%)', width: '4px', height: '4px', borderRadius: '9999px', backgroundColor: 'var(--positive-text)', display: 'block' }} />
+              )}
+            </button>
+          );
+        })}
+      </div>
+      {job.payPeriodStartDate && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem', fontSize: '0.7rem', color: 'var(--subtle)' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '9999px', backgroundColor: 'var(--positive-text)' }} /> Payday
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '0.2rem', backgroundColor: 'var(--accent)' }} /> Shift logged
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Job Card ──────────────────────────────────────────────────────────────────
 
-function JobCard({ job, onEdit, onDelete }) {
+function JobCard({ job, onEdit, onDelete, shifts, onAddShift }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showCal, setShowCal] = useState(false);
   const otRate = job.otRate || job.hourlyRate * 1.5;
 
   return (
@@ -550,6 +644,11 @@ function JobCard({ job, onEdit, onDelete }) {
             {formatCurrency(job.hourlyRate)}/hr · OT {formatCurrency(otRate)}/hr
           </p>
         </div>
+        <button onClick={() => setShowCal(!showCal)}
+          style={{ color: showCal ? 'var(--accent-text)' : 'var(--subtle)', background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', marginTop: '-0.125rem', flexShrink: 0 }}
+          title="Toggle calendar">
+          <Clock size={17} />
+        </button>
         <button onClick={() => setMenuOpen(!menuOpen)}
           style={{ color: 'var(--subtle)', background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', marginTop: '-0.125rem', flexShrink: 0 }}>
           <MoreVertical size={18} />
@@ -571,6 +670,10 @@ function JobCard({ job, onEdit, onDelete }) {
           </span>
         ))}
       </div>
+
+      {showCal && (
+        <JobCalendarView job={job} shifts={shifts} onAddShift={(ds) => onAddShift(ds, job.id)} />
+      )}
 
       {menuOpen && (
         <>
@@ -1306,6 +1409,7 @@ export default function WorkTime() {
   });
   const [showJobForm, setShowJobForm] = useState(false);
   const [editJob, setEditJob] = useState(null);
+  const [calShiftPreset, setCalShiftPreset] = useState(null); // { date, jobId }
 
   return (
     <div className="app-page">
@@ -1339,7 +1443,8 @@ export default function WorkTime() {
             ) : (
               <>
                 {jobs.map((job) => (
-                  <JobCard key={job.id} job={job} onEdit={setEditJob} onDelete={deleteJob} />
+                  <JobCard key={job.id} job={job} onEdit={setEditJob} onDelete={deleteJob}
+                    shifts={shifts} onAddShift={(date, jobId) => setCalShiftPreset({ date, jobId })} />
                 ))}
                 <button onClick={() => setShowJobForm(true)}
                   style={{ padding: '0.875rem', border: '1px dashed var(--border)', borderRadius: '0.875rem', color: 'var(--muted)', background: 'none', cursor: 'pointer', fontSize: '0.9375rem', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
@@ -1371,6 +1476,16 @@ export default function WorkTime() {
       {editJob && (
         <Modal title="Edit Job" onClose={() => setEditJob(null)}>
           <JobForm initial={editJob} onSave={(d) => { updateJob(editJob.id, d); setEditJob(null); }} onCancel={() => setEditJob(null)} />
+        </Modal>
+      )}
+      {calShiftPreset && (
+        <Modal title="Log Shift" onClose={() => setCalShiftPreset(null)}>
+          <ShiftForm
+            initial={{ date: calShiftPreset.date, jobId: calShiftPreset.jobId }}
+            jobs={jobs}
+            onSave={(d) => { addShift(d); setCalShiftPreset(null); }}
+            onCancel={() => setCalShiftPreset(null)}
+          />
         </Modal>
       )}
     </div>
