@@ -64,11 +64,27 @@ function getCalendarGrid(year, month) {
   return days;
 }
 
-function getPaydaysInMonth(job, year, month) {
+function getPayPeriodEndsInMonth(job, year, month) {
   if (!job.payPeriodStartDate || !job.payFrequency) return [];
   const freqDays = job.payFrequency === 'weekly' ? 7 : 14;
   const ref = new Date(job.payPeriodStartDate + 'T12:00:00');
   ref.setDate(ref.getDate() + freqDays - 1);
+  const monthStart = new Date(year, month, 1);
+  const monthEnd = new Date(year, month + 1, 0);
+  const result = [];
+  let pd = new Date(ref);
+  while (pd > monthStart) pd = new Date(pd.getTime() - freqDays * 86400000);
+  while (pd <= monthEnd) {
+    if (pd >= monthStart) result.push(pd.toISOString().slice(0, 10));
+    pd = new Date(pd.getTime() + freqDays * 86400000);
+  }
+  return result;
+}
+
+function getActualPaydaysInMonth(job, year, month) {
+  if (!job.payDate || !job.payFrequency) return [];
+  const freqDays = job.payFrequency === 'weekly' ? 7 : 14;
+  const ref = new Date(job.payDate + 'T12:00:00');
   const monthStart = new Date(year, month, 1);
   const monthEnd = new Date(year, month + 1, 0);
   const result = [];
@@ -122,6 +138,7 @@ function JobForm({ initial = {}, onSave, onCancel }) {
     payFrequency: 'biweekly',
     weekStartDay: 0,
     payPeriodStartDate: '',
+    payDate: '',
     filingStatus: 'single',
     iraType: 'amount',
     iraPerPeriod: '',
@@ -227,6 +244,15 @@ function JobForm({ initial = {}, onSave, onCancel }) {
           <Input type="date" value={form.payPeriodStartDate}
             onChange={(e) => set('payPeriodStartDate', e.target.value)} />
         </div>
+      </div>
+
+      <div>
+        <Label>Payday Date</Label>
+        <Input type="date" value={form.payDate}
+          onChange={(e) => set('payDate', e.target.value)} />
+        <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.25rem' }}>
+          Date wages are actually paid — repeats every {form.payFrequency === 'weekly' ? '7' : '14'} days
+        </p>
       </div>
 
       <div>
@@ -420,10 +446,11 @@ function PayBreakdown({ result }) {
 
 // ── Shift Calendar View ───────────────────────────────────────────────────────
 
-function ShiftCalendarView({ jobs, shifts }) {
+function ShiftCalendarView({ jobs, shifts, onAddShift }) {
   const now = new Date();
   const [calYear, setCalYear] = useState(now.getFullYear());
   const [calMonth, setCalMonth] = useState(now.getMonth());
+  const [selectedDate, setSelectedDate] = useState(null);
 
   const grid = useMemo(() => getCalendarGrid(calYear, calMonth), [calYear, calMonth]);
 
@@ -440,7 +467,6 @@ function ShiftCalendarView({ jobs, shifts }) {
     const rows = [];
     for (let i = 0; i < grid.length; i += 7) {
       const row = grid.slice(i, i + 7);
-      // Only count non-exempt hours toward the OT threshold coloring
       const totalH = row.reduce((s, { date }) => {
         const ds = date.toISOString().slice(0, 10);
         return s + (shiftsByDate[ds] || []).reduce((a, sh) => a + (sh.otExempt ? 0 : sh.hoursWorked), 0);
@@ -454,6 +480,7 @@ function ShiftCalendarView({ jobs, shifts }) {
   const monthName = new Date(calYear, calMonth).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   const nav = (dir) => {
+    setSelectedDate(null);
     setCalMonth((m) => {
       const nm = m + dir;
       if (nm < 0) { setCalYear((y) => y - 1); return 11; }
@@ -461,6 +488,14 @@ function ShiftCalendarView({ jobs, shifts }) {
       return nm;
     });
   };
+
+  const selectedShifts = useMemo(() => {
+    if (!selectedDate) return [];
+    return (shiftsByDate[selectedDate] || []).map((sh) => ({
+      ...sh,
+      jobName: jobs.find((j) => j.id === sh.jobId)?.name || 'Unknown',
+    }));
+  }, [selectedDate, shiftsByDate, jobs]);
 
   const btnStyle = { padding: '0.375rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' };
 
@@ -485,6 +520,7 @@ function ShiftCalendarView({ jobs, shifts }) {
             const hours = (shiftsByDate[ds] || []).reduce((s, sh) => s + sh.hoursWorked, 0);
             const isToday = ds === todayStr;
             const hasShift = hours > 0 && cur;
+            const isSelected = ds === selectedDate;
 
             let bg = 'transparent';
             let hourColor = 'var(--text)';
@@ -495,23 +531,60 @@ function ShiftCalendarView({ jobs, shifts }) {
             }
 
             return (
-              <div key={ds} style={{
-                borderRadius: '0.375rem', backgroundColor: bg,
-                border: isToday ? '1.5px solid var(--accent)' : '1px solid transparent',
-                padding: '0.2rem 0.125rem', minHeight: '2.25rem',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.125rem',
-              }}>
+              <button
+                key={ds}
+                onClick={() => { if (!cur) return; setSelectedDate(isSelected ? null : ds); }}
+                disabled={!cur}
+                style={{
+                  borderRadius: '0.375rem', backgroundColor: isSelected ? 'var(--surface2)' : bg,
+                  border: isSelected ? '1.5px solid var(--accent-text)' : isToday ? '1.5px solid var(--accent)' : '1px solid transparent',
+                  padding: '0.2rem 0.125rem', minHeight: '2.25rem',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.125rem',
+                  cursor: cur ? 'pointer' : 'default', background: isSelected ? 'var(--surface2)' : bg,
+                }}>
                 <span style={{ fontSize: '0.6875rem', fontWeight: isToday ? 800 : 500, color: cur ? (isToday ? 'var(--accent-text)' : 'var(--muted)') : 'var(--border2)' }}>
                   {date.getDate()}
                 </span>
                 {hasShift && (
                   <span style={{ fontSize: '0.625rem', fontWeight: 800, color: hourColor }}>{hours}h</span>
                 )}
-              </div>
+              </button>
             );
           })}
         </div>
       ))}
+
+      {/* Selected date detail panel */}
+      {selectedDate && (
+        <div style={{ marginTop: '0.75rem', backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.875rem', padding: '0.875rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text)' }}>
+              {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+            </p>
+            <button onClick={() => setSelectedDate(null)} style={{ color: 'var(--subtle)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', lineHeight: 1 }}>✕</button>
+          </div>
+          {selectedShifts.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', marginBottom: '0.625rem' }}>
+              {selectedShifts.map((sh) => (
+                <div key={sh.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--surface2)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem' }}>
+                  <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)' }}>{sh.jobName}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {sh.otExempt && <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--warn)', backgroundColor: 'rgba(245,158,11,0.15)', padding: '0.125rem 0.375rem', borderRadius: '0.375rem' }}>OT Exempt</span>}
+                    <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--accent-text)' }}>{sh.hoursWorked}h</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p style={{ fontSize: '0.8125rem', color: 'var(--subtle)', marginBottom: '0.625rem' }}>No shifts logged for this day</p>
+          )}
+          <button
+            onClick={() => { onAddShift(selectedDate); setSelectedDate(null); }}
+            style={{ width: '100%', padding: '0.5rem', backgroundColor: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '0.625rem', fontSize: '0.8125rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem' }}>
+            <Plus size={14} /> Log Shift for This Day
+          </button>
+        </div>
+      )}
 
       {weeks.some((w) => w.totalH > 0) && (
         <div style={{ marginTop: '0.875rem', display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
@@ -559,7 +632,8 @@ function JobCalendarView({ job, shifts, onAddShift }) {
   const grid = getCalendarGrid(year, month);
   const todayStr = today();
   const jobShiftDates = new Set(shifts.filter((s) => s.jobId === job.id).map((s) => s.date));
-  const paydays = new Set(getPaydaysInMonth(job, year, month));
+  const payPeriodEnds = new Set(getPayPeriodEndsInMonth(job, year, month));
+  const actualPaydays = new Set(getActualPaydaysInMonth(job, year, month));
 
   const prevMonth = () => { if (month === 0) { setYear(y => y - 1); setMonth(11); } else setMonth(m => m - 1); };
   const nextMonth = () => { if (month === 11) { setYear(y => y + 1); setMonth(0); } else setMonth(m => m + 1); };
@@ -587,7 +661,10 @@ function JobCalendarView({ job, shifts, onAddShift }) {
           const ds = date.toISOString().slice(0, 10);
           const isToday = ds === todayStr;
           const hasShift = jobShiftDates.has(ds);
-          const isPayday = paydays.has(ds);
+          const isPayday = actualPaydays.has(ds);
+          const isPayPeriodEnd = payPeriodEnds.has(ds);
+          const dotColor = isPayday ? 'var(--positive-text)' : isPayPeriodEnd ? '#3b82f6' : null;
+          const borderColor = isPayday ? 'var(--positive-text)' : isPayPeriodEnd ? '#3b82f6' : isToday ? 'var(--accent)' : 'transparent';
           return (
             <button key={i} onClick={() => cur && onAddShift(ds)}
               disabled={!cur}
@@ -597,30 +674,35 @@ function JobCalendarView({ job, shifts, onAddShift }) {
                 textAlign: 'center',
                 fontSize: '0.8125rem',
                 fontWeight: isToday ? '800' : '500',
-                border: isPayday && cur ? '2px solid var(--positive-text)' : '1px solid transparent',
+                border: `${(isPayday || isPayPeriodEnd || isToday) && cur ? '2px' : '1px'} solid ${cur ? borderColor : 'transparent'}`,
                 backgroundColor: hasShift && cur ? 'var(--accent)' : isToday && cur ? 'var(--surface2)' : 'transparent',
                 color: hasShift && cur ? '#fff' : cur ? 'var(--text)' : 'var(--border2)',
                 cursor: cur ? 'pointer' : 'default',
                 position: 'relative',
               }}>
               {date.getDate()}
-              {isPayday && cur && (
-                <span style={{ position: 'absolute', bottom: '2px', left: '50%', transform: 'translateX(-50%)', width: '4px', height: '4px', borderRadius: '9999px', backgroundColor: 'var(--positive-text)', display: 'block' }} />
+              {dotColor && cur && (
+                <span style={{ position: 'absolute', bottom: '2px', left: '50%', transform: 'translateX(-50%)', width: '4px', height: '4px', borderRadius: '9999px', backgroundColor: dotColor, display: 'block' }} />
               )}
             </button>
           );
         })}
       </div>
-      {job.payPeriodStartDate && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem', fontSize: '0.7rem', color: 'var(--subtle)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem', fontSize: '0.7rem', color: 'var(--subtle)', flexWrap: 'wrap' }}>
+        {job.payDate && (
           <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
             <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '9999px', backgroundColor: 'var(--positive-text)' }} /> Payday
           </span>
+        )}
+        {job.payPeriodStartDate && (
           <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-            <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '0.2rem', backgroundColor: 'var(--accent)' }} /> Shift logged
+            <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '9999px', backgroundColor: '#3b82f6' }} /> End of Pay Period
           </span>
-        </div>
-      )}
+        )}
+        <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+          <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '0.2rem', backgroundColor: 'var(--accent)' }} /> Shift Logged
+        </span>
+      </div>
     </div>
   );
 }
@@ -859,7 +941,7 @@ function HoursTab({ jobs, shifts, addShift, updateShift, deleteShift, bulkSaveSh
   const [showShiftForm, setShowShiftForm] = useState(false);
   const [showBulkForm, setShowBulkForm] = useState(false);
   const [editShift, setEditShift] = useState(null);
-  const [calView, setCalView] = useState(false);
+  const [calView, setCalView] = useState(true);
 
   const recentShifts = useMemo(() =>
     [...shifts].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30),
@@ -893,7 +975,7 @@ function HoursTab({ jobs, shifts, addShift, updateShift, deleteShift, bulkSaveSh
     <div style={{ padding: '0 1rem' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
         <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.625rem', padding: '0.1875rem', gap: '0.125rem' }}>
-          {[['List', false], ['Calendar', true]].map(([lbl, v]) => (
+          {[['Calendar', true], ['List', false]].map(([lbl, v]) => (
             <button key={lbl} onClick={() => setCalView(v)}
               style={{ padding: '0.375rem 0.75rem', borderRadius: '0.375rem', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700,
                 backgroundColor: calView === v ? 'var(--surface)' : 'transparent',
@@ -905,7 +987,57 @@ function HoursTab({ jobs, shifts, addShift, updateShift, deleteShift, bulkSaveSh
       </div>
 
       {calView ? (
-        <ShiftCalendarView jobs={jobs} shifts={shifts} />
+        <>
+          <ShiftCalendarView
+            jobs={jobs}
+            shifts={shifts}
+            onAddShift={(date) => { setLogDate(date); setShowShiftForm(true); }}
+          />
+          {/* Pay period earnings summary */}
+          {(() => {
+            const summaries = jobs.map((job) => {
+              const pp = getPayPeriodBounds(job);
+              if (!pp) return null;
+              const { start, end } = pp.current;
+              const periodShifts = shifts.filter((s) => s.jobId === job.id && s.date >= start && s.date <= end);
+              if (periodShifts.length === 0) return null;
+              const { regularHours, overtimeHours } = calcHoursFromShifts(periodShifts, job);
+              const result = calcPaycheck({ job, regularHours, overtimeHours });
+              return { job, result, start, end };
+            }).filter(Boolean);
+            if (summaries.length === 0) return null;
+            return (
+              <div style={{ marginTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+                <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', padding: '0 0.25rem' }}>
+                  Current Pay Period Estimate
+                </p>
+                {summaries.map(({ job, result, start, end }) => (
+                  <div key={job.id} style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.875rem', padding: '0.875rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' }}>
+                      <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text)' }}>{job.name}</span>
+                      <span style={{ fontSize: '0.6875rem', color: 'var(--subtle)' }}>{periodLabel(start, end)}</span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                      <div style={{ textAlign: 'center', backgroundColor: 'var(--surface2)', borderRadius: '0.625rem', padding: '0.625rem 0.5rem' }}>
+                        <p style={{ fontSize: '0.6rem', color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem' }}>Est. Gross</p>
+                        <p style={{ fontSize: '1.0625rem', fontWeight: 800, color: 'var(--text)' }}>{formatCurrency(result.grossPay)}</p>
+                      </div>
+                      <div style={{ textAlign: 'center', backgroundColor: 'var(--positive-soft)', borderRadius: '0.625rem', padding: '0.625rem 0.5rem', border: '1px solid rgba(16,185,129,0.2)' }}>
+                        <p style={{ fontSize: '0.6rem', color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem' }}>Est. Net</p>
+                        <p style={{ fontSize: '1.0625rem', fontWeight: 800, color: 'var(--positive-text)' }}>{formatCurrency(result.netPay)}</p>
+                      </div>
+                    </div>
+                    {result.overtimeHours > 0 && (
+                      <p style={{ fontSize: '0.75rem', color: 'var(--warn)', marginTop: '0.375rem', textAlign: 'center' }}>
+                        {result.regularHours}h reg + {result.overtimeHours}h OT
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+        </>
       ) : (
         <>
           {/* Date nav */}
