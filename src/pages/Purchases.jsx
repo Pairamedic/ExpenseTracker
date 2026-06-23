@@ -73,10 +73,6 @@ export default function Purchases() {
 
   const { myName, spouseName, monthlySpendingBudget, purchasesInAvailable } = settings;
   const spendingLimit = monthlySpendingBudget || 0;
-  const limitPct = spendingLimit > 0 ? Math.min(100, (totalAll / spendingLimit) * 100) : 0;
-  const limitColor = limitPct >= 90 ? 'var(--danger)' : limitPct >= 70 ? 'var(--warn)' : 'var(--positive)';
-  const limitBorderColor = limitPct >= 90 ? 'rgba(244,63,94,0.25)' : limitPct >= 70 ? 'rgba(245,158,11,0.25)' : 'rgba(16,185,129,0.25)';
-  const limitBg = limitPct >= 90 ? 'rgba(244,63,94,0.06)' : limitPct >= 70 ? 'rgba(245,158,11,0.06)' : 'rgba(16,185,129,0.06)';
   const aaronLabel = myName || 'Aaron';
   const cameronLabel = spouseName || 'Cameron';
 
@@ -94,6 +90,11 @@ export default function Purchases() {
   const sorted = [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date) || new Date(b.createdAt) - new Date(a.createdAt));
 
   const totalAll = monthPurchases.reduce((s, p) => s + p.amount, 0);
+
+  const limitPct = spendingLimit > 0 ? Math.min(100, (totalAll / spendingLimit) * 100) : 0;
+  const limitColor = limitPct >= 90 ? 'var(--danger)' : limitPct >= 70 ? 'var(--warn)' : 'var(--positive)';
+  const limitBorderColor = limitPct >= 90 ? 'rgba(244,63,94,0.25)' : limitPct >= 70 ? 'rgba(245,158,11,0.25)' : 'rgba(16,185,129,0.25)';
+  const limitBg = limitPct >= 90 ? 'rgba(244,63,94,0.06)' : limitPct >= 70 ? 'rgba(245,158,11,0.06)' : 'rgba(16,185,129,0.06)';
   const totalAaron = monthPurchases.filter((p) => normalPerson(p) === 'aaron').reduce((s, p) => s + p.amount, 0);
   const totalCameron = monthPurchases.filter((p) => normalPerson(p) === 'cameron').reduce((s, p) => s + p.amount, 0);
 
