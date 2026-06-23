@@ -480,6 +480,38 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* Bills status — shown at top */}
+        {sec('billsStatus') && <div style={sectionWrap}>
+          <button onClick={() => toggleCollapsed('billsStatus')} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left', padding: '0 0 0.75rem 0' }}>
+            {isCollapsed('billsStatus') ? <ChevronDown size={14} style={{ color: 'var(--subtle)', flexShrink: 0 }} /> : <ChevronUp size={14} style={{ color: 'var(--subtle)', flexShrink: 0 }} />}
+            <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)' }}>Bills Status</span>
+            {isCollapsed('billsStatus') && (
+              <span style={{ fontSize: '0.875rem', fontWeight: '700', color: unpaidBills.length > 0 ? 'var(--danger)' : 'var(--positive-text)' }}>
+                {unpaidBills.length > 0 ? `${unpaidBills.length} unpaid` : `${paidBills.length} paid`}
+              </span>
+            )}
+          </button>
+          {!isCollapsed('billsStatus') && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
+              {[
+                { label: 'Unpaid', color: 'var(--danger)', amount: unpaidTotal, count: unpaidBills.length, status: 'unpaid' },
+                { label: 'Pending', color: 'var(--warn)', amount: pendingBills.reduce((s, b) => s + b.amount, 0), count: pendingBills.length, status: 'pending' },
+                { label: 'Paid', color: 'var(--positive-text)', amount: paidTotal, count: paidBills.length, status: 'paid' },
+              ].map(({ label, color, amount, count, status }) => (
+                <button key={status} onClick={() => navigate(`/bills?status=${status}`)}
+                  style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem', padding: '0.75rem', textAlign: 'center', cursor: 'pointer', transition: 'border-color 0.15s' }}
+                  onMouseEnter={(e) => e.currentTarget.style.borderColor = color}
+                  onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
+                >
+                  <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>{label}</p>
+                  <p style={{ fontSize: '1rem', fontWeight: '700', color }}>{formatCurrency(amount)}</p>
+                  <p style={{ fontSize: '0.625rem', color: 'var(--subtle)' }}>{count} bill{count !== 1 ? 's' : ''}</p>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>}
+
         {/* Pinned notes */}
         {sec('pinnedNotes') && pinnedNotes.length > 0 && (
           <div style={sectionWrap}>
@@ -572,35 +604,43 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Budget envelope pot card */}
+        {/* Budget envelope pot card — collapsible */}
         {sec('envelopes') && totalEnvelopeLimit > 0 && (
-          <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1.25rem', padding: '1rem 1.25rem', marginBottom: '1.25rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.625rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1.25rem', marginBottom: '1.25rem', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.875rem 1.25rem', paddingBottom: isCollapsed('envelopes') ? '0.875rem' : '0.625rem' }}>
+              <button onClick={() => toggleCollapsed('envelopes')} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', cursor: 'pointer', flex: 1, textAlign: 'left' }}>
+                {isCollapsed('envelopes') ? <ChevronDown size={14} style={{ color: 'var(--subtle)', flexShrink: 0 }} /> : <ChevronUp size={14} style={{ color: 'var(--subtle)', flexShrink: 0 }} />}
                 <Wallet size={14} style={{ color: 'var(--accent-text)' }} />
                 <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)' }}>Envelopes — {monthLabel(mk)}</span>
-              </div>
-              <button onClick={() => setShowQuickSpend(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.4rem 0.75rem', backgroundColor: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '0.625rem', fontSize: '0.8125rem', fontWeight: '700', cursor: 'pointer' }}>
-                <Zap size={13} /> Quick Add
+                {isCollapsed('envelopes') && <span style={{ fontSize: '0.875rem', fontWeight: '700', color: totalEnvelopeRemaining >= 0 ? 'var(--text)' : 'var(--danger)' }}>{formatCurrency(totalEnvelopeRemaining)} left</span>}
               </button>
+              {!isCollapsed('envelopes') && (
+                <button onClick={() => setShowQuickSpend(true)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.4rem 0.75rem', backgroundColor: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '0.625rem', fontSize: '0.8125rem', fontWeight: '700', cursor: 'pointer' }}>
+                  <Zap size={13} /> Quick Add
+                </button>
+              )}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '0.5rem' }}>
-              <div>
-                <p style={{ fontSize: '2rem', fontWeight: '900', letterSpacing: '-0.02em', color: totalEnvelopeRemaining >= 0 ? 'var(--text)' : 'var(--danger)' }}>
-                  {formatCurrency(totalEnvelopeRemaining)}
-                </p>
-                <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>remaining of {formatCurrency(totalEnvelopeLimit)}</p>
+            {!isCollapsed('envelopes') && (
+              <div style={{ padding: '0 1.25rem 1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '0.5rem' }}>
+                  <div>
+                    <p style={{ fontSize: '2rem', fontWeight: '900', letterSpacing: '-0.02em', color: totalEnvelopeRemaining >= 0 ? 'var(--text)' : 'var(--danger)' }}>
+                      {formatCurrency(totalEnvelopeRemaining)}
+                    </p>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>remaining of {formatCurrency(totalEnvelopeLimit)}</p>
+                  </div>
+                  <p style={{ fontSize: '0.875rem', fontWeight: '700', color: totalEnvelopeSpent > totalEnvelopeLimit ? 'var(--danger)' : 'var(--muted)' }}>
+                    {formatCurrency(totalEnvelopeSpent)} spent
+                  </p>
+                </div>
+                <div style={{ height: '0.5rem', backgroundColor: 'var(--surface2)', borderRadius: '9999px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', borderRadius: '9999px', transition: 'width 0.3s',
+                    backgroundColor: totalEnvelopeSpent > totalEnvelopeLimit ? 'var(--danger)' : totalEnvelopeSpent > totalEnvelopeLimit * 0.8 ? 'var(--warn)' : 'var(--accent)',
+                    width: `${Math.min(100, totalEnvelopeLimit > 0 ? (totalEnvelopeSpent / totalEnvelopeLimit) * 100 : 0)}%` }} />
+                </div>
               </div>
-              <p style={{ fontSize: '0.875rem', fontWeight: '700', color: totalEnvelopeSpent > totalEnvelopeLimit ? 'var(--danger)' : 'var(--muted)' }}>
-                {formatCurrency(totalEnvelopeSpent)} spent
-              </p>
-            </div>
-            <div style={{ height: '0.5rem', backgroundColor: 'var(--surface2)', borderRadius: '9999px', overflow: 'hidden' }}>
-              <div style={{ height: '100%', borderRadius: '9999px', transition: 'width 0.3s',
-                backgroundColor: totalEnvelopeSpent > totalEnvelopeLimit ? 'var(--danger)' : totalEnvelopeSpent > totalEnvelopeLimit * 0.8 ? 'var(--warn)' : 'var(--accent)',
-                width: `${Math.min(100, totalEnvelopeLimit > 0 ? (totalEnvelopeSpent / totalEnvelopeLimit) * 100 : 0)}%` }} />
-            </div>
+            )}
           </div>
         )}
 
@@ -632,91 +672,39 @@ export default function Dashboard() {
           ))}
         </div>}
 
-        {/* Commitments — quick access near top */}
-        {sec('commitments') && <div style={sectionWrap}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <SectionLabel>Commitments</SectionLabel>
-            <button onClick={() => setShowAddCommitment(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.875rem', color: 'var(--accent-text)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600' }}>
-              <Plus size={14} /> Add
-            </button>
-          </div>
-          {commitments.length === 0 ? (
-            <div style={{ backgroundColor: 'var(--surface)', border: '1px dashed var(--border)', borderRadius: '1rem', padding: '1.25rem', textAlign: 'center' }}>
-              <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>No commitments — add financial to-dos.</p>
-            </div>
-          ) : (
-            <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', overflow: 'hidden' }}>
-              {openCommitments.map((c, i) => (
-                <div key={c.id} style={{ borderBottom: i < openCommitments.length - 1 || doneCommitments.length > 0 ? '1px solid var(--border)' : 'none' }}>
-                  <CommitmentRow commitment={c} onToggle={toggleCommitment}
-                    onEdit={setEditCommitment} onDelete={deleteCommitment} myLabel={aaronLabel} partnerLabel={partnerLabel} />
-                </div>
-              ))}
-              {doneCommitments.length > 0 && (
-                <button onClick={() => setShowDoneCommitments(!showDoneCommitments)}
-                  style={{ width: '100%', padding: '0.75rem 1rem', fontSize: '0.75rem', color: 'var(--subtle)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', borderBottom: showDoneCommitments ? '1px solid var(--border)' : 'none' }}>
-                  {showDoneCommitments ? '▾' : '▸'} {doneCommitments.length} completed
-                </button>
-              )}
-              {showDoneCommitments && doneCommitments.map((c, i) => (
-                <div key={c.id} style={{ borderBottom: i < doneCommitments.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                  <CommitmentRow commitment={c} onToggle={toggleCommitment}
-                    onEdit={setEditCommitment} onDelete={deleteCommitment} myLabel={aaronLabel} partnerLabel={partnerLabel} />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>}
-
-        {/* Bills status */}
-        {sec('billsStatus') && <div style={sectionWrap}>
-          <SectionLabel>Bills Status</SectionLabel>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
-            {[
-              { label: 'Unpaid', color: 'var(--danger)', amount: unpaidTotal, count: unpaidBills.length, status: 'unpaid' },
-              { label: 'Pending', color: 'var(--warn)', amount: pendingBills.reduce((s, b) => s + b.amount, 0), count: pendingBills.length, status: 'pending' },
-              { label: 'Paid', color: 'var(--positive-text)', amount: paidTotal, count: paidBills.length, status: 'paid' },
-            ].map(({ label, color, amount, count, status }) => (
-              <button key={status} onClick={() => navigate(`/bills?status=${status}`)}
-                style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem', padding: '0.75rem', textAlign: 'center', cursor: 'pointer', transition: 'border-color 0.15s' }}
-                onMouseEnter={(e) => e.currentTarget.style.borderColor = color}
-                onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
-              >
-                <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>{label}</p>
-                <p style={{ fontSize: '1rem', fontWeight: '700', color }}>{formatCurrency(amount)}</p>
-                <p style={{ fontSize: '0.625rem', color: 'var(--subtle)' }}>{count} bill{count !== 1 ? 's' : ''}</p>
-              </button>
-            ))}
-          </div>
-        </div>}
 
         {/* Spending vs budget */}
         {sec('spending') && spendingBudget > 0 && (
           <div style={sectionWrap}>
-            <SectionLabel>Spending This Month</SectionLabel>
-            <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', padding: '1rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '0.5rem' }}>
-                <div>
-                  <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.125rem' }}>Spent</p>
-                  <p style={{ fontSize: '1.5rem', fontWeight: '700', color: monthSpent > spendingBudget ? 'var(--danger)' : 'var(--text)' }}>{formatCurrency(monthSpent)}</p>
+            <button onClick={() => toggleCollapsed('spending')} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left', padding: '0 0 0.75rem 0' }}>
+              {isCollapsed('spending') ? <ChevronDown size={14} style={{ color: 'var(--subtle)', flexShrink: 0 }} /> : <ChevronUp size={14} style={{ color: 'var(--subtle)', flexShrink: 0 }} />}
+              <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)' }}>Spending This Month</span>
+              {isCollapsed('spending') && <span style={{ fontSize: '0.875rem', fontWeight: '700', color: monthSpent > spendingBudget ? 'var(--danger)' : 'var(--text)' }}>{formatCurrency(monthSpent)} / {formatCurrency(spendingBudget)}</span>}
+            </button>
+            {!isCollapsed('spending') && (
+              <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', padding: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '0.5rem' }}>
+                  <div>
+                    <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.125rem' }}>Spent</p>
+                    <p style={{ fontSize: '1.5rem', fontWeight: '700', color: monthSpent > spendingBudget ? 'var(--danger)' : 'var(--text)' }}>{formatCurrency(monthSpent)}</p>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.125rem' }}>Budget</p>
+                    <p style={{ fontSize: '1.125rem', fontWeight: '700', color: 'var(--accent-text)' }}>{formatCurrency(spendingBudget)}</p>
+                  </div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.125rem' }}>Budget</p>
-                  <p style={{ fontSize: '1.125rem', fontWeight: '700', color: 'var(--accent-text)' }}>{formatCurrency(spendingBudget)}</p>
+                <div style={{ height: '0.5rem', backgroundColor: 'var(--surface2)', borderRadius: '9999px', overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%', borderRadius: '9999px', transition: 'width 0.3s',
+                    backgroundColor: monthSpent > spendingBudget ? 'var(--danger)' : monthSpent > spendingBudget * 0.8 ? 'var(--warn)' : 'var(--accent)',
+                    width: `${Math.min(100, (monthSpent / spendingBudget) * 100)}%`,
+                  }} />
                 </div>
+                <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.375rem' }}>
+                  {formatCurrency(Math.max(0, spendingBudget - monthSpent))} remaining
+                </p>
               </div>
-              <div style={{ height: '0.5rem', backgroundColor: 'var(--surface2)', borderRadius: '9999px', overflow: 'hidden' }}>
-                <div style={{
-                  height: '100%', borderRadius: '9999px', transition: 'width 0.3s',
-                  backgroundColor: monthSpent > spendingBudget ? 'var(--danger)' : monthSpent > spendingBudget * 0.8 ? 'var(--warn)' : 'var(--accent)',
-                  width: `${Math.min(100, (monthSpent / spendingBudget) * 100)}%`,
-                }} />
-              </div>
-              <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.375rem' }}>
-                {formatCurrency(Math.max(0, spendingBudget - monthSpent))} remaining
-              </p>
-            </div>
+            )}
           </div>
         )}
 
@@ -738,34 +726,47 @@ export default function Dashboard() {
         {/* Pay schedule */}
         {sec('payDates') && payDates.length > 0 && (
           <div style={sectionWrap}>
-            <SectionLabel>Pay Dates — {monthLabel(mk)}</SectionLabel>
-            <div style={{ ...sectionCard }}>
-              {payDates.map((pd, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', opacity: pd.past ? 0.4 : 1, borderBottom: i < payDates.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-                    <CalendarDays size={14} style={{ color: 'var(--accent-text)' }} />
-                    <span style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--text)' }}>{pd.source}</span>
+            <button onClick={() => toggleCollapsed('payDates')} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left', padding: '0 0 0.75rem 0' }}>
+              {isCollapsed('payDates') ? <ChevronDown size={14} style={{ color: 'var(--subtle)', flexShrink: 0 }} /> : <ChevronUp size={14} style={{ color: 'var(--subtle)', flexShrink: 0 }} />}
+              <CalendarDays size={13} style={{ color: 'var(--accent-text)' }} />
+              <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)' }}>Pay Dates — {monthLabel(mk)}</span>
+              {isCollapsed('payDates') && <span style={{ fontSize: '0.875rem', fontWeight: '700', color: 'var(--muted)' }}>{payDates.length} dates</span>}
+            </button>
+            {!isCollapsed('payDates') && (
+              <div style={{ ...sectionCard }}>
+                {payDates.map((pd, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', opacity: pd.past ? 0.4 : 1, borderBottom: i < payDates.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                      <CalendarDays size={14} style={{ color: 'var(--accent-text)' }} />
+                      <span style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--text)' }}>{pd.source}</span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <p style={{ fontSize: '0.875rem', fontWeight: '700', color: 'var(--text)' }}>{formatDateShort(pd.date)}</p>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>{formatCurrency(pd.amount)}</p>
+                    </div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <p style={{ fontSize: '0.875rem', fontWeight: '700', color: 'var(--text)' }}>{formatDateShort(pd.date)}</p>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>{formatCurrency(pd.amount)}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
         {/* Planned expenses */}
         {sec('plannedExpenses') && <div style={sectionWrap}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <SectionLabel>Planned Expenses</SectionLabel>
-            <button onClick={() => setShowAddPlanned(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.875rem', color: 'var(--accent-text)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600' }}>
-              <Plus size={14} /> Add
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isCollapsed('plannedExpenses') ? '0' : '0.75rem' }}>
+            <button onClick={() => toggleCollapsed('plannedExpenses')} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', cursor: 'pointer', flex: 1, padding: '0 0 0.75rem 0', textAlign: 'left' }}>
+              {isCollapsed('plannedExpenses') ? <ChevronDown size={14} style={{ color: 'var(--subtle)', flexShrink: 0 }} /> : <ChevronUp size={14} style={{ color: 'var(--subtle)', flexShrink: 0 }} />}
+              <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)' }}>Planned Expenses</span>
+              {isCollapsed('plannedExpenses') && activePlannedTotal > 0 && <span style={{ fontSize: '0.875rem', fontWeight: '700', color: 'var(--text)' }}>{formatCurrency(activePlannedTotal)}</span>}
             </button>
+            {!isCollapsed('plannedExpenses') && (
+              <button onClick={() => setShowAddPlanned(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.875rem', color: 'var(--accent-text)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600', paddingBottom: '0.75rem' }}>
+                <Plus size={14} /> Add
+              </button>
+            )}
           </div>
-          {plannedExpenses.filter((pe) => pe.status !== 'completed').length === 0 ? (
+          {!isCollapsed('plannedExpenses') && (plannedExpenses.filter((pe) => pe.status !== 'completed').length === 0 ? (
             <div style={{ backgroundColor: 'var(--surface)', border: '1px dashed var(--border)', borderRadius: '1rem', padding: '1.25rem', textAlign: 'center' }}>
               <Plane size={28} style={{ margin: '0 auto 0.5rem', display: 'block', color: 'var(--subtle)' }} />
               <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>No planned expenses — add trips, purchases, or events from savings.</p>
@@ -782,6 +783,104 @@ export default function Dashboard() {
                 <span style={{ fontSize: '0.875rem', fontWeight: '700', color: 'var(--text)' }}>{formatCurrency(plannedExpenses.filter((pe) => pe.status !== 'completed').reduce((s, pe) => s + pe.amount, 0))}</span>
               </div>
             </div>
+          ))}
+        </div>}
+
+        {/* Commitments & Agreements — merged section */}
+        {sec('commitments') && <div style={sectionWrap}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isCollapsed('commitments') ? '0' : '0.75rem' }}>
+            <button onClick={() => toggleCollapsed('commitments')} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', cursor: 'pointer', flex: 1, padding: '0 0 0.75rem 0', textAlign: 'left' }}>
+              {isCollapsed('commitments') ? <ChevronDown size={14} style={{ color: 'var(--subtle)', flexShrink: 0 }} /> : <ChevronUp size={14} style={{ color: 'var(--subtle)', flexShrink: 0 }} />}
+              <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)' }}>Commitments &amp; Agreements</span>
+              {isCollapsed('commitments') && (openCommitments.length > 0 || activeAgreements.length > 0) && (
+                <span style={{ fontSize: '0.875rem', color: 'var(--accent-text)', fontWeight: '700' }}>
+                  {[openCommitments.length > 0 && `${openCommitments.length} to-do`, activeAgreements.length > 0 && `${activeAgreements.length} deal${activeAgreements.length !== 1 ? 's' : ''}`].filter(Boolean).join(' · ')}
+                </span>
+              )}
+            </button>
+            {!isCollapsed('commitments') && (
+              <div style={{ display: 'flex', gap: '0.5rem', paddingBottom: '0.75rem' }}>
+                <button onClick={() => setShowAddCommitment(true)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.8125rem', color: 'var(--accent-text)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600' }}>
+                  <Plus size={13} /> To-do
+                </button>
+                <button onClick={() => openAgreementEditor(null)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.8125rem', color: 'var(--accent-text)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600' }}>
+                  <Plus size={13} /> Deal
+                </button>
+              </div>
+            )}
+          </div>
+          {!isCollapsed('commitments') && (
+            <>
+              {commitments.length === 0 && agreements.length === 0 ? (
+                <div style={{ backgroundColor: 'var(--surface)', border: '1px dashed var(--border)', borderRadius: '1rem', padding: '1.25rem', textAlign: 'center' }}>
+                  <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>Nothing here yet — add to-dos or log financial deals.</p>
+                </div>
+              ) : (
+                <>
+                  {commitments.length > 0 && (
+                    <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', overflow: 'hidden', marginBottom: agreements.length > 0 ? '0.625rem' : '0' }}>
+                      {openCommitments.map((c, i) => (
+                        <div key={c.id} style={{ borderBottom: i < openCommitments.length - 1 || doneCommitments.length > 0 ? '1px solid var(--border)' : 'none' }}>
+                          <CommitmentRow commitment={c} onToggle={toggleCommitment}
+                            onEdit={setEditCommitment} onDelete={deleteCommitment} myLabel={aaronLabel} partnerLabel={partnerLabel} />
+                        </div>
+                      ))}
+                      {doneCommitments.length > 0 && (
+                        <button onClick={() => setShowDoneCommitments(!showDoneCommitments)}
+                          style={{ width: '100%', padding: '0.75rem 1rem', fontSize: '0.75rem', color: 'var(--subtle)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', borderBottom: showDoneCommitments ? '1px solid var(--border)' : 'none' }}>
+                          {showDoneCommitments ? '▾' : '▸'} {doneCommitments.length} completed
+                        </button>
+                      )}
+                      {showDoneCommitments && doneCommitments.map((c, i) => (
+                        <div key={c.id} style={{ borderBottom: i < doneCommitments.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                          <CommitmentRow commitment={c} onToggle={toggleCommitment}
+                            onEdit={setEditCommitment} onDelete={deleteCommitment} myLabel={aaronLabel} partnerLabel={partnerLabel} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {agreements.length > 0 && (
+                    <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', overflow: 'hidden' }}>
+                      {activeAgreements.map((ag, i) => (
+                        <div key={ag.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.875rem 1rem', borderBottom: i < activeAgreements.length - 1 || settledAgreements.length > 0 ? '1px solid var(--border)' : 'none' }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontWeight: '600', color: 'var(--text)', fontSize: '0.9375rem' }}>{ag.description}</p>
+                            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.2rem', flexWrap: 'wrap' }}>
+                              {ag.amount != null && ag.amount > 0 && <span style={{ fontSize: '0.8125rem', color: 'var(--accent-text)', fontWeight: '700' }}>{formatCurrency(ag.amount)}</span>}
+                              <span style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>
+                                {ag.person === 'me' ? aaronLabel : ag.person === 'partner' ? partnerLabel : 'Both'} · {ag.date ? formatDate(ag.date) : ''}
+                              </span>
+                            </div>
+                            {ag.notes && <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.2rem' }}>{ag.notes}</p>}
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.375rem', flexShrink: 0 }}>
+                            <button onClick={() => updateAgreement(ag.id, { status: 'settled' })}
+                              style={{ fontSize: '0.7rem', fontWeight: '700', padding: '0.35rem 0.6rem', borderRadius: '0.5rem', backgroundColor: 'rgba(16,185,129,0.12)', color: 'var(--positive-text)', border: 'none', cursor: 'pointer' }}>
+                              Settle
+                            </button>
+                            <button onClick={() => openAgreementEditor(ag)}
+                              style={{ padding: '0.35rem', color: 'var(--subtle)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}>
+                              <Pencil size={13} />
+                            </button>
+                            <button onClick={() => deleteAgreement(ag.id)}
+                              style={{ padding: '0.35rem', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}>
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      {settledAgreements.length > 0 && (
+                        <div style={{ padding: '0.625rem 1rem', backgroundColor: 'var(--surface2)' }}>
+                          <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>{settledAgreements.length} settled deal{settledAgreements.length !== 1 ? 's' : ''}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </>
           )}
         </div>}
 
@@ -912,60 +1011,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Financial Agreements */}
-        {sec('agreements') && <div style={sectionWrap}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <FileText size={13} style={{ color: 'var(--accent-text)' }} />
-              <SectionLabel>Agreements</SectionLabel>
-            </div>
-            <button onClick={() => openAgreementEditor(null)}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.875rem', color: 'var(--accent-text)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600' }}>
-              <Plus size={14} /> Add
-            </button>
-          </div>
-          {agreements.length === 0 ? (
-            <div style={{ backgroundColor: 'var(--surface)', border: '1px dashed var(--border)', borderRadius: '1rem', padding: '1.25rem', textAlign: 'center' }}>
-              <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>No agreements yet — log word-to-mouth financial deals with {partnerLabel}.</p>
-            </div>
-          ) : (
-            <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', overflow: 'hidden' }}>
-              {activeAgreements.map((ag, i) => (
-                <div key={ag.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.875rem 1rem', borderBottom: i < activeAgreements.length - 1 || settledAgreements.length > 0 ? '1px solid var(--border)' : 'none' }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontWeight: '600', color: 'var(--text)', fontSize: '0.9375rem' }}>{ag.description}</p>
-                    <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.2rem', flexWrap: 'wrap' }}>
-                      {ag.amount != null && ag.amount > 0 && <span style={{ fontSize: '0.8125rem', color: 'var(--accent-text)', fontWeight: '700' }}>{formatCurrency(ag.amount)}</span>}
-                      <span style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>
-                        {ag.person === 'me' ? aaronLabel : ag.person === 'partner' ? partnerLabel : 'Both'} · {ag.date ? formatDate(ag.date) : ''}
-                      </span>
-                    </div>
-                    {ag.notes && <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.2rem' }}>{ag.notes}</p>}
-                  </div>
-                  <div style={{ display: 'flex', gap: '0.375rem', flexShrink: 0 }}>
-                    <button onClick={() => updateAgreement(ag.id, { status: 'settled' })}
-                      style={{ fontSize: '0.7rem', fontWeight: '700', padding: '0.35rem 0.6rem', borderRadius: '0.5rem', backgroundColor: 'rgba(16,185,129,0.12)', color: 'var(--positive-text)', border: 'none', cursor: 'pointer' }}>
-                      Settle
-                    </button>
-                    <button onClick={() => openAgreementEditor(ag)}
-                      style={{ padding: '0.35rem', color: 'var(--subtle)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}>
-                      <Pencil size={13} />
-                    </button>
-                    <button onClick={() => deleteAgreement(ag.id)}
-                      style={{ padding: '0.35rem', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}>
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-              {settledAgreements.length > 0 && (
-                <div style={{ padding: '0.625rem 1rem', backgroundColor: 'var(--surface2)' }}>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>{settledAgreements.length} settled agreement{settledAgreements.length !== 1 ? 's' : ''}</p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>}
 
       </div>
 
@@ -1100,8 +1145,7 @@ export default function Dashboard() {
             {[
               ['envelopes',       'Budget Envelopes'],
               ['savings',         'Savings'],
-              ['commitments',     'Commitments'],
-              ['agreements',      'Financial Agreements'],
+              ['commitments',     'Commitments & Agreements'],
               ['billsStatus',     'Bills Status'],
               ['spending',        'Spending This Month'],
               ['nextPaycheck',    'Next Paycheck Banner'],
