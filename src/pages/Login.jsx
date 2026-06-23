@@ -46,12 +46,12 @@ export default function Login() {
         {/* App icon + title */}
         <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
           <img
-            src="/ExpenseTracker/icon.svg"
+            src="/ExpenseTracker/app-icon.jpeg"
             alt="App icon"
-            style={{ width: '5rem', height: '5rem', borderRadius: '1.25rem', margin: '0 auto 1rem', display: 'block' }}
+            style={{ width: '5rem', height: '5rem', borderRadius: '1.25rem', margin: '0 auto 1rem', display: 'block', objectFit: 'cover' }}
           />
           <h1 style={{ fontSize: '1.75rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-0.02em' }}>
-            Budget Tracker
+            Finance Manager
           </h1>
           <p style={{ fontSize: '0.9375rem', color: 'var(--muted)', marginTop: '0.375rem' }}>
             {mode === 'signin' ? 'Sign in to your account' : 'Create a new account'}
