@@ -1,6 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { useRegisterSW } from 'virtual:pwa-register/react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AppProvider, useApp } from './context/AppContext';
 import BottomNav from './components/BottomNav';
@@ -13,33 +12,6 @@ import Purchases from './pages/Purchases';
 import WorkTime from './pages/WorkTime';
 import SearchPage from './pages/Search';
 import Login from './pages/Login';
-
-function UpdateBanner() {
-  const { needRefresh: [needRefresh], updateServiceWorker } = useRegisterSW();
-  if (!needRefresh) return null;
-  return (
-    <div style={{
-      position: 'fixed', bottom: '5.5rem', left: '1rem', right: '1rem', zIndex: 200,
-      backgroundColor: 'var(--accent)', borderRadius: '1rem', padding: '0.875rem 1rem',
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem',
-      boxShadow: '0 4px 24px rgba(0,0,0,0.35)',
-    }}>
-      <p style={{ color: '#fff', fontSize: '0.875rem', fontWeight: 600, margin: 0 }}>
-        New version available
-      </p>
-      <button
-        onClick={() => updateServiceWorker(true)}
-        style={{
-          backgroundColor: '#fff', color: 'var(--accent)', borderRadius: '0.625rem',
-          padding: '0.375rem 0.875rem', fontSize: '0.8rem', fontWeight: 700,
-          border: 'none', cursor: 'pointer', flexShrink: 0,
-        }}
-      >
-        Update now
-      </button>
-    </div>
-  );
-}
 
 function ThemeSync() {
   const { settings } = useApp();
@@ -103,7 +75,6 @@ function AppShell() {
           </Routes>
         </div>
         <BottomNav />
-        <UpdateBanner />
       </BrowserRouter>
     </AppProvider>
   );
