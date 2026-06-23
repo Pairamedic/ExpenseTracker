@@ -4,10 +4,11 @@ import {
   CalendarDays, Plus, Pencil, Trash2, CheckSquare, Square,
   MoreVertical, Bell, LayoutDashboard, Link, Plane, AlertTriangle,
   Wallet, PiggyBank, Settings, BarChart2, Users, LayoutGrid,
-  ChevronDown, ChevronUp, FileText, Zap,
+  ChevronDown, ChevronUp, FileText, Zap, Share2, Check, RefreshCw,
 } from 'lucide-react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, AreaChart, Area } from 'recharts';
+import { storage } from '../utils/storage';
 import { useApp } from '../context/AppContext';
 import {
   formatCurrency, monthKey, monthLabel, getBillsForMonth, getIncomeForMonth,
@@ -93,21 +94,22 @@ function SavingCard({ saving, onEdit, onDelete }) {
 function CommitmentRow({ commitment, onToggle, onEdit, onDelete, myLabel, partnerLabel }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const personLabel = commitment.person === 'me' ? myLabel : commitment.person === 'partner' ? partnerLabel : 'Both';
+  const isOverdue = !commitment.completed && commitment.endDate && new Date(commitment.endDate + 'T12:00:00') < new Date();
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem 1rem', opacity: commitment.completed ? 0.5 : 1 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem 1rem', opacity: commitment.completed ? 0.5 : 1, backgroundColor: isOverdue ? 'rgba(239,68,68,0.04)' : 'transparent' }}>
       <button onClick={() => onToggle(commitment.id)}
-        style={{ flexShrink: 0, color: commitment.completed ? 'var(--positive-text)' : 'var(--subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
+        style={{ flexShrink: 0, color: commitment.completed ? 'var(--positive-text)' : isOverdue ? 'var(--danger)' : 'var(--subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
         {commitment.completed ? <CheckSquare size={22} /> : <Square size={22} />}
       </button>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ fontSize: '0.875rem', fontWeight: '600', color: commitment.completed ? 'var(--subtle)' : 'var(--text)', textDecoration: commitment.completed ? 'line-through' : 'none' }}>{commitment.description}</p>
+        <p style={{ fontSize: '0.875rem', fontWeight: '600', color: commitment.completed ? 'var(--subtle)' : isOverdue ? 'var(--danger)' : 'var(--text)', textDecoration: commitment.completed ? 'line-through' : 'none' }}>{commitment.description}</p>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.125rem', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>{personLabel}</span>
           {commitment.amount && <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{formatCurrency(commitment.amount)}</span>}
           {commitment.endDate && (
-            <span style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>
-              · by {new Date(commitment.endDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            <span style={{ fontSize: '0.75rem', color: isOverdue ? 'var(--danger)' : 'var(--subtle)', fontWeight: isOverdue ? '700' : '400' }}>
+              {isOverdue ? '⚠ overdue · ' : '· by '}{new Date(commitment.endDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </span>
           )}
         </div>
@@ -192,6 +194,16 @@ function PlannedExpenseCard({ pe, savings, onEdit, onDelete }) {
             </span>
           )}
         </div>
+        {fromSavings && pe.amount > 0 && (
+          <div style={{ marginTop: '0.375rem' }}>
+            <div style={{ height: '0.3rem', backgroundColor: 'var(--surface2)', borderRadius: '9999px', overflow: 'hidden' }}>
+              <div style={{ height: '100%', backgroundColor: fromSavings.balance >= pe.amount ? 'var(--positive-text)' : 'var(--accent)', borderRadius: '9999px', width: `${Math.min(100, (fromSavings.balance / pe.amount) * 100)}%`, transition: 'width 0.3s' }} />
+            </div>
+            <p style={{ fontSize: '0.7rem', color: 'var(--subtle)', marginTop: '0.15rem' }}>
+              {formatCurrency(fromSavings.balance)} saved · {Math.min(100, Math.round((fromSavings.balance / pe.amount) * 100))}%
+            </p>
+          </div>
+        )}
         {pe.notes && <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.125rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pe.notes}</p>}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
@@ -229,6 +241,7 @@ export default function Dashboard() {
     notes, settings, setSettings, purchases,
     budgetCategories, budgetSpends, addBudgetSpend,
     agreements, addAgreement, updateAgreement, deleteAgreement,
+    setBillStatusDirect, addBill,
   } = useApp();
 
   const [mk, setMk] = useState(() => monthKey(new Date()));
@@ -253,6 +266,10 @@ export default function Dashboard() {
   const [agDate, setAgDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [agNotes, setAgNotes] = useState('');
 
+  const [showExport, setShowExport] = useState(false);
+  const [expandedEnvCat, setExpandedEnvCat] = useState(null);
+  const [netWorthHistory, setNetWorthHistory] = useState(() => storage.getNetWorthHistory());
+
   const DEFAULT_COLLAPSED = { savings: true, netWorth: true, spendingTrend: true, topCategories: true, spendingByPerson: true };
   const [collapsed, setCollapsed] = useState(() => {
     try {
@@ -273,7 +290,7 @@ export default function Dashboard() {
   const toggleSec = (key) => setSettings({ ...settings, dashboardSections: { ...sectionPrefs, [key]: !sec(key) } });
   const navigate = useNavigate();
 
-  const { spouseName, myName, monthlySpendingBudget, monthlySavingsTarget } = settings;
+  const { spouseName, myName, monthlySpendingBudget, monthlySavingsTarget, purchasesInAvailable } = settings;
   const partnerLabel = spouseName || 'Cameron';
   const aaronLabel = myName || 'Aaron';
 
@@ -325,7 +342,10 @@ export default function Dashboard() {
     .filter((pe) => pe.status !== 'completed')
     .reduce((s, pe) => s + pe.amount, 0);
 
-  const availableToSpend = monthlyIncome - totalBills - totalDebtMins - activePlannedTotal;
+  const monthPurchases = purchases.filter((p) => p.date && p.date.startsWith(mk));
+  const monthSpent = monthPurchases.reduce((s, p) => s + p.amount, 0);
+
+  const availableToSpend = monthlyIncome - totalBills - totalDebtMins - activePlannedTotal - (purchasesInAvailable ? monthSpent : 0);
 
   const spendingBudget = monthlySpendingBudget || 0;
   const savingsTarget = monthlySavingsTarget || 0;
@@ -353,9 +373,6 @@ export default function Dashboard() {
   const totalSavings = savings.reduce((s, a) => s + a.balance, 0);
 
   const pinnedNotes = notes.filter((n) => n.pinnedToDashboard);
-
-  const monthPurchases = purchases.filter((p) => p.date && p.date.startsWith(mk));
-  const monthSpent = monthPurchases.reduce((s, p) => s + p.amount, 0);
 
   const totalDebt = debts.reduce((s, d) => s + d.balance, 0);
   const netWorth = totalSavings - totalDebt;
@@ -414,6 +431,19 @@ export default function Dashboard() {
     }
   }, [bills]);
 
+  // Auto-snapshot net worth once per month (device-local)
+  useEffect(() => {
+    if (totalSavings === 0 && totalDebt === 0) return;
+    const currentMk = monthKey(new Date());
+    const existing = netWorthHistory.find((h) => h.mk === currentMk);
+    if (existing && existing.value === netWorth) return;
+    const next = [...netWorthHistory.filter((h) => h.mk !== currentMk), { mk: currentMk, value: netWorth }]
+      .sort((a, b) => a.mk.localeCompare(b.mk))
+      .slice(-12);
+    setNetWorthHistory(next);
+    storage.setNetWorthHistory(next);
+  }, [netWorth]); // eslint-disable-line
+
   const sectionCard = { backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', overflow: 'hidden', marginBottom: '0' };
   const sectionWrap = { marginBottom: '1.25rem' };
 
@@ -423,6 +453,10 @@ export default function Dashboard() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
           <h1 style={{ fontSize: '1.625rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-0.02em' }}>Budget Tracker</h1>
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <button onClick={() => setShowExport(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.75rem', backgroundColor: 'var(--surface2)', color: 'var(--muted)', border: '1px solid var(--border)', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer' }}>
+              <Share2 size={15} />
+            </button>
             <button onClick={() => setShowCustomize(true)}
               style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.75rem', backgroundColor: 'var(--surface2)', color: 'var(--muted)', border: '1px solid var(--border)', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer' }}>
               <LayoutGrid size={15} />
@@ -492,23 +526,44 @@ export default function Dashboard() {
             )}
           </button>
           {!isCollapsed('billsStatus') && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
-              {[
-                { label: 'Unpaid', color: 'var(--danger)', amount: unpaidTotal, count: unpaidBills.length, status: 'unpaid' },
-                { label: 'Pending', color: 'var(--warn)', amount: pendingBills.reduce((s, b) => s + b.amount, 0), count: pendingBills.length, status: 'pending' },
-                { label: 'Paid', color: 'var(--positive-text)', amount: paidTotal, count: paidBills.length, status: 'paid' },
-              ].map(({ label, color, amount, count, status }) => (
-                <button key={status} onClick={() => navigate(`/bills?status=${status}`)}
-                  style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem', padding: '0.75rem', textAlign: 'center', cursor: 'pointer', transition: 'border-color 0.15s' }}
-                  onMouseEnter={(e) => e.currentTarget.style.borderColor = color}
-                  onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
-                >
-                  <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>{label}</p>
-                  <p style={{ fontSize: '1rem', fontWeight: '700', color }}>{formatCurrency(amount)}</p>
-                  <p style={{ fontSize: '0.625rem', color: 'var(--subtle)' }}>{count} bill{count !== 1 ? 's' : ''}</p>
-                </button>
-              ))}
-            </div>
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', marginBottom: unpaidBills.length > 0 ? '0.625rem' : '0' }}>
+                {[
+                  { label: 'Unpaid', color: 'var(--danger)', amount: unpaidTotal, count: unpaidBills.length, status: 'unpaid' },
+                  { label: 'Pending', color: 'var(--warn)', amount: pendingBills.reduce((s, b) => s + b.amount, 0), count: pendingBills.length, status: 'pending' },
+                  { label: 'Paid', color: 'var(--positive-text)', amount: paidTotal, count: paidBills.length, status: 'paid' },
+                ].map(({ label, color, amount, count, status }) => (
+                  <button key={status} onClick={() => navigate(`/bills?status=${status}`)}
+                    style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem', padding: '0.75rem', textAlign: 'center', cursor: 'pointer', transition: 'border-color 0.15s' }}
+                    onMouseEnter={(e) => e.currentTarget.style.borderColor = color}
+                    onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
+                  >
+                    <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>{label}</p>
+                    <p style={{ fontSize: '1rem', fontWeight: '700', color }}>{formatCurrency(amount)}</p>
+                    <p style={{ fontSize: '0.625rem', color: 'var(--subtle)' }}>{count} bill{count !== 1 ? 's' : ''}</p>
+                  </button>
+                ))}
+              </div>
+              {unpaidBills.length > 0 && (
+                <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', overflow: 'hidden' }}>
+                  {unpaidBills.map((b, i) => (
+                    <div key={b.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', borderBottom: i < unpaidBills.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <p style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</p>
+                        {b.dueDay && <p style={{ fontSize: '0.7rem', color: 'var(--subtle)' }}>Due the {b.dueDay}{b.dueDay === 1 ? 'st' : b.dueDay === 2 ? 'nd' : b.dueDay === 3 ? 'rd' : 'th'}</p>}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flexShrink: 0 }}>
+                        <p style={{ fontSize: '0.9375rem', fontWeight: '700', color: 'var(--danger)' }}>{formatCurrency(b.amount)}</p>
+                        <button onClick={() => setBillStatusDirect(b.id, mk, 'paid')}
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', fontWeight: '700', padding: '0.35rem 0.625rem', borderRadius: '0.5rem', backgroundColor: 'rgba(16,185,129,0.12)', color: 'var(--positive-text)', border: 'none', cursor: 'pointer' }}>
+                          <Check size={11} /> Pay
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>}
 
@@ -639,6 +694,53 @@ export default function Dashboard() {
                     backgroundColor: totalEnvelopeSpent > totalEnvelopeLimit ? 'var(--danger)' : totalEnvelopeSpent > totalEnvelopeLimit * 0.8 ? 'var(--warn)' : 'var(--accent)',
                     width: `${Math.min(100, totalEnvelopeLimit > 0 ? (totalEnvelopeSpent / totalEnvelopeLimit) * 100 : 0)}%` }} />
                 </div>
+                {/* Per-category breakdown */}
+                {budgetCategories.length > 0 && (
+                  <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
+                    {budgetCategories.map((cat) => {
+                      const catSpends = monthBudgetSpends.filter((s) => s.categoryId === cat.id);
+                      const catSpent = catSpends.reduce((s, sp) => s + (sp.amount || 0), 0);
+                      const catLimit = cat.monthlyLimit || 0;
+                      const catPct = catLimit > 0 ? Math.min(100, (catSpent / catLimit) * 100) : 0;
+                      const isExpanded = expandedEnvCat === cat.id;
+                      return (
+                        <div key={cat.id}>
+                          <button onClick={() => setExpandedEnvCat(isExpanded ? null : cat.id)}
+                            style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem 0', textAlign: 'left' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
+                              <span style={{ fontSize: '0.8125rem', fontWeight: '600', color: 'var(--text)' }}>{cat.name}</span>
+                              <span style={{ fontSize: '0.75rem', color: catSpent > catLimit ? 'var(--danger)' : 'var(--subtle)' }}>
+                                {formatCurrency(catSpent)} / {formatCurrency(catLimit)}
+                              </span>
+                            </div>
+                            <div style={{ height: '0.3rem', backgroundColor: 'var(--surface2)', borderRadius: '9999px', overflow: 'hidden' }}>
+                              <div style={{ height: '100%', borderRadius: '9999px', transition: 'width 0.3s',
+                                backgroundColor: catSpent > catLimit ? 'var(--danger)' : catPct > 80 ? 'var(--warn)' : 'var(--accent)',
+                                width: `${catPct}%` }} />
+                            </div>
+                          </button>
+                          {isExpanded && (
+                            <div style={{ backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', padding: '0.5rem 0.75rem', marginBottom: '0.25rem' }}>
+                              {catSpends.length === 0 ? (
+                                <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', textAlign: 'center', padding: '0.25rem 0' }}>No spends logged yet</p>
+                              ) : (
+                                catSpends.sort((a, b) => b.date?.localeCompare(a.date || '') || 0).map((sp) => (
+                                  <div key={sp.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.25rem 0', borderBottom: '1px solid var(--border)' }}>
+                                    <div>
+                                      <p style={{ fontSize: '0.8125rem', color: 'var(--text)', fontWeight: '500' }}>{sp.description || '—'}</p>
+                                      {sp.date && <p style={{ fontSize: '0.7rem', color: 'var(--subtle)' }}>{new Date(sp.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>}
+                                    </div>
+                                    <span style={{ fontSize: '0.875rem', fontWeight: '700', color: 'var(--text)' }}>{formatCurrency(sp.amount)}</span>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -908,6 +1010,28 @@ export default function Dashboard() {
                 <p style={{ fontSize: '0.875rem', color: 'var(--muted)', fontWeight: '600' }}>Net Worth</p>
                 <p style={{ fontSize: '1.5rem', fontWeight: '900', color: netWorth >= 0 ? 'var(--positive-text)' : 'var(--danger)' }}>{formatCurrency(netWorth)}</p>
               </div>
+              {netWorthHistory.length >= 2 && (
+                <div style={{ marginTop: '0.75rem' }}>
+                  <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.375rem' }}>12-Month Trend</p>
+                  <ResponsiveContainer width="100%" height={80}>
+                    <AreaChart data={netWorthHistory.map((h) => ({ mk: h.mk, value: h.value }))} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="nwGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="var(--positive-text)" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="var(--positive-text)" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="mk" tick={{ fill: 'var(--subtle)', fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={(v) => v.slice(5)} />
+                      <Tooltip
+                        cursor={{ stroke: 'var(--border)', strokeWidth: 1 }}
+                        contentStyle={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem', fontSize: '0.75rem', color: 'var(--text)' }}
+                        formatter={(v) => [formatCurrency(v), 'Net Worth']}
+                      />
+                      <Area type="monotone" dataKey="value" stroke="var(--positive-text)" strokeWidth={2} fill="url(#nwGrad)" dot={false} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </div>
           )}
         </div>}
@@ -1135,6 +1259,38 @@ export default function Dashboard() {
         </Modal>
       )}
 
+      {/* Export / Share summary modal */}
+      {showExport && (() => {
+        const lines = [
+          `📊 Budget Summary — ${monthLabel(mk)}`,
+          '',
+          `💰 Income:  ${formatCurrency(monthlyIncome)}`,
+          `🧾 Bills:   ${formatCurrency(totalBills)} total  (${paidBills.length} paid · ${unpaidBills.length} unpaid)`,
+          `💳 Debts:   ${formatCurrency(totalDebtMins)}/mo minimums`,
+          `✅ Available: ${formatCurrency(availableToSpend)}`,
+          '',
+          ...(unpaidBills.length > 0 ? ['⚠️ Unpaid Bills:', ...unpaidBills.map((b) => `   • ${b.name}: ${formatCurrency(b.amount)}`), ''] : []),
+          ...(totalEnvelopeLimit > 0 ? [`🗂 Envelopes: ${formatCurrency(totalEnvelopeSpent)} spent / ${formatCurrency(totalEnvelopeLimit)} budgeted (${formatCurrency(totalEnvelopeRemaining)} left)`, ''] : []),
+          ...(savings.length > 0 ? [`💾 Savings: ${formatCurrency(totalSavings)}`, ...savings.map((s) => `   • ${s.name}: ${formatCurrency(s.balance)}`), ''] : []),
+          ...(activeAgreements.length > 0 ? ['🤝 Open Deals:', ...activeAgreements.map((a) => `   • ${a.description}${a.amount ? ' — ' + formatCurrency(a.amount) : ''}`), ''] : []),
+          `📅 Generated ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`,
+        ].join('\n');
+
+        return (
+          <Modal title="Share Summary" onClose={() => setShowExport(false)}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--subtle)' }}>Month snapshot ready to copy and share with {partnerLabel}.</p>
+              <textarea readOnly value={lines} rows={Math.min(18, lines.split('\n').length + 2)}
+                style={{ fontFamily: 'monospace', fontSize: '0.8125rem', backgroundColor: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '0.75rem', padding: '0.75rem', color: 'var(--text)', resize: 'none', lineHeight: '1.6' }} />
+              <button onClick={() => { navigator.clipboard?.writeText(lines); }}
+                className="app-btn-primary">
+                <Share2 size={15} /> Copy to Clipboard
+              </button>
+            </div>
+          </Modal>
+        );
+      })()}
+
       {/* Dashboard Customize modal */}
       {showCustomize && (
         <Modal title="Customize Dashboard" onClose={() => setShowCustomize(false)}>
@@ -1170,6 +1326,20 @@ export default function Dashboard() {
                 </button>
               );
             })}
+            <div style={{ height: '1px', backgroundColor: 'var(--border)', margin: '0.5rem 0' }} />
+            <p style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', padding: '0.25rem 0' }}>Spending Limit</p>
+            <button onClick={() => setSettings({ ...settings, purchasesInAvailable: !purchasesInAvailable })}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.875rem 1rem', borderRadius: '0.875rem', border: '1px solid var(--border)', backgroundColor: 'var(--surface2)', cursor: 'pointer', width: '100%', textAlign: 'left' }}>
+              <div>
+                <span style={{ fontSize: '0.9375rem', fontWeight: 600, color: purchasesInAvailable ? 'var(--text)' : 'var(--subtle)', display: 'block' }}>Deduct Spending from Available</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Subtracts logged purchases from Available to Spend</span>
+              </div>
+              <div style={{ width: '2.75rem', height: '1.5rem', borderRadius: '9999px', position: 'relative', flexShrink: 0, transition: 'background 0.2s',
+                backgroundColor: purchasesInAvailable ? 'var(--accent)' : 'var(--border2)' }}>
+                <span style={{ position: 'absolute', top: '2px', width: '1.125rem', height: '1.125rem', borderRadius: '9999px', backgroundColor: '#fff', transition: 'left 0.2s',
+                  left: purchasesInAvailable ? 'calc(100% - 1.25rem)' : '2px' }} />
+              </div>
+            </button>
             <button onClick={() => setShowCustomize(false)} className="app-btn-primary" style={{ marginTop: '0.5rem' }}>Done</button>
           </div>
         </Modal>

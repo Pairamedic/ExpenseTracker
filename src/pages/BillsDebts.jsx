@@ -428,6 +428,127 @@ function SpendForm({ initial = {}, categories = [], defaultCategoryId = '', onSa
   );
 }
 
+function simulatePayoffStrategy(debts, extra, strategy) {
+  const queue = debts
+    .filter((d) => d.balance > 0 && d.minPayment > 0)
+    .map((d) => ({ ...d, balance: d.balance }));
+  if (strategy === 'snowball') queue.sort((a, b) => a.balance - b.balance);
+  else queue.sort((a, b) => (b.interestRate || 0) - (a.interestRate || 0));
+
+  let totalInterest = 0;
+  let months = 0;
+  const MAX_MONTHS = 600;
+  while (queue.some((d) => d.balance > 0.01) && months < MAX_MONTHS) {
+    months++;
+    let surplus = extra;
+    for (let i = 0; i < queue.length; i++) {
+      const d = queue[i];
+      if (d.balance <= 0.01) continue;
+      const interest = d.balance * ((d.interestRate || 0) / 100 / 12);
+      totalInterest += interest;
+      d.balance += interest;
+      const isFirst = queue.slice(0, i).every((d2) => d2.balance <= 0.01);
+      const payment = Math.min(d.balance, d.minPayment + (isFirst ? surplus : 0));
+      d.balance -= payment;
+      if (isFirst) surplus = Math.max(0, surplus - Math.max(0, payment - d.minPayment));
+    }
+  }
+  const payoffDate = new Date();
+  payoffDate.setMonth(payoffDate.getMonth() + months);
+  return { months, totalInterest, payoffDate };
+}
+
+function DebtPayoffPlanner({ debts }) {
+  const [extra, setExtra] = useState('0');
+  const extraAmt = Math.max(0, parseFloat(extra) || 0);
+  const validDebts = debts.filter((d) => d.balance > 0 && d.minPayment > 0);
+
+  const snowball = validDebts.length > 0 ? simulatePayoffStrategy(validDebts, extraAmt, 'snowball') : null;
+  const avalanche = validDebts.length > 0 ? simulatePayoffStrategy(validDebts, extraAmt, 'avalanche') : null;
+  const interestSaved = snowball && avalanche ? snowball.totalInterest - avalanche.totalInterest : 0;
+
+  const snowOrder = [...validDebts].sort((a, b) => a.balance - b.balance);
+  const avalOrder = [...validDebts].sort((a, b) => (b.interestRate || 0) - (a.interestRate || 0));
+
+  return (
+    <div style={{ marginTop: '1.25rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.75rem' }}>
+        <TrendingDown size={13} style={{ color: 'var(--positive-text)' }} />
+        <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', fontWeight: 700 }}>Payoff Planner</span>
+      </div>
+
+      {/* Per-debt at minimums */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem', marginBottom: '1rem' }}>
+        {debts.map((d) => {
+          const result = calcDebtPayoff(d.balance, d.interestRate, d.minPayment);
+          if (!result) return null;
+          const payoffMon = result.payoffDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+          return (
+            <div key={d.id} style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', padding: '1rem' }}>
+              <p style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--text)', marginBottom: '0.5rem' }}>{d.name}</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                <div style={{ backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', padding: '0.625rem' }}>
+                  <p style={{ fontSize: '0.6875rem', color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.2rem' }}>Paid off</p>
+                  <p style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--positive-text)' }}>{payoffMon}</p>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>{result.months} mo at minimum</p>
+                </div>
+                <div style={{ backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', padding: '0.625rem' }}>
+                  <p style={{ fontSize: '0.6875rem', color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.2rem' }}>Total interest</p>
+                  <p style={{ fontSize: '0.9375rem', fontWeight: 800, color: result.totalInterest > 0 ? 'var(--danger)' : 'var(--positive-text)' }}>{formatCurrency(result.totalInterest)}</p>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>at min payment</p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Strategy comparison */}
+      {validDebts.length > 1 && (
+        <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', padding: '1rem' }}>
+          <p style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--text)', marginBottom: '0.75rem' }}>Snowball vs Avalanche</p>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.875rem' }}>
+            <label style={{ fontSize: '0.8125rem', color: 'var(--subtle)', flexShrink: 0 }}>Extra/mo:</label>
+            <input type="number" inputMode="decimal" placeholder="0" value={extra} onChange={(e) => setExtra(e.target.value)}
+              className="app-input" style={{ maxWidth: '8rem' }} />
+          </div>
+          {snowball && avalanche && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
+              {[
+                { label: '❄️ Snowball', subtitle: 'Lowest balance first', result: snowball, order: snowOrder },
+                { label: '🌋 Avalanche', subtitle: 'Highest APR first', result: avalanche, order: avalOrder },
+              ].map(({ label, subtitle, result, order }) => (
+                <div key={label} style={{ backgroundColor: 'var(--surface2)', borderRadius: '0.875rem', padding: '0.75rem' }}>
+                  <p style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text)', marginBottom: '0.125rem' }}>{label}</p>
+                  <p style={{ fontSize: '0.7rem', color: 'var(--subtle)', marginBottom: '0.5rem' }}>{subtitle}</p>
+                  <p style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--positive-text)' }}>
+                    {result.payoffDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                  </p>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginBottom: '0.375rem' }}>{result.months} months</p>
+                  <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--danger)' }}>{formatCurrency(result.totalInterest)} interest</p>
+                  <div style={{ marginTop: '0.5rem', borderTop: '1px solid var(--border)', paddingTop: '0.375rem' }}>
+                    <p style={{ fontSize: '0.7rem', color: 'var(--subtle)', marginBottom: '0.2rem' }}>Order:</p>
+                    {order.map((d, i) => (
+                      <p key={d.id} style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{i + 1}. {d.name}</p>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {interestSaved > 1 && (
+            <div style={{ marginTop: '0.75rem', backgroundColor: 'rgba(16,185,129,0.08)', border: '1px solid var(--positive-text)', borderRadius: '0.75rem', padding: '0.625rem 0.875rem' }}>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--positive-text)', fontWeight: 700 }}>
+                Avalanche saves you {formatCurrency(interestSaved)} in interest vs snowball
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function BillsDebts() {
   const {
     bills, addBill, updateBill, deleteBill, setBillStatusDirect,
@@ -798,39 +919,7 @@ export default function BillsDebts() {
                 ))}
 
                 {/* Debt payoff planner */}
-                {debts.length > 0 && (
-                  <div style={{ marginTop: '1.25rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.75rem' }}>
-                      <TrendingDown size={13} style={{ color: 'var(--positive-text)' }} />
-                      <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', fontWeight: 700 }}>Payoff Planner</span>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-                      {debts.map((d) => {
-                        const result = calcDebtPayoff(d.balance, d.interestRate, d.minPayment);
-                        if (!result) return null;
-                        const payoffYear = result.payoffDate.getFullYear();
-                        const payoffMon = result.payoffDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-                        return (
-                          <div key={d.id} style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', padding: '1rem' }}>
-                            <p style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--text)', marginBottom: '0.5rem' }}>{d.name}</p>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                              <div style={{ backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', padding: '0.625rem' }}>
-                                <p style={{ fontSize: '0.6875rem', color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.2rem' }}>Paid off</p>
-                                <p style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--positive-text)' }}>{payoffMon}</p>
-                                <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>{result.months} month{result.months !== 1 ? 's' : ''}</p>
-                              </div>
-                              <div style={{ backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', padding: '0.625rem' }}>
-                                <p style={{ fontSize: '0.6875rem', color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.2rem' }}>Total interest</p>
-                                <p style={{ fontSize: '0.9375rem', fontWeight: 800, color: result.totalInterest > 0 ? 'var(--danger)' : 'var(--positive-text)' }}>{formatCurrency(result.totalInterest)}</p>
-                                <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>at min payment</p>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                {debts.length > 0 && <DebtPayoffPlanner debts={debts} />}
               </>
             )}
           </div>
