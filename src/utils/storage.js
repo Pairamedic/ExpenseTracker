@@ -15,6 +15,8 @@ const KEYS = {
   BUDGET_SPENDS: 'bt_budget_spends',
   AGREEMENTS: 'bt_agreements',
   NET_WORTH_HISTORY: 'bt_nw_history',
+  SHOPPING_LISTS: 'bt_shopping_lists',
+  SHOPPING_ITEMS: 'bt_shopping_items',
 };
 
 function get(key) {
@@ -104,4 +106,9 @@ export const storage = {
 
   getNetWorthHistory: () => get(KEYS.NET_WORTH_HISTORY) || [],
   setNetWorthHistory: (v) => set(KEYS.NET_WORTH_HISTORY, v),
+
+  getShoppingLists: () => get(KEYS.SHOPPING_LISTS) || [],
+  setShoppingLists: (v) => set(KEYS.SHOPPING_LISTS, v),
+  getShoppingItems: () => get(KEYS.SHOPPING_ITEMS) || [],
+  setShoppingItems: (v) => set(KEYS.SHOPPING_ITEMS, v),
 };
