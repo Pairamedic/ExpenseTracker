@@ -1,0 +1,786 @@
+import { useState, useMemo } from 'react';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { ChevronDown, ChevronUp, Calculator, TrendingUp, Clock, Check } from 'lucide-react';
+import { useApp } from '../context/AppContext';
+import { formatCurrency } from '../utils/helpers';
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const FED_BRACKETS = {
+  single: [[0,11925,0.10],[11925,48475,0.12],[48475,103350,0.22],[103350,197300,0.24],[197300,250525,0.32],[250525,626350,0.35],[626350,Infinity,0.37]],
+  mfj:    [[0,23850,0.10],[23850,96950,0.12],[96950,206700,0.22],[206700,394600,0.24],[394600,501050,0.32],[501050,731200,0.35],[731200,Infinity,0.37]],
+  mfs:    [[0,11925,0.10],[11925,48475,0.12],[48475,103350,0.22],[103350,197300,0.24],[197300,250525,0.32],[250525,313200,0.35],[313200,Infinity,0.37]],
+  hoh:    [[0,17000,0.10],[17000,64850,0.12],[64850,103350,0.22],[103350,197300,0.24],[197300,250500,0.32],[250500,626350,0.35],[626350,Infinity,0.37]],
+};
+const STD_DEDUCTIONS_FED = { single: 15000, mfj: 30000, mfs: 15000, hoh: 22500 };
+
+// ── Tax helpers ───────────────────────────────────────────────────────────────
+
+function calcFedTax(taxable, filing) {
+  const brackets = FED_BRACKETS[filing] || FED_BRACKETS.single;
+  let tax = 0;
+  for (const [lo, hi, rate] of brackets) {
+    if (taxable > lo) tax += (Math.min(taxable, hi) - lo) * rate;
+  }
+  return Math.max(0, tax);
+}
+
+function calcARTax(agi, filing) {
+  const stdDed = filing === 'mfj' ? 4400 : 2200;
+  const net = Math.max(0, agi - stdDed);
+  let tax = 0;
+  if (net > 89500) tax += (net - 89500) * 0.049;
+  if (net > 23800) tax += (Math.min(net, 89500) - 23800) * 0.044;
+  if (net > 14100) tax += (Math.min(net, 23800) - 14100) * 0.034;
+  if (net > 10000) tax += (Math.min(net, 14100) - 10000) * 0.03;
+  if (net > 5000) tax += (Math.min(net, 10000) - 5000) * 0.02;
+  const credits = filing === 'mfj' ? 2 : 1;
+  tax = Math.max(0, tax - credits * 29);
+  return Math.max(0, tax);
+}
+
+function annualFromRecords(income) {
+  return income.reduce((s, i) => {
+    const mult = i.frequency === 'weekly' ? 52 : i.frequency === 'biweekly' ? 26 : i.frequency === 'semimonthly' ? 24 : 12;
+    return s + (parseFloat(i.amount) || 0) * mult;
+  }, 0);
+}
+
+// ── IRA helpers ───────────────────────────────────────────────────────────────
+
+function projectIRA({ currentBalance, annualEmployee, annualEmployer, returnPct, years, targetBalance }) {
+  const data = [];
+  let balance = parseFloat(currentBalance) || 0;
+  const rate = (parseFloat(returnPct) || 7) / 100;
+  const totalContrib = (parseFloat(annualEmployee) || 0) + (parseFloat(annualEmployer) || 0);
+  let hitTargetYear = null;
+  for (let y = 1; y <= (parseInt(years) || 30); y++) {
+    balance = (balance + totalContrib) * (1 + rate);
+    if (targetBalance && !hitTargetYear && balance >= parseFloat(targetBalance)) hitTargetYear = y;
+    data.push({ year: y, balance: Math.round(balance) });
+  }
+  return { data, hitTargetYear };
+}
+
+// ── PTO helpers ───────────────────────────────────────────────────────────────
+
+function calcPTOEarned(shifts, jobId, baseDateStr, accrualRate) {
+  if (!baseDateStr || !jobId) return 0;
+  const baseDate = new Date(baseDateStr + 'T12:00:00');
+  return shifts
+    .filter((s) => s.jobId === jobId && !s.otExempt && new Date(s.date + 'T12:00:00') > baseDate)
+    .reduce((s, sh) => s + sh.hoursWorked, 0) / (parseFloat(accrualRate) || 24);
+}
+
+function avgHoursPerWeek(shifts, jobId, weeksBack = 8) {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - weeksBack * 7);
+  const recent = shifts.filter((s) => s.jobId === jobId && !s.otExempt && new Date(s.date + 'T12:00:00') >= cutoff);
+  if (recent.length === 0) return 0;
+  return recent.reduce((s, sh) => s + sh.hoursWorked, 0) / weeksBack;
+}
+
+// ── Shared UI ─────────────────────────────────────────────────────────────────
+
+function Label({ children }) {
+  return <label className="app-label">{children}</label>;
+}
+
+function Input(props) {
+  return <input {...props} className="app-input" />;
+}
+
+function Sel({ children, ...props }) {
+  return <select {...props} className="app-input">{children}</select>;
+}
+
+function Card({ children, style }) {
+  return (
+    <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', padding: '1rem', ...style }}>
+      {children}
+    </div>
+  );
+}
+
+function Row({ label, value, color, large }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.3rem 0' }}>
+      <span style={{ fontSize: large ? '1rem' : '0.875rem', color: 'var(--muted)' }}>{label}</span>
+      <span style={{ fontSize: large ? '1.0625rem' : '0.9375rem', fontWeight: large ? 800 : 600, color: color || 'var(--text)' }}>{value}</span>
+    </div>
+  );
+}
+
+function Toggle({ value, onChange }) {
+  return (
+    <button type="button" onClick={() => onChange(!value)}
+      style={{ width: '2.75rem', height: '1.5rem', borderRadius: '9999px', border: 'none', cursor: 'pointer', position: 'relative', flexShrink: 0, transition: 'background 0.2s',
+        backgroundColor: value ? 'var(--accent)' : 'var(--border2)' }}>
+      <span style={{ position: 'absolute', top: '2px', width: '1.125rem', height: '1.125rem', borderRadius: '9999px', backgroundColor: '#fff', transition: 'left 0.2s',
+        left: value ? 'calc(100% - 1.25rem)' : '2px' }} />
+    </button>
+  );
+}
+
+// ── Tax Tab ───────────────────────────────────────────────────────────────────
+
+function TaxTab({ s, onChange, income, jobs }) {
+  const update = (key, val) => onChange({ ...s, tax: { ...s.tax, [key]: val } });
+
+  const grossFromRecords = annualFromRecords(income);
+  const grossIncome = s.tax.useIncomeData ? grossFromRecords : (parseFloat(s.tax.manualGrossIncome) || 0);
+
+  const autoIRADeduction = useMemo(() => {
+    return jobs.reduce((sum, job) => {
+      const periods = job.payFrequency === 'weekly' ? 52 : 26;
+      if (job.iraType === 'percent' && job.iraPercent > 0) {
+        return sum + (grossIncome / periods) * (job.iraPercent / 100) * periods;
+      }
+      return sum + (job.iraPerPeriod || 0) * periods;
+    }, 0);
+  }, [jobs, grossIncome]);
+
+  const preTaxDeductions = autoIRADeduction + (parseFloat(s.tax.extraPreTaxDeductions) || 0);
+  const agi = Math.max(0, grossIncome - preTaxDeductions);
+  const deductionAmt = s.tax.useStandardDeduction
+    ? (STD_DEDUCTIONS_FED[s.tax.filingStatus] || 15000)
+    : (parseFloat(s.tax.itemizedDeductions) || 0);
+  const fedTaxable = Math.max(0, agi - deductionAmt);
+
+  const fedTax = calcFedTax(fedTaxable, s.tax.filingStatus);
+  const ctc = (parseInt(s.tax.dependentsUnder17) || 0) * 2000;
+  const otherCredits = parseFloat(s.tax.otherCredits) || 0;
+  const fedNet = Math.max(0, fedTax - ctc - otherCredits);
+  const arTax = calcARTax(agi, s.tax.filingStatus);
+
+  const fedWithheld = parseFloat(s.tax.manualFedWithheld) || 0;
+  const arWithheld = parseFloat(s.tax.manualStateWithheld) || 0;
+  const fedDiff = fedWithheld - fedNet;
+  const arDiff = arWithheld - arTax;
+
+  const effRate = grossIncome > 0 ? ((fedNet / grossIncome) * 100).toFixed(1) : '0.0';
+  const marginalRate = (() => {
+    const brackets = FED_BRACKETS[s.tax.filingStatus] || FED_BRACKETS.single;
+    let rate = 0.10;
+    for (const [lo, , r] of brackets) { if (fedTaxable > lo) rate = r; }
+    return (rate * 100).toFixed(0);
+  })();
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <Card>
+        <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.75rem' }}>Tax Settings · 2025 Brackets</p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+          <div>
+            <Label>Filing Status</Label>
+            <Sel value={s.tax.filingStatus} onChange={(e) => update('filingStatus', e.target.value)}>
+              <option value="single">Single</option>
+              <option value="mfj">Married Filing Jointly</option>
+              <option value="mfs">Married Filing Separately</option>
+              <option value="hoh">Head of Household</option>
+            </Sel>
+          </div>
+
+          <div style={{ backgroundColor: 'var(--surface2)', borderRadius: '0.875rem', padding: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text)' }}>Use Income Records</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>
+                {s.tax.useIncomeData
+                  ? income.length > 0 ? `Est. ${formatCurrency(grossFromRecords)}/yr from ${income.length} record${income.length !== 1 ? 's' : ''}` : 'No income records found'
+                  : 'Enter gross income manually'}
+              </p>
+            </div>
+            <Toggle value={s.tax.useIncomeData} onChange={(v) => update('useIncomeData', v)} />
+          </div>
+
+          {!s.tax.useIncomeData && (
+            <div>
+              <Label>Expected Gross Income (Annual)</Label>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }}>$</span>
+                <Input type="number" min="0" step="1" placeholder="75000" value={s.tax.manualGrossIncome}
+                  onChange={(e) => update('manualGrossIncome', e.target.value)} style={{ paddingLeft: '1.75rem' }} />
+              </div>
+            </div>
+          )}
+
+          <div>
+            <Label>Extra Pre-Tax Deductions (annual)</Label>
+            <p style={{ fontSize: '0.7rem', color: 'var(--subtle)', marginBottom: '0.375rem' }}>
+              HSA, FSA, 401k not in job settings
+              {autoIRADeduction > 0 && ` · IRA from jobs: ${formatCurrency(autoIRADeduction)}/yr`}
+            </p>
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }}>$</span>
+              <Input type="number" min="0" step="1" placeholder="0" value={s.tax.extraPreTaxDeductions}
+                onChange={(e) => update('extraPreTaxDeductions', e.target.value)} style={{ paddingLeft: '1.75rem' }} />
+            </div>
+          </div>
+
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.375rem' }}>
+              <Label>Deduction</Label>
+              <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.5rem', padding: '0.125rem', gap: '0.125rem' }}>
+                {[['standard', 'Standard'], ['itemized', 'Itemized']].map(([v, l]) => (
+                  <button key={v} type="button" onClick={() => update('useStandardDeduction', v === 'standard')}
+                    style={{ padding: '0.25rem 0.625rem', borderRadius: '0.375rem', fontSize: '0.75rem', fontWeight: 700, border: 'none', cursor: 'pointer',
+                      backgroundColor: (v === 'standard') === s.tax.useStandardDeduction ? 'var(--accent)' : 'transparent',
+                      color: (v === 'standard') === s.tax.useStandardDeduction ? '#fff' : 'var(--muted)' }}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {s.tax.useStandardDeduction ? (
+              <div className="app-input" style={{ color: 'var(--subtle)', cursor: 'default' }}>
+                {formatCurrency(STD_DEDUCTIONS_FED[s.tax.filingStatus] || 15000)} (2025 standard)
+              </div>
+            ) : (
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }}>$</span>
+                <Input type="number" min="0" step="1" placeholder="0" value={s.tax.itemizedDeductions}
+                  onChange={(e) => update('itemizedDeductions', e.target.value)} style={{ paddingLeft: '1.75rem' }} />
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <div>
+              <Label>Dependents Under 17</Label>
+              <Input type="number" min="0" step="1" placeholder="0" value={s.tax.dependentsUnder17}
+                onChange={(e) => update('dependentsUnder17', e.target.value)} />
+              <p style={{ fontSize: '0.7rem', color: 'var(--subtle)', marginTop: '0.25rem' }}>$2,000 CTC each</p>
+            </div>
+            <div>
+              <Label>Other Credits ($)</Label>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }}>$</span>
+                <Input type="number" min="0" step="1" placeholder="0" value={s.tax.otherCredits}
+                  onChange={(e) => update('otherCredits', e.target.value)} style={{ paddingLeft: '1.75rem' }} />
+              </div>
+            </div>
+          </div>
+
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '0.875rem' }}>
+            <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.625rem' }}>Expected Withholding (Full Year)</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div>
+                <Label>Federal Withheld</Label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }}>$</span>
+                  <Input type="number" min="0" step="1" placeholder="0" value={s.tax.manualFedWithheld}
+                    onChange={(e) => update('manualFedWithheld', e.target.value)} style={{ paddingLeft: '1.75rem' }} />
+                </div>
+              </div>
+              <div>
+                <Label>AR State Withheld</Label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }}>$</span>
+                  <Input type="number" min="0" step="1" placeholder="0" value={s.tax.manualStateWithheld}
+                    onChange={(e) => update('manualStateWithheld', e.target.value)} style={{ paddingLeft: '1.75rem' }} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {grossIncome > 0 && (
+        <Card>
+          <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.75rem' }}>Estimated 2025 Tax Return</p>
+
+          <Row label="Gross Income" value={formatCurrency(grossIncome)} />
+          {preTaxDeductions > 0 && <Row label="Pre-Tax Deductions" value={`−${formatCurrency(preTaxDeductions)}`} color="var(--danger)" />}
+          <Row label="AGI" value={formatCurrency(agi)} />
+          <Row label={`${s.tax.useStandardDeduction ? 'Standard' : 'Itemized'} Deduction`} value={`−${formatCurrency(deductionAmt)}`} color="var(--danger)" />
+          <Row label="Federal Taxable Income" value={formatCurrency(fedTaxable)} />
+
+          <div style={{ marginTop: '0.75rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <div style={{ backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', padding: '0.75rem' }}>
+              <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--subtle)', marginBottom: '0.5rem' }}>Federal</p>
+              <Row label="Tax owed" value={formatCurrency(fedTax)} />
+              {ctc > 0 && <Row label="Child Tax Credit" value={`−${formatCurrency(ctc)}`} color="var(--positive-text)" />}
+              {otherCredits > 0 && <Row label="Other credits" value={`−${formatCurrency(otherCredits)}`} color="var(--positive-text)" />}
+              <div style={{ borderTop: '1px solid var(--border)', marginTop: '0.375rem', paddingTop: '0.375rem' }}>
+                <Row label="Net tax" value={formatCurrency(fedNet)} large />
+                {fedWithheld > 0 && <Row label="Withheld" value={formatCurrency(fedWithheld)} />}
+              </div>
+              {fedWithheld > 0 && (
+                <div style={{ marginTop: '0.5rem', padding: '0.5rem', borderRadius: '0.5rem', textAlign: 'center',
+                  backgroundColor: fedDiff >= 0 ? 'var(--positive-soft)' : 'rgba(239,68,68,0.1)' }}>
+                  <p style={{ fontSize: '0.65rem', color: 'var(--subtle)' }}>{fedDiff >= 0 ? 'Refund' : 'Owe'}</p>
+                  <p style={{ fontSize: '1.125rem', fontWeight: 800, color: fedDiff >= 0 ? 'var(--positive-text)' : 'var(--danger)' }}>
+                    {formatCurrency(Math.abs(fedDiff))}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div style={{ backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', padding: '0.75rem' }}>
+              <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--subtle)', marginBottom: '0.5rem' }}>Arkansas</p>
+              <Row label="AR AGI" value={formatCurrency(agi)} />
+              <div style={{ borderTop: '1px solid var(--border)', marginTop: '0.375rem', paddingTop: '0.375rem' }}>
+                <Row label="Tax owed" value={formatCurrency(arTax)} large />
+                {arWithheld > 0 && <Row label="Withheld" value={formatCurrency(arWithheld)} />}
+              </div>
+              {arWithheld > 0 ? (
+                <div style={{ marginTop: '0.5rem', padding: '0.5rem', borderRadius: '0.5rem', textAlign: 'center',
+                  backgroundColor: arDiff >= 0 ? 'var(--positive-soft)' : 'rgba(239,68,68,0.1)' }}>
+                  <p style={{ fontSize: '0.65rem', color: 'var(--subtle)' }}>{arDiff >= 0 ? 'Refund' : 'Owe'}</p>
+                  <p style={{ fontSize: '1.125rem', fontWeight: 800, color: arDiff >= 0 ? 'var(--positive-text)' : 'var(--danger)' }}>
+                    {formatCurrency(Math.abs(arDiff))}
+                  </p>
+                </div>
+              ) : (
+                <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.5rem' }}>Enter withheld above</p>
+              )}
+            </div>
+          </div>
+
+          <div style={{ marginTop: '0.75rem', backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', padding: '0.75rem', display: 'flex', gap: '0.75rem' }}>
+            {[['Effective Rate', `${effRate}%`], ['Marginal Rate', `${marginalRate}%`], ['Total Tax', formatCurrency(fedNet + arTax)]].map(([l, v]) => (
+              <div key={l} style={{ flex: 1, textAlign: 'center' }}>
+                <p style={{ fontSize: '0.65rem', color: 'var(--subtle)' }}>{l}</p>
+                <p style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text)' }}>{v}</p>
+              </div>
+            ))}
+          </div>
+
+          <p style={{ fontSize: '0.7rem', color: 'var(--subtle)', marginTop: '0.75rem', textAlign: 'center' }}>
+            2025 federal &amp; Arkansas brackets. Estimates only — consult a tax professional.
+          </p>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ── IRA Tab ───────────────────────────────────────────────────────────────────
+
+function IRATab({ s, onChange, jobs }) {
+  const update = (key, val) => onChange({ ...s, ira: { ...s.ira, [key]: val } });
+  const [showTable, setShowTable] = useState(false);
+
+  const jobIRAContrib = useMemo(() => {
+    if (!s.ira.useJobIRA) return 0;
+    return jobs.reduce((sum, job) => {
+      const periods = job.payFrequency === 'weekly' ? 52 : 26;
+      if (job.iraType === 'amount') return sum + (job.iraPerPeriod || 0) * periods;
+      return sum;
+    }, 0);
+  }, [jobs, s.ira.useJobIRA]);
+
+  const hasPercentIRA = jobs.some((j) => j.iraType === 'percent' && j.iraPercent > 0);
+  const annualEmployee = s.ira.useJobIRA && jobIRAContrib > 0 ? jobIRAContrib : (parseFloat(s.ira.manualAnnualContribution) || 0);
+  const annualEmployer = annualEmployee * ((parseFloat(s.ira.employerMatchPercent) || 0) / 100);
+
+  const { data, hitTargetYear } = useMemo(() => projectIRA({
+    currentBalance: s.ira.currentBalance,
+    annualEmployee,
+    annualEmployer,
+    returnPct: s.ira.expectedReturnPercent,
+    years: s.ira.projectionYears,
+    targetBalance: s.ira.targetBalance || null,
+  }), [s.ira, annualEmployee, annualEmployer]);
+
+  const years = parseInt(s.ira.projectionYears) || 30;
+  const finalBalance = data[data.length - 1]?.balance || 0;
+
+  const formatBig = (n) => {
+    if (n >= 1e6) return `$${(n / 1e6).toFixed(2)}M`;
+    if (n >= 1e3) return `$${(n / 1e3).toFixed(0)}K`;
+    return formatCurrency(n);
+  };
+
+  const chartData = useMemo(() => {
+    const step = Math.max(1, Math.floor(data.length / 20));
+    return data.filter((_, i) => i % step === 0 || i === data.length - 1);
+  }, [data]);
+
+  const showManualContrib = !s.ira.useJobIRA || (s.ira.useJobIRA && jobIRAContrib === 0);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <Card>
+        <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.75rem' }}>IRA / 401k Settings</p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <div>
+              <Label>Current Balance</Label>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }}>$</span>
+                <Input type="number" min="0" step="1" placeholder="0" value={s.ira.currentBalance}
+                  onChange={(e) => update('currentBalance', e.target.value)} style={{ paddingLeft: '1.75rem' }} />
+              </div>
+            </div>
+            <div>
+              <Label>Current Age</Label>
+              <Input type="number" min="18" max="80" step="1" placeholder="30" value={s.ira.currentAge}
+                onChange={(e) => update('currentAge', e.target.value)} />
+            </div>
+          </div>
+
+          <div style={{ backgroundColor: 'var(--surface2)', borderRadius: '0.875rem', padding: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text)' }}>Use Job IRA Settings</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>
+                {s.ira.useJobIRA
+                  ? jobIRAContrib > 0 ? `${formatCurrency(jobIRAContrib)}/yr from jobs`
+                    : hasPercentIRA ? 'Enter annual contrib (%-based requires manual)' : 'No fixed IRA in job settings'
+                  : 'Enter annual contribution manually'}
+              </p>
+            </div>
+            <Toggle value={s.ira.useJobIRA} onChange={(v) => update('useJobIRA', v)} />
+          </div>
+
+          {showManualContrib && (
+            <div>
+              <Label>Annual Employee Contribution</Label>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }}>$</span>
+                <Input type="number" min="0" step="1" placeholder="3500" value={s.ira.manualAnnualContribution}
+                  onChange={(e) => update('manualAnnualContribution', e.target.value)} style={{ paddingLeft: '1.75rem' }} />
+              </div>
+            </div>
+          )}
+
+          <div>
+            <Label>Employer Match</Label>
+            <div style={{ position: 'relative' }}>
+              <Input type="number" min="0" max="200" step="1" placeholder="100" value={s.ira.employerMatchPercent}
+                onChange={(e) => update('employerMatchPercent', e.target.value)} style={{ paddingRight: '2rem' }} />
+              <span style={{ position: 'absolute', right: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }}>%</span>
+            </div>
+            <p style={{ fontSize: '0.7rem', color: 'var(--subtle)', marginTop: '0.25rem' }}>100% = employer matches your full contribution</p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <div>
+              <Label>Expected Return</Label>
+              <div style={{ position: 'relative' }}>
+                <Input type="number" min="0" max="30" step="0.5" placeholder="7" value={s.ira.expectedReturnPercent}
+                  onChange={(e) => update('expectedReturnPercent', e.target.value)} style={{ paddingRight: '2rem' }} />
+                <span style={{ position: 'absolute', right: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }}>%</span>
+              </div>
+            </div>
+            <div>
+              <Label>Projection Years</Label>
+              <Input type="number" min="1" max="50" step="1" placeholder="30" value={s.ira.projectionYears}
+                onChange={(e) => update('projectionYears', e.target.value)} />
+            </div>
+          </div>
+
+          <div>
+            <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.5rem', padding: '0.125rem', gap: '0.125rem' }}>
+              {[['traditional', 'Traditional (pre-tax)'], ['roth', 'Roth (post-tax)']].map(([v, l]) => (
+                <button key={v} type="button" onClick={() => update('iraType', v)}
+                  style={{ flex: 1, padding: '0.375rem 0.5rem', borderRadius: '0.375rem', fontSize: '0.75rem', fontWeight: 700, border: 'none', cursor: 'pointer',
+                    backgroundColor: s.ira.iraType === v ? 'var(--accent)' : 'transparent',
+                    color: s.ira.iraType === v ? '#fff' : 'var(--muted)' }}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <Label>Target Balance (optional)</Label>
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }}>$</span>
+              <Input type="number" min="0" step="1000" placeholder="1000000" value={s.ira.targetBalance}
+                onChange={(e) => update('targetBalance', e.target.value)} style={{ paddingLeft: '1.75rem' }} />
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {(parseFloat(s.ira.currentBalance) > 0 || annualEmployee > 0) && data.length > 0 && (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <Card>
+              <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>In {years} Years</p>
+              <p style={{ fontSize: '1.375rem', fontWeight: 900, color: 'var(--positive-text)' }}>{formatBig(finalBalance)}</p>
+              {s.ira.currentAge && <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>Age {parseInt(s.ira.currentAge) + years}</p>}
+            </Card>
+            <Card>
+              <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>Annual Contribution</p>
+              <p style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--text)' }}>{formatCurrency(annualEmployee + annualEmployer)}</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>
+                {formatCurrency(annualEmployee)} you + {formatCurrency(annualEmployer)} employer
+              </p>
+            </Card>
+          </div>
+
+          {hitTargetYear && (
+            <div style={{ backgroundColor: 'var(--positive-soft)', border: '1px solid var(--positive-text)', borderRadius: '0.875rem', padding: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <Check size={18} style={{ color: 'var(--positive-text)', flexShrink: 0 }} />
+              <div>
+                <p style={{ fontWeight: 700, color: 'var(--positive-text)' }}>Hits {formatBig(parseFloat(s.ira.targetBalance))} in year {hitTargetYear}</p>
+                {s.ira.currentAge && <p style={{ fontSize: '0.8125rem', color: 'var(--subtle)' }}>At age {parseInt(s.ira.currentAge) + hitTargetYear}</p>}
+              </div>
+            </div>
+          )}
+
+          <Card>
+            <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.75rem' }}>Balance Projection</p>
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="year" tick={{ fontSize: 10, fill: 'var(--subtle)' }} tickLine={false}
+                  label={{ value: 'Year', position: 'insideBottom', offset: -2, fontSize: 10, fill: 'var(--subtle)' }} />
+                <YAxis tick={{ fontSize: 10, fill: 'var(--subtle)' }} tickLine={false} axisLine={false}
+                  tickFormatter={(v) => v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${(v / 1e3).toFixed(0)}K` : v} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem', fontSize: '0.8125rem' }}
+                  formatter={(v) => [formatBig(v), 'Balance']}
+                  labelFormatter={(y) => `Year ${y}${s.ira.currentAge ? ` (Age ${parseInt(s.ira.currentAge) + y})` : ''}`}
+                />
+                <Line type="monotone" dataKey="balance" stroke="var(--accent)" strokeWidth={2.5} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </Card>
+
+          <button onClick={() => setShowTable(!showTable)}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem', padding: '0.625rem', backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem', cursor: 'pointer', color: 'var(--muted)', fontSize: '0.875rem', fontWeight: 600 }}>
+            {showTable ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            {showTable ? 'Hide' : 'Show'} Year-by-Year Table
+          </button>
+
+          {showTable && (
+            <Card>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                      {['Year', s.ira.currentAge ? 'Age' : null, 'Annual Contrib', 'Balance'].filter(Boolean).map((h) => (
+                        <th key={h} style={{ textAlign: h === 'Year' || h === 'Age' ? 'left' : 'right', padding: '0.375rem 0.5rem', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--subtle)', fontWeight: 700 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.map((row) => (
+                      <tr key={row.year} style={{ borderBottom: '1px solid var(--border)', backgroundColor: hitTargetYear === row.year ? 'var(--positive-soft)' : 'transparent' }}>
+                        <td style={{ padding: '0.375rem 0.5rem', color: 'var(--muted)', fontWeight: hitTargetYear === row.year ? 700 : 400 }}>{row.year}</td>
+                        {s.ira.currentAge && <td style={{ padding: '0.375rem 0.5rem', color: 'var(--muted)' }}>{parseInt(s.ira.currentAge) + row.year}</td>}
+                        <td style={{ padding: '0.375rem 0.5rem', textAlign: 'right', color: 'var(--text)' }}>{formatCurrency(annualEmployee + annualEmployer)}</td>
+                        <td style={{ padding: '0.375rem 0.5rem', textAlign: 'right', fontWeight: 700, color: hitTargetYear === row.year ? 'var(--positive-text)' : 'var(--text)' }}>{formatBig(row.balance)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── PTO Tab ───────────────────────────────────────────────────────────────────
+
+function PTOTab({ s, onChange, jobs, shifts }) {
+  const update = (key, val) => onChange({ ...s, pto: { ...s.pto, [key]: val } });
+
+  const selectedJob = jobs.find((j) => j.id === s.pto.jobId) || jobs[0];
+  const jobId = selectedJob?.id || '';
+  const accrualRate = selectedJob?.ptoAccrualRate || parseFloat(s.pto.accrualRate) || 24;
+  const hoursPerShift = parseFloat(s.pto.hoursPerShift) || 24;
+
+  const earnedSinceBase = useMemo(() => calcPTOEarned(shifts, jobId, s.pto.baseDate, accrualRate), [shifts, jobId, s.pto.baseDate, accrualRate]);
+  const baseBalance = parseFloat(s.pto.baseBalance) || 0;
+  const rawPTO = baseBalance + earnedSinceBase;
+  const capHours = s.pto.capHours ? parseFloat(s.pto.capHours) : Infinity;
+  const currentPTO = Math.min(rawPTO, capHours);
+  const targetHours = s.pto.targetHours ? parseFloat(s.pto.targetHours) : null;
+
+  const weeklyHours = useMemo(() => avgHoursPerWeek(shifts, jobId, 8), [shifts, jobId]);
+  const weeklyPTO = weeklyHours / accrualRate;
+  const weeksToTarget = targetHours && weeklyPTO > 0 ? Math.max(0, (targetHours - currentPTO) / weeklyPTO) : null;
+
+  const targetDate = weeksToTarget !== null ? (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + Math.round(weeksToTarget * 7));
+    return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  })() : null;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <Card>
+        <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.75rem' }}>PTO Settings</p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+          {jobs.length > 1 && (
+            <div>
+              <Label>Job</Label>
+              <Sel value={s.pto.jobId || jobId} onChange={(e) => update('jobId', e.target.value)}>
+                {jobs.map((j) => <option key={j.id} value={j.id}>{j.name}</option>)}
+              </Sel>
+            </div>
+          )}
+
+          {selectedJob?.ptoAccrualRate ? (
+            <div style={{ backgroundColor: 'var(--positive-soft)', border: '1px solid var(--positive-text)', borderRadius: '0.75rem', padding: '0.625rem 0.875rem' }}>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--positive-text)', fontWeight: 600 }}>
+                Accrual from job settings: 1 PTO hr per {selectedJob.ptoAccrualRate} worked hrs
+              </p>
+            </div>
+          ) : (
+            <div>
+              <Label>Accrual Rate (worked hrs per 1 PTO hr)</Label>
+              <Input type="number" min="1" step="1" placeholder="24" value={s.pto.accrualRate}
+                onChange={(e) => update('accrualRate', e.target.value)} />
+              <p style={{ fontSize: '0.7rem', color: 'var(--subtle)', marginTop: '0.25rem' }}>e.g. 24 = earn 1 PTO hr per 24 worked hrs</p>
+            </div>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <div>
+              <Label>Base Date</Label>
+              <Input type="date" value={s.pto.baseDate} onChange={(e) => update('baseDate', e.target.value)} />
+              <p style={{ fontSize: '0.7rem', color: 'var(--subtle)', marginTop: '0.25rem' }}>From last pay stub</p>
+            </div>
+            <div>
+              <Label>Balance on Base Date</Label>
+              <Input type="number" min="0" step="0.01" placeholder="0.0" value={s.pto.baseBalance}
+                onChange={(e) => update('baseBalance', e.target.value)} />
+              <p style={{ fontSize: '0.7rem', color: 'var(--subtle)', marginTop: '0.25rem' }}>Hours from pay stub</p>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <div>
+              <Label>Accrual Cap (hours)</Label>
+              <Input type="number" min="0" step="1" placeholder="No cap" value={s.pto.capHours}
+                onChange={(e) => update('capHours', e.target.value)} />
+            </div>
+            <div>
+              <Label>Hours Per Shift</Label>
+              <Input type="number" min="1" step="0.5" placeholder="24" value={s.pto.hoursPerShift}
+                onChange={(e) => update('hoursPerShift', e.target.value)} />
+            </div>
+          </div>
+
+          <div>
+            <Label>Target Hours (optional)</Label>
+            <Input type="number" min="0" step="1" placeholder="72" value={s.pto.targetHours}
+              onChange={(e) => update('targetHours', e.target.value)} />
+            <p style={{ fontSize: '0.7rem', color: 'var(--subtle)', marginTop: '0.25rem' }}>When do you want to have this much PTO?</p>
+          </div>
+        </div>
+      </Card>
+
+      {s.pto.baseDate && (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <Card>
+              <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>Current Est. PTO</p>
+              <p style={{ fontSize: '1.375rem', fontWeight: 900, color: 'var(--accent-text)' }}>{currentPTO.toFixed(2)}h</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>{(currentPTO / hoursPerShift).toFixed(2)} shifts</p>
+              {currentPTO >= capHours && capHours < Infinity && (
+                <p style={{ fontSize: '0.7rem', color: 'var(--warn)', marginTop: '0.25rem', fontWeight: 600 }}>At accrual cap</p>
+              )}
+            </Card>
+            <Card>
+              <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>Earned Since Base</p>
+              <p style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--text)' }}>{earnedSinceBase.toFixed(2)}h</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>
+                {weeklyHours > 0 ? `+${weeklyPTO.toFixed(2)}h/wk avg` : 'No recent shifts'}
+              </p>
+            </Card>
+          </div>
+
+          {targetHours && (
+            <div style={{ backgroundColor: currentPTO >= targetHours ? 'var(--positive-soft)' : 'var(--surface2)', border: `1px solid ${currentPTO >= targetHours ? 'var(--positive-text)' : 'var(--border)'}`, borderRadius: '0.875rem', padding: '0.875rem' }}>
+              {currentPTO >= targetHours ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <Check size={18} style={{ color: 'var(--positive-text)', flexShrink: 0 }} />
+                  <p style={{ fontWeight: 700, color: 'var(--positive-text)' }}>Already at target of {targetHours}h!</p>
+                </div>
+              ) : weeklyPTO > 0 ? (
+                <>
+                  <p style={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.9375rem', marginBottom: '0.25rem' }}>
+                    {Math.round(weeksToTarget)} weeks to {targetHours}h target
+                  </p>
+                  {targetDate && <p style={{ fontSize: '0.8125rem', color: 'var(--subtle)' }}>Est. by {targetDate}</p>}
+                  <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.125rem' }}>
+                    Based on {weeklyHours.toFixed(1)}h/wk avg (last 8 weeks)
+                  </p>
+                  <div style={{ marginTop: '0.75rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--subtle)', marginBottom: '0.25rem' }}>
+                      <span>{currentPTO.toFixed(1)}h</span><span>{targetHours}h</span>
+                    </div>
+                    <div style={{ height: '0.5rem', backgroundColor: 'var(--border)', borderRadius: '9999px', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${Math.min(100, (currentPTO / targetHours) * 100)}%`, backgroundColor: 'var(--accent)', borderRadius: '9999px', transition: 'width 0.3s' }} />
+                    </div>
+                    <p style={{ fontSize: '0.7rem', color: 'var(--subtle)', marginTop: '0.25rem', textAlign: 'right' }}>
+                      {((currentPTO / targetHours) * 100).toFixed(0)}%
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <p style={{ fontSize: '0.8125rem', color: 'var(--muted)' }}>No recent shifts — log shifts to project target date</p>
+              )}
+            </div>
+          )}
+
+          <Card>
+            <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.625rem' }}>Breakdown</p>
+            <Row label="Base balance" value={`${baseBalance.toFixed(2)}h`} />
+            <Row label={`Earned since ${s.pto.baseDate}`} value={`+${earnedSinceBase.toFixed(2)}h`} color="var(--positive-text)" />
+            {capHours < Infinity && <Row label="Accrual cap" value={`${capHours}h`} />}
+            <div style={{ borderTop: '1px solid var(--border)', marginTop: '0.375rem', paddingTop: '0.375rem' }}>
+              <Row label="Current est. balance" value={`${currentPTO.toFixed(2)}h · ${(currentPTO / hoursPerShift).toFixed(2)} shifts`} large />
+            </div>
+          </Card>
+
+          {weeklyHours === 0 && (
+            <div style={{ backgroundColor: 'rgba(245,158,11,0.1)', border: '1px solid var(--warn)', borderRadius: '0.875rem', padding: '0.875rem', fontSize: '0.8125rem', color: 'var(--warn)' }}>
+              No shifts logged in the last 8 weeks for this job. Log shifts to see weekly accrual and target projections.
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── Main Planning Page ────────────────────────────────────────────────────────
+
+const TABS = [
+  { key: 'tax', label: 'Tax Return', Icon: Calculator },
+  { key: 'ira', label: 'IRA / 401k', Icon: TrendingUp },
+  { key: 'pto', label: 'PTO', Icon: Clock },
+];
+
+export default function Planning() {
+  const { planningSettings, updatePlanningSettings, income, jobs, shifts } = useApp();
+  const [activeTab, setActiveTab] = useState('tax');
+
+  return (
+    <div style={{ paddingBottom: '5rem', minHeight: '100svh', backgroundColor: 'var(--bg)' }}>
+      <div style={{ backgroundColor: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '1rem 1rem 0' }}>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text)', marginBottom: '0.875rem' }}>Planning Tools</h1>
+        <div style={{ display: 'flex' }}>
+          {TABS.map(({ key, label, Icon }) => (
+            <button key={key} onClick={() => setActiveTab(key)}
+              style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', padding: '0.625rem 0.25rem', border: 'none', background: 'none', cursor: 'pointer',
+                borderBottom: activeTab === key ? '2px solid var(--accent)' : '2px solid transparent',
+                color: activeTab === key ? 'var(--accent-text)' : 'var(--subtle)' }}>
+              <Icon size={18} />
+              <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>{label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ padding: '1rem', maxWidth: '640px', margin: '0 auto' }}>
+        {activeTab === 'tax' && <TaxTab s={planningSettings} onChange={updatePlanningSettings} income={income} jobs={jobs} />}
+        {activeTab === 'ira' && <IRATab s={planningSettings} onChange={updatePlanningSettings} jobs={jobs} />}
+        {activeTab === 'pto' && <PTOTab s={planningSettings} onChange={updatePlanningSettings} jobs={jobs} shifts={shifts} />}
+      </div>
+    </div>
+  );
+}

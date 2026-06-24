@@ -11,6 +11,8 @@ import Settings from './pages/Settings';
 import Purchases from './pages/Purchases';
 import WorkTime from './pages/WorkTime';
 import SearchPage from './pages/Search';
+import ShoppingLists from './pages/ShoppingLists';
+import Planning from './pages/Planning';
 import Login from './pages/Login';
 
 function ThemeSync() {
@@ -72,6 +74,8 @@ function AppShell() {
             <Route path="/purchases" element={<Purchases />} />
             <Route path="/work" element={<WorkTime />} />
             <Route path="/search" element={<SearchPage />} />
+            <Route path="/lists" element={<ShoppingLists />} />
+            <Route path="/planning" element={<Planning />} />
           </Routes>
         </div>
         <BottomNav />

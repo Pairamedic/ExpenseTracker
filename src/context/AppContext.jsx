@@ -30,11 +30,14 @@ export function AppProvider({ children, uid }) {
   const [budgetCategories, setBudgetCategoriesState] = useState(() => storage.getBudgetCategories());
   const [budgetSpends, setBudgetSpendsState] = useState(() => storage.getBudgetSpends());
   const [agreements, setAgreementsState] = useState(() => storage.getAgreements());
+  const [shoppingLists, setShoppingListsState] = useState(() => storage.getShoppingLists());
+  const [shoppingItems, setShoppingItemsState] = useState(() => storage.getShoppingItems());
+  const [planningSettings, setPlanningSettingsState] = useState(() => storage.getPlanningSettings());
   const [cloudLoaded, setCloudLoaded] = useState(false);
 
   // Use refs to always have fresh values for the save function
   const stateRef = useRef({});
-  stateRef.current = { bills, income, budget, settings, notes, debts, savings, commitments, purchases, plannedExpenses, jobs, shifts, budgetCategories, budgetSpends, agreements };
+  stateRef.current = { bills, income, budget, settings, notes, debts, savings, commitments, purchases, plannedExpenses, jobs, shifts, budgetCategories, budgetSpends, agreements, shoppingLists, shoppingItems, planningSettings };
 
   // Load from Firestore on login
   useEffect(() => {
@@ -59,6 +62,17 @@ export function AppProvider({ children, uid }) {
         if (data.budgetCategories) { setBudgetCategoriesState(data.budgetCategories); storage.setBudgetCategories(data.budgetCategories); }
         if (data.budgetSpends) { setBudgetSpendsState(data.budgetSpends); storage.setBudgetSpends(data.budgetSpends); }
         if (data.agreements) { setAgreementsState(data.agreements); storage.setAgreements(data.agreements); }
+        if (data.shoppingLists) { setShoppingListsState(data.shoppingLists); storage.setShoppingLists(data.shoppingLists); }
+        if (data.shoppingItems) { setShoppingItemsState(data.shoppingItems); storage.setShoppingItems(data.shoppingItems); }
+        if (data.planningSettings) {
+          const ps = storage.getPlanningSettings();
+          const merged = {
+            tax: { ...ps.tax, ...(data.planningSettings.tax || {}) },
+            ira: { ...ps.ira, ...(data.planningSettings.ira || {}) },
+            pto: { ...ps.pto, ...(data.planningSettings.pto || {}) },
+          };
+          setPlanningSettingsState(merged); storage.setPlanningSettings(merged);
+        }
       } else {
         // First login — upload existing localStorage data to Firestore
         saveUserData(uid, stateRef.current);
@@ -149,6 +163,21 @@ export function AppProvider({ children, uid }) {
   const persistAgreements = useCallback((next) => {
     setAgreementsState(next); storage.setAgreements(next);
     debouncedSync({ agreements: next });
+  }, [debouncedSync]);
+
+  const persistShoppingLists = useCallback((next) => {
+    setShoppingListsState(next); storage.setShoppingLists(next);
+    debouncedSync({ shoppingLists: next });
+  }, [debouncedSync]);
+
+  const persistShoppingItems = useCallback((next) => {
+    setShoppingItemsState(next); storage.setShoppingItems(next);
+    debouncedSync({ shoppingItems: next });
+  }, [debouncedSync]);
+
+  const persistPlanningSettings = useCallback((next) => {
+    setPlanningSettingsState(next); storage.setPlanningSettings(next);
+    debouncedSync({ planningSettings: next });
   }, [debouncedSync]);
 
   // ── Bills ──
@@ -257,6 +286,48 @@ export function AppProvider({ children, uid }) {
   const updateAgreement = useCallback((id, u) => persistAgreements(agreements.map((a) => a.id === id ? { ...a, ...u } : a)), [agreements, persistAgreements]);
   const deleteAgreement = useCallback((id) => persistAgreements(agreements.filter((a) => a.id !== id)), [agreements, persistAgreements]);
 
+  // ── Shopping Lists ──
+  const addShoppingList = useCallback((list) => persistShoppingLists([
+    ...shoppingLists,
+    { ...list, id: generateId(), archived: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  ]), [shoppingLists, persistShoppingLists]);
+
+  const updateShoppingList = useCallback((id, u) => persistShoppingLists(
+    shoppingLists.map((l) => l.id === id ? { ...l, ...u, updatedAt: new Date().toISOString() } : l)
+  ), [shoppingLists, persistShoppingLists]);
+
+  const deleteShoppingList = useCallback((id) => {
+    const newLists = shoppingLists.filter((l) => l.id !== id);
+    const newItems = shoppingItems.filter((i) => i.listId !== id);
+    setShoppingListsState(newLists); storage.setShoppingLists(newLists);
+    setShoppingItemsState(newItems); storage.setShoppingItems(newItems);
+    debouncedSync({ shoppingLists: newLists, shoppingItems: newItems });
+  }, [shoppingLists, shoppingItems, debouncedSync]);
+
+  // ── Shopping Items ──
+  const addShoppingItem = useCallback((item) => persistShoppingItems([
+    ...shoppingItems,
+    { ...item, id: generateId(), createdAt: new Date().toISOString() },
+  ]), [shoppingItems, persistShoppingItems]);
+
+  const updateShoppingItem = useCallback((id, u) => persistShoppingItems(
+    shoppingItems.map((i) => i.id === id ? { ...i, ...u } : i)
+  ), [shoppingItems, persistShoppingItems]);
+
+  const deleteShoppingItem = useCallback((id) => persistShoppingItems(
+    shoppingItems.filter((i) => i.id !== id)
+  ), [shoppingItems, persistShoppingItems]);
+
+  const toggleShoppingItem = useCallback((id) => persistShoppingItems(
+    shoppingItems.map((i) => i.id === id ? { ...i, checked: !i.checked } : i)
+  ), [shoppingItems, persistShoppingItems]);
+
+  // ── Planning Settings ──
+  const updatePlanningSettings = useCallback((patch) => {
+    const next = { ...planningSettings, ...patch };
+    persistPlanningSettings(next);
+  }, [planningSettings, persistPlanningSettings]);
+
   return (
     <AppContext.Provider value={{
       cloudLoaded,
@@ -274,6 +345,9 @@ export function AppProvider({ children, uid }) {
       budgetCategories, addBudgetCategory, updateBudgetCategory, deleteBudgetCategory,
       budgetSpends, addBudgetSpend, updateBudgetSpend, deleteBudgetSpend,
       agreements, addAgreement, updateAgreement, deleteAgreement,
+      shoppingLists, addShoppingList, updateShoppingList, deleteShoppingList,
+      shoppingItems, addShoppingItem, updateShoppingItem, deleteShoppingItem, toggleShoppingItem,
+      planningSettings, updatePlanningSettings,
       settings, setSettings: persistSettings,
     }}>
       {children}

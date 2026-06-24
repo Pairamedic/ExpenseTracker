@@ -143,6 +143,7 @@ function JobForm({ initial = {}, onSave, onCancel }) {
     iraType: 'amount',
     iraPerPeriod: '',
     iraPercent: '',
+    ptoAccrualRate: '',
     includeInAvailability: true,
     ...initial,
     otRateAuto: initial.otRateAuto !== false,
@@ -166,6 +167,7 @@ function JobForm({ initial = {}, onSave, onCancel }) {
       iraType: form.iraType,
       iraPerPeriod: form.iraType === 'amount' ? (parseFloat(form.iraPerPeriod) || 0) : 0,
       iraPercent: form.iraType === 'percent' ? (parseFloat(form.iraPercent) || 0) : 0,
+      ptoAccrualRate: parseFloat(form.ptoAccrualRate) || 0,
     });
   };
 
@@ -284,6 +286,15 @@ function JobForm({ initial = {}, onSave, onCancel }) {
         )}
         <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.25rem' }}>
           {form.iraType === 'percent' ? 'Deducted as % of gross pay (pre-tax)' : 'Flat amount per paycheck (pre-tax)'}
+        </p>
+      </div>
+
+      <div>
+        <Label>PTO Accrual Rate (optional)</Label>
+        <Input type="number" min="1" step="0.5" placeholder="24" value={form.ptoAccrualRate}
+          onChange={(e) => set('ptoAccrualRate', e.target.value)} />
+        <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.25rem' }}>
+          Worked hours per 1 PTO hour earned (e.g. 24 = 1 PTO hr per 24 worked hrs)
         </p>
       </div>
 
@@ -745,6 +756,7 @@ function JobCard({ job, onEdit, onDelete, shifts, onAddShift }) {
           `OT week: ${WEEK_DAYS[job.weekStartDay ?? 0]}`,
           job.iraType === 'percent' && job.iraPercent > 0 ? `IRA ${job.iraPercent}%` : null,
           job.iraType !== 'percent' && job.iraPerPeriod > 0 ? `IRA ${formatCurrency(job.iraPerPeriod)}/pay` : null,
+          job.ptoAccrualRate > 0 ? `PTO 1h per ${job.ptoAccrualRate}h` : null,
           job.includeInAvailability === false ? 'Excluded from budget' : null,
         ].filter(Boolean).map((t) => (
           <span key={t} style={{ fontSize: '0.75rem', backgroundColor: 'var(--surface2)', color: 'var(--muted)', border: '1px solid var(--border)', padding: '0.25rem 0.625rem', borderRadius: '0.5rem' }}>

@@ -15,6 +15,9 @@ const KEYS = {
   BUDGET_SPENDS: 'bt_budget_spends',
   AGREEMENTS: 'bt_agreements',
   NET_WORTH_HISTORY: 'bt_nw_history',
+  SHOPPING_LISTS: 'bt_shopping_lists',
+  SHOPPING_ITEMS: 'bt_shopping_items',
+  PLANNING_SETTINGS: 'bt_planning_settings',
 };
 
 function get(key) {
@@ -104,4 +107,49 @@ export const storage = {
 
   getNetWorthHistory: () => get(KEYS.NET_WORTH_HISTORY) || [],
   setNetWorthHistory: (v) => set(KEYS.NET_WORTH_HISTORY, v),
+
+  getShoppingLists: () => get(KEYS.SHOPPING_LISTS) || [],
+  setShoppingLists: (v) => set(KEYS.SHOPPING_LISTS, v),
+  getShoppingItems: () => get(KEYS.SHOPPING_ITEMS) || [],
+  setShoppingItems: (v) => set(KEYS.SHOPPING_ITEMS, v),
+
+  getPlanningSettings: () => ({
+    tax: {
+      filingStatus: 'single',
+      useStandardDeduction: true,
+      itemizedDeductions: 0,
+      extraPreTaxDeductions: 0,
+      dependentsUnder17: 0,
+      otherCredits: 0,
+      useIncomeData: true,
+      manualGrossIncome: '',
+      manualFedWithheld: '',
+      manualStateWithheld: '',
+    },
+    ira: {
+      currentBalance: '',
+      currentAge: '',
+      useJobIRA: true,
+      manualAnnualContribution: '',
+      employerMatchPercent: 100,
+      expectedReturnPercent: 7,
+      iraType: 'traditional',
+      projectionYears: 30,
+      targetBalance: '',
+    },
+    pto: {
+      jobId: '',
+      baseDate: '',
+      baseBalance: '',
+      accrualRate: 24,
+      capHours: '',
+      targetHours: '',
+      hoursPerShift: 24,
+    },
+    ...(get(KEYS.PLANNING_SETTINGS) || {}),
+    tax: { ...{ filingStatus: 'single', useStandardDeduction: true, itemizedDeductions: 0, extraPreTaxDeductions: 0, dependentsUnder17: 0, otherCredits: 0, useIncomeData: true, manualGrossIncome: '', manualFedWithheld: '', manualStateWithheld: '' }, ...((get(KEYS.PLANNING_SETTINGS) || {}).tax || {}) },
+    ira: { ...{ currentBalance: '', currentAge: '', useJobIRA: true, manualAnnualContribution: '', employerMatchPercent: 100, expectedReturnPercent: 7, iraType: 'traditional', projectionYears: 30, targetBalance: '' }, ...((get(KEYS.PLANNING_SETTINGS) || {}).ira || {}) },
+    pto: { ...{ jobId: '', baseDate: '', baseBalance: '', accrualRate: 24, capHours: '', targetHours: '', hoursPerShift: 24 }, ...((get(KEYS.PLANNING_SETTINGS) || {}).pto || {}) },
+  }),
+  setPlanningSettings: (v) => set(KEYS.PLANNING_SETTINGS, v),
 };
