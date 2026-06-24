@@ -32,11 +32,12 @@ export function AppProvider({ children, uid }) {
   const [agreements, setAgreementsState] = useState(() => storage.getAgreements());
   const [shoppingLists, setShoppingListsState] = useState(() => storage.getShoppingLists());
   const [shoppingItems, setShoppingItemsState] = useState(() => storage.getShoppingItems());
+  const [planningSettings, setPlanningSettingsState] = useState(() => storage.getPlanningSettings());
   const [cloudLoaded, setCloudLoaded] = useState(false);
 
   // Use refs to always have fresh values for the save function
   const stateRef = useRef({});
-  stateRef.current = { bills, income, budget, settings, notes, debts, savings, commitments, purchases, plannedExpenses, jobs, shifts, budgetCategories, budgetSpends, agreements, shoppingLists, shoppingItems };
+  stateRef.current = { bills, income, budget, settings, notes, debts, savings, commitments, purchases, plannedExpenses, jobs, shifts, budgetCategories, budgetSpends, agreements, shoppingLists, shoppingItems, planningSettings };
 
   // Load from Firestore on login
   useEffect(() => {
@@ -63,6 +64,15 @@ export function AppProvider({ children, uid }) {
         if (data.agreements) { setAgreementsState(data.agreements); storage.setAgreements(data.agreements); }
         if (data.shoppingLists) { setShoppingListsState(data.shoppingLists); storage.setShoppingLists(data.shoppingLists); }
         if (data.shoppingItems) { setShoppingItemsState(data.shoppingItems); storage.setShoppingItems(data.shoppingItems); }
+        if (data.planningSettings) {
+          const ps = storage.getPlanningSettings();
+          const merged = {
+            tax: { ...ps.tax, ...(data.planningSettings.tax || {}) },
+            ira: { ...ps.ira, ...(data.planningSettings.ira || {}) },
+            pto: { ...ps.pto, ...(data.planningSettings.pto || {}) },
+          };
+          setPlanningSettingsState(merged); storage.setPlanningSettings(merged);
+        }
       } else {
         // First login — upload existing localStorage data to Firestore
         saveUserData(uid, stateRef.current);
@@ -163,6 +173,11 @@ export function AppProvider({ children, uid }) {
   const persistShoppingItems = useCallback((next) => {
     setShoppingItemsState(next); storage.setShoppingItems(next);
     debouncedSync({ shoppingItems: next });
+  }, [debouncedSync]);
+
+  const persistPlanningSettings = useCallback((next) => {
+    setPlanningSettingsState(next); storage.setPlanningSettings(next);
+    debouncedSync({ planningSettings: next });
   }, [debouncedSync]);
 
   // ── Bills ──
@@ -307,6 +322,12 @@ export function AppProvider({ children, uid }) {
     shoppingItems.map((i) => i.id === id ? { ...i, checked: !i.checked } : i)
   ), [shoppingItems, persistShoppingItems]);
 
+  // ── Planning Settings ──
+  const updatePlanningSettings = useCallback((patch) => {
+    const next = { ...planningSettings, ...patch };
+    persistPlanningSettings(next);
+  }, [planningSettings, persistPlanningSettings]);
+
   return (
     <AppContext.Provider value={{
       cloudLoaded,
@@ -326,6 +347,7 @@ export function AppProvider({ children, uid }) {
       agreements, addAgreement, updateAgreement, deleteAgreement,
       shoppingLists, addShoppingList, updateShoppingList, deleteShoppingList,
       shoppingItems, addShoppingItem, updateShoppingItem, deleteShoppingItem, toggleShoppingItem,
+      planningSettings, updatePlanningSettings,
       settings, setSettings: persistSettings,
     }}>
       {children}
