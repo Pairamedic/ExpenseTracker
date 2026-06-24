@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useCallback, useEffect, useRef } f
 import { storage } from '../utils/storage';
 import { saveUserData, loadUserData } from '../utils/firestoreSync';
 import { generateId, currentMonthKey, getBillStatus, nextBillStatus } from '../utils/helpers';
+import { notificationPermission, sendNotification, getDueDateMs } from '../utils/notifications';
 
 const AppContext = createContext(null);
 
@@ -412,6 +413,35 @@ export function AppProvider({ children, uid }) {
   const deletePaycheckActual = useCallback((id) => persistPaycheckActuals(
     paycheckActuals.filter((a) => a.id !== id)
   ), [paycheckActuals, persistPaycheckActuals]);
+
+  // ── Global To-Do notification scheduling ──
+  const todoNotifiedRef = useRef(new Set());
+  useEffect(() => {
+    if (notificationPermission() !== 'granted') return;
+    const timers = {};
+    const now = Date.now();
+    const todoListIds = new Set(shoppingLists.filter((l) => l.type === 'todo').map((l) => l.id));
+    const todoItems = shoppingItems.filter((i) =>
+      todoListIds.has(i.listId) && (i.status === 'pending' || !i.status) && i.dueDate && i.notifyEnabled
+    );
+    todoItems.forEach((item) => {
+      if (todoNotifiedRef.current.has(item.id)) return;
+      const dueMs = getDueDateMs(item.dueDate, item.dueTime);
+      if (!dueMs) return;
+      const delay = dueMs - now;
+      const list = shoppingLists.find((l) => l.id === item.listId);
+      if (delay <= 0) {
+        todoNotifiedRef.current.add(item.id);
+        sendNotification(`Overdue: ${item.name}`, { body: list ? `List: ${list.name}` : 'To-do is past due', tag: `todo-${item.id}` });
+      } else if (delay < 7 * 24 * 60 * 60 * 1000) {
+        timers[item.id] = setTimeout(() => {
+          todoNotifiedRef.current.add(item.id);
+          sendNotification(`Due now: ${item.name}`, { body: list ? `List: ${list.name}` : 'Your to-do is due', tag: `todo-${item.id}` });
+        }, Math.min(delay, 2147483647));
+      }
+    });
+    return () => Object.values(timers).forEach(clearTimeout);
+  }, [shoppingItems, shoppingLists]);
 
   return (
     <AppContext.Provider value={{

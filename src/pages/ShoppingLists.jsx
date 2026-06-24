@@ -1,14 +1,14 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import {
   ShoppingCart, Plus, X, MoreVertical, Pencil, Trash2,
   Archive, ArchiveRestore, MessageSquare, Check, Store,
-  ClipboardList, Bell, BellOff, Calendar, CheckCircle2, Ban,
-  Circle, ChevronDown, ChevronUp, AlertCircle,
+  ClipboardList, Bell, BellOff, CheckCircle2, Ban,
+  Circle,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import Modal from '../components/Modal';
 import {
-  requestNotificationPermission, sendNotification, notificationPermission, formatDueBadge, getDueDateMs,
+  requestNotificationPermission, notificationPermission, formatDueBadge, getDueDateMs,
 } from '../utils/notifications';
 
 // ── List type config ─────────────────────────────────────────────────────────
@@ -534,39 +534,6 @@ export default function ShoppingLists() {
   const [addItemToList, setAddItemToList] = useState(null);
   const [exportList, setExportList] = useState(null);
   const [showArchived, setShowArchived] = useState(false);
-
-  // Track notified todo items within this session
-  const notifiedRef = useRef(new Set());
-
-  // Schedule notifications for pending to-do items with due dates
-  useEffect(() => {
-    if (notificationPermission() !== 'granted') return;
-    const timers = {};
-    const now = Date.now();
-    const todoListIds = new Set(shoppingLists.filter((l) => l.type === 'todo').map((l) => l.id));
-    const todoItems = shoppingItems.filter((i) =>
-      todoListIds.has(i.listId) && (i.status === 'pending' || !i.status) && i.dueDate && i.notifyEnabled
-    );
-
-    todoItems.forEach((item) => {
-      if (notifiedRef.current.has(item.id)) return;
-      const dueMs = getDueDateMs(item.dueDate, item.dueTime);
-      if (!dueMs) return;
-      const delay = dueMs - now;
-      const list = shoppingLists.find((l) => l.id === item.listId);
-      if (delay <= 0) {
-        notifiedRef.current.add(item.id);
-        sendNotification(`Overdue: ${item.name}`, { body: list ? `List: ${list.name}` : undefined, tag: `todo-${item.id}` });
-      } else if (delay < 7 * 24 * 60 * 60 * 1000) {
-        timers[item.id] = setTimeout(() => {
-          notifiedRef.current.add(item.id);
-          sendNotification(`Due now: ${item.name}`, { body: list ? `List: ${list.name}` : undefined, tag: `todo-${item.id}` });
-        }, Math.min(delay, 2147483647));
-      }
-    });
-
-    return () => Object.values(timers).forEach(clearTimeout);
-  }, [shoppingItems, shoppingLists]);
 
   const active = useMemo(() => shoppingLists.filter((l) => !l.archived), [shoppingLists]);
   const archived = useMemo(() => shoppingLists.filter((l) => l.archived), [shoppingLists]);
