@@ -946,9 +946,50 @@ function BulkShiftForm({ jobs, shifts, onSave, onCancel }) {
   );
 }
 
+// ── Actual Pay Prompt ─────────────────────────────────────────────────────────
+
+function ActualPayPrompt({ jobId, periodStart, periodEnd, onSave }) {
+  const [input, setInput] = useState('');
+  const [open, setOpen] = useState(false);
+
+  const handleSave = () => {
+    const v = parseFloat(input);
+    if (!v || v <= 0) return;
+    onSave({ jobId, periodStart, periodEnd, amount: v });
+    setOpen(false);
+    setInput('');
+  };
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        style={{ marginTop: '0.5rem', width: '100%', padding: '0.5rem', borderRadius: '0.625rem', border: '1px dashed var(--border)', backgroundColor: 'transparent', color: 'var(--subtle)', fontSize: '0.8125rem', cursor: 'pointer' }}
+      >
+        + Log actual deposit
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+      <input
+        type="number" step="0.01" min="0" autoFocus
+        placeholder="Actual deposit"
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+        style={{ flex: 1, padding: '0.5rem 0.75rem', borderRadius: '0.625rem', border: '1px solid var(--border)', backgroundColor: 'var(--surface2)', color: 'var(--text)', fontSize: '0.9375rem' }}
+      />
+      <button onClick={handleSave} disabled={!parseFloat(input)} className="app-btn-primary" style={{ padding: '0.5rem 0.875rem', fontSize: '0.875rem' }}>Save</button>
+      <button onClick={() => setOpen(false)} className="app-btn-secondary" style={{ padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}>✕</button>
+    </div>
+  );
+}
+
 // ── Hours Tab ─────────────────────────────────────────────────────────────────
 
-function HoursTab({ jobs, shifts, addShift, updateShift, deleteShift, bulkSaveShifts }) {
+function HoursTab({ jobs, shifts, addShift, updateShift, deleteShift, bulkSaveShifts, paycheckActuals, addPaycheckActual }) {
   const [logDate, setLogDate] = useState(today());
   const [showShiftForm, setShowShiftForm] = useState(false);
   const [showBulkForm, setShowBulkForm] = useState(false);
@@ -1015,7 +1056,8 @@ function HoursTab({ jobs, shifts, addShift, updateShift, deleteShift, bulkSaveSh
               if (periodShifts.length === 0) return null;
               const { regularHours, overtimeHours } = calcHoursFromShifts(periodShifts, job);
               const result = calcPaycheck({ job, regularHours, overtimeHours });
-              return { job, result, start, end };
+              const actual = (paycheckActuals || []).find((a) => a.jobId === job.id && a.periodStart === start);
+              return { job, result, start, end, actual };
             }).filter(Boolean);
             if (summaries.length === 0) return null;
             return (
@@ -1023,29 +1065,49 @@ function HoursTab({ jobs, shifts, addShift, updateShift, deleteShift, bulkSaveSh
                 <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', padding: '0 0.25rem' }}>
                   Current Pay Period Estimate
                 </p>
-                {summaries.map(({ job, result, start, end }) => (
-                  <div key={job.id} style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.875rem', padding: '0.875rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' }}>
-                      <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text)' }}>{job.name}</span>
-                      <span style={{ fontSize: '0.6875rem', color: 'var(--subtle)' }}>{periodLabel(start, end)}</span>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                      <div style={{ textAlign: 'center', backgroundColor: 'var(--surface2)', borderRadius: '0.625rem', padding: '0.625rem 0.5rem' }}>
-                        <p style={{ fontSize: '0.6rem', color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem' }}>Est. Gross</p>
-                        <p style={{ fontSize: '1.0625rem', fontWeight: 800, color: 'var(--text)' }}>{formatCurrency(result.grossPay)}</p>
+                {summaries.map(({ job, result, start, end, actual }) => {
+                  const delta = actual ? actual.amount - result.netPay : null;
+                  return (
+                    <div key={job.id} style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.875rem', padding: '0.875rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' }}>
+                        <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text)' }}>{job.name}</span>
+                        <span style={{ fontSize: '0.6875rem', color: 'var(--subtle)' }}>{periodLabel(start, end)}</span>
                       </div>
-                      <div style={{ textAlign: 'center', backgroundColor: 'var(--positive-soft)', borderRadius: '0.625rem', padding: '0.625rem 0.5rem', border: '1px solid rgba(16,185,129,0.2)' }}>
-                        <p style={{ fontSize: '0.6rem', color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem' }}>Est. Net</p>
-                        <p style={{ fontSize: '1.0625rem', fontWeight: 800, color: 'var(--positive-text)' }}>{formatCurrency(result.netPay)}</p>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                        <div style={{ textAlign: 'center', backgroundColor: 'var(--surface2)', borderRadius: '0.625rem', padding: '0.625rem 0.5rem' }}>
+                          <p style={{ fontSize: '0.6rem', color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem' }}>Est. Gross</p>
+                          <p style={{ fontSize: '1.0625rem', fontWeight: 800, color: 'var(--text)' }}>{formatCurrency(result.grossPay)}</p>
+                        </div>
+                        <div style={{ textAlign: 'center', backgroundColor: 'var(--positive-soft)', borderRadius: '0.625rem', padding: '0.625rem 0.5rem', border: '1px solid rgba(16,185,129,0.2)' }}>
+                          <p style={{ fontSize: '0.6rem', color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem' }}>Est. Net</p>
+                          <p style={{ fontSize: '1.0625rem', fontWeight: 800, color: 'var(--positive-text)' }}>{formatCurrency(result.netPay)}</p>
+                        </div>
                       </div>
+                      {result.overtimeHours > 0 && (
+                        <p style={{ fontSize: '0.75rem', color: 'var(--warn)', marginTop: '0.375rem', textAlign: 'center' }}>
+                          {result.regularHours}h reg + {result.overtimeHours}h OT
+                        </p>
+                      )}
+                      {/* Actual deposit comparison */}
+                      {actual ? (
+                        <div style={{ marginTop: '0.5rem', padding: '0.625rem', backgroundColor: 'var(--surface2)', borderRadius: '0.625rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                          <div>
+                            <p style={{ fontSize: '0.6rem', color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Actual Deposit</p>
+                            <p style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text)' }}>{formatCurrency(actual.amount)}</p>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <p style={{ fontSize: '0.6rem', color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>vs. Estimate</p>
+                            <p style={{ fontSize: '0.9375rem', fontWeight: 700, color: delta >= 0 ? 'var(--positive-text)' : 'var(--danger)' }}>
+                              {delta >= 0 ? '+' : ''}{formatCurrency(delta)}
+                            </p>
+                          </div>
+                        </div>
+                      ) : addPaycheckActual ? (
+                        <ActualPayPrompt jobId={job.id} periodStart={start} periodEnd={end} onSave={addPaycheckActual} />
+                      ) : null}
                     </div>
-                    {result.overtimeHours > 0 && (
-                      <p style={{ fontSize: '0.75rem', color: 'var(--warn)', marginTop: '0.375rem', textAlign: 'center' }}>
-                        {result.regularHours}h reg + {result.overtimeHours}h OT
-                      </p>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             );
           })()}
@@ -1546,7 +1608,7 @@ function SegmentedControl({ value, onChange, options }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function WorkTime() {
-  const { jobs, addJob, updateJob, deleteJob, shifts, addShift, updateShift, deleteShift, bulkSaveShifts, addIncome } = useApp();
+  const { jobs, addJob, updateJob, deleteJob, shifts, addShift, updateShift, deleteShift, bulkSaveShifts, addIncome, paycheckActuals, addPaycheckActual } = useApp();
   const [tab, setTab] = useState(() => {
     const s = localStorage.getItem('workTimeTab');
     return TABS.includes(s) ? s : 'jobs';
@@ -1600,7 +1662,7 @@ export default function WorkTime() {
         )}
 
         {tab === 'hours' && (
-          <HoursTab jobs={jobs} shifts={shifts} addShift={addShift} updateShift={updateShift} deleteShift={deleteShift} bulkSaveShifts={bulkSaveShifts} />
+          <HoursTab jobs={jobs} shifts={shifts} addShift={addShift} updateShift={updateShift} deleteShift={deleteShift} bulkSaveShifts={bulkSaveShifts} paycheckActuals={paycheckActuals} addPaycheckActual={addPaycheckActual} />
         )}
 
         {tab === 'estimate' && (

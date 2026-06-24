@@ -33,11 +33,13 @@ export function AppProvider({ children, uid }) {
   const [shoppingLists, setShoppingListsState] = useState(() => storage.getShoppingLists());
   const [shoppingItems, setShoppingItemsState] = useState(() => storage.getShoppingItems());
   const [planningSettings, setPlanningSettingsState] = useState(() => storage.getPlanningSettings());
+  const [recurringTemplates, setRecurringTemplatesState] = useState(() => storage.getRecurringTemplates());
+  const [paycheckActuals, setPaycheckActualsState] = useState(() => storage.getPaycheckActuals());
   const [cloudLoaded, setCloudLoaded] = useState(false);
 
   // Use refs to always have fresh values for the save function
   const stateRef = useRef({});
-  stateRef.current = { bills, income, budget, settings, notes, debts, savings, commitments, purchases, plannedExpenses, jobs, shifts, budgetCategories, budgetSpends, agreements, shoppingLists, shoppingItems, planningSettings };
+  stateRef.current = { bills, income, budget, settings, notes, debts, savings, commitments, purchases, plannedExpenses, jobs, shifts, budgetCategories, budgetSpends, agreements, shoppingLists, shoppingItems, planningSettings, recurringTemplates, paycheckActuals };
 
   // Load from Firestore on login
   useEffect(() => {
@@ -73,6 +75,8 @@ export function AppProvider({ children, uid }) {
           };
           setPlanningSettingsState(merged); storage.setPlanningSettings(merged);
         }
+        if (data.recurringTemplates) { setRecurringTemplatesState(data.recurringTemplates); storage.setRecurringTemplates(data.recurringTemplates); }
+        if (data.paycheckActuals) { setPaycheckActualsState(data.paycheckActuals); storage.setPaycheckActuals(data.paycheckActuals); }
       } else {
         // First login — upload existing localStorage data to Firestore
         saveUserData(uid, stateRef.current);
@@ -178,6 +182,16 @@ export function AppProvider({ children, uid }) {
   const persistPlanningSettings = useCallback((next) => {
     setPlanningSettingsState(next); storage.setPlanningSettings(next);
     debouncedSync({ planningSettings: next });
+  }, [debouncedSync]);
+
+  const persistRecurringTemplates = useCallback((next) => {
+    setRecurringTemplatesState(next); storage.setRecurringTemplates(next);
+    debouncedSync({ recurringTemplates: next });
+  }, [debouncedSync]);
+
+  const persistPaycheckActuals = useCallback((next) => {
+    setPaycheckActualsState(next); storage.setPaycheckActuals(next);
+    debouncedSync({ paycheckActuals: next });
   }, [debouncedSync]);
 
   // ── Bills ──
@@ -328,6 +342,77 @@ export function AppProvider({ children, uid }) {
     persistPlanningSettings(next);
   }, [planningSettings, persistPlanningSettings]);
 
+  // ── Recurring Templates ──
+  const addRecurringTemplate = useCallback((t) => persistRecurringTemplates([
+    ...recurringTemplates,
+    { ...t, id: generateId(), active: true, createdAt: new Date().toISOString() },
+  ]), [recurringTemplates, persistRecurringTemplates]);
+
+  const updateRecurringTemplate = useCallback((id, u) => persistRecurringTemplates(
+    recurringTemplates.map((t) => t.id === id ? { ...t, ...u } : t)
+  ), [recurringTemplates, persistRecurringTemplates]);
+
+  const deleteRecurringTemplate = useCallback((id) => persistRecurringTemplates(
+    recurringTemplates.filter((t) => t.id !== id)
+  ), [recurringTemplates, persistRecurringTemplates]);
+
+  // Auto-log recurring purchases on load (after cloud data is ready)
+  useEffect(() => {
+    if (!cloudLoaded || !recurringTemplates.length) return;
+    const today = new Date();
+    const todayDay = today.getDate();
+    const currentMk = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+
+    const toLog = recurringTemplates.filter((t) => {
+      if (!t.active) return false;
+      if (t.lastLoggedMonth === currentMk) return false;
+      if (t.dayOfMonth && t.dayOfMonth > todayDay) return false;
+      return true;
+    });
+
+    if (!toLog.length) return;
+
+    const newPurchases = toLog.map((t) => {
+      const day = t.dayOfMonth ? String(Math.min(t.dayOfMonth, todayDay)).padStart(2, '0') : String(todayDay).padStart(2, '0');
+      return {
+        id: generateId(),
+        merchant: t.merchant,
+        amount: t.amount,
+        category: t.category || 'Subscriptions',
+        person: t.person || 'me',
+        date: `${currentMk}-${day}`,
+        notes: 'Auto-logged recurring',
+        recurringTemplateId: t.id,
+        createdAt: new Date().toISOString(),
+      };
+    });
+
+    const updatedTemplates = recurringTemplates.map((t) =>
+      toLog.find((tl) => tl.id === t.id) ? { ...t, lastLoggedMonth: currentMk } : t
+    );
+
+    // Use state refs to avoid stale closures
+    const freshPurchases = stateRef.current.purchases;
+    setRecurringTemplatesState(updatedTemplates); storage.setRecurringTemplates(updatedTemplates);
+    const nextPurchases = [...newPurchases, ...freshPurchases];
+    setPurchasesState(nextPurchases); storage.setPurchases(nextPurchases);
+    debouncedSync({ purchases: nextPurchases, recurringTemplates: updatedTemplates });
+  }, [cloudLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Paycheck Actuals ──
+  const addPaycheckActual = useCallback((a) => persistPaycheckActuals([
+    ...paycheckActuals,
+    { ...a, id: generateId(), createdAt: new Date().toISOString() },
+  ]), [paycheckActuals, persistPaycheckActuals]);
+
+  const updatePaycheckActual = useCallback((id, u) => persistPaycheckActuals(
+    paycheckActuals.map((a) => a.id === id ? { ...a, ...u } : a)
+  ), [paycheckActuals, persistPaycheckActuals]);
+
+  const deletePaycheckActual = useCallback((id) => persistPaycheckActuals(
+    paycheckActuals.filter((a) => a.id !== id)
+  ), [paycheckActuals, persistPaycheckActuals]);
+
   return (
     <AppContext.Provider value={{
       cloudLoaded,
@@ -348,6 +433,8 @@ export function AppProvider({ children, uid }) {
       shoppingLists, addShoppingList, updateShoppingList, deleteShoppingList,
       shoppingItems, addShoppingItem, updateShoppingItem, deleteShoppingItem, toggleShoppingItem,
       planningSettings, updatePlanningSettings,
+      recurringTemplates, addRecurringTemplate, updateRecurringTemplate, deleteRecurringTemplate,
+      paycheckActuals, addPaycheckActual, updatePaycheckActual, deletePaycheckActual,
       settings, setSettings: persistSettings,
     }}>
       {children}

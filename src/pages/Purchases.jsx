@@ -1,10 +1,75 @@
 import { useState, useMemo } from 'react';
-import { ShoppingBag, Pencil, Trash2, MoreVertical, ChevronLeft, ChevronRight, Plus, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { ShoppingBag, Pencil, Trash2, MoreVertical, ChevronLeft, ChevronRight, Plus, RefreshCw, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Calendar } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatCurrency, monthKey, monthLabel } from '../utils/helpers';
 import Modal from '../components/Modal';
 import PurchaseForm from '../components/PurchaseForm';
 import BillForm from '../components/BillForm';
+
+const PURCHASE_CATEGORIES = [
+  'Food & Dining', 'Groceries', 'Gas & Fuel', 'Shopping', 'Entertainment',
+  'Health & Fitness', 'Travel', 'Subscriptions', 'Utilities', 'Personal Care',
+  'Education', 'Other',
+];
+
+function RecurringTemplateForm({ initial = {}, onSave, onCancel, myName, spouseName }) {
+  const [merchant, setMerchant] = useState(initial.merchant || '');
+  const [amount, setAmount] = useState(initial.amount != null ? String(initial.amount) : '');
+  const [category, setCategory] = useState(initial.category || 'Subscriptions');
+  const [person, setPerson] = useState(initial.person || 'me');
+  const [dayOfMonth, setDayOfMonth] = useState(initial.dayOfMonth != null ? String(initial.dayOfMonth) : '1');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!merchant.trim() || !amount) return;
+    onSave({
+      merchant: merchant.trim(),
+      amount: parseFloat(amount),
+      category,
+      person,
+      dayOfMonth: parseInt(dayOfMonth, 10) || 1,
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div>
+        <label className="app-label">Merchant / Name *</label>
+        <input className="app-input" placeholder="e.g. Netflix, Gym, Spotify…" value={merchant} onChange={(e) => setMerchant(e.target.value)} autoFocus required />
+      </div>
+      <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div style={{ flex: 1 }}>
+          <label className="app-label">Amount *</label>
+          <input className="app-input" type="number" step="0.01" min="0.01" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} required />
+        </div>
+        <div style={{ flex: 1 }}>
+          <label className="app-label">Day of Month</label>
+          <input className="app-input" type="number" min="1" max="28" placeholder="1" value={dayOfMonth} onChange={(e) => setDayOfMonth(e.target.value)} />
+        </div>
+      </div>
+      <div>
+        <label className="app-label">Category</label>
+        <select className="app-input" value={category} onChange={(e) => setCategory(e.target.value)}>
+          {PURCHASE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className="app-label">Person</label>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          {[['me', myName || 'Me'], ['partner', spouseName || 'Partner']].map(([val, label]) => (
+            <button key={val} type="button" onClick={() => setPerson(val)} style={{ flex: 1, padding: '0.625rem', borderRadius: '0.75rem', border: `2px solid ${person === val ? 'var(--accent)' : 'var(--border)'}`, backgroundColor: person === val ? 'rgba(99,102,241,0.12)' : 'var(--surface2)', color: person === val ? 'var(--accent-text)' : 'var(--muted)', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: '0.75rem', paddingTop: '0.25rem' }}>
+        <button type="button" onClick={onCancel} className="app-btn-secondary" style={{ flex: 1 }}>Cancel</button>
+        <button type="submit" className="app-btn-primary" style={{ flex: 1 }}>Save</button>
+      </div>
+    </form>
+  );
+}
 
 function monthOffset(mk, offset) {
   const [y, m] = mk.split('-').map(Number);
@@ -61,12 +126,15 @@ function PurchaseRow({ purchase, onEdit, onDelete, myName, spouseName }) {
 }
 
 export default function Purchases() {
-  const { purchases, addPurchase, updatePurchase, deletePurchase, settings, setSettings, bills, addBill } = useApp();
+  const { purchases, addPurchase, updatePurchase, deletePurchase, settings, setSettings, bills, addBill, recurringTemplates, addRecurringTemplate, updateRecurringTemplate, deleteRecurringTemplate } = useApp();
   const [mk, setMk] = useState(() => monthKey(new Date()));
   const [showAdd, setShowAdd] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [personFilter, setPersonFilter] = useState('all');
   const [showRecurring, setShowRecurring] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [showAddTemplate, setShowAddTemplate] = useState(false);
+  const [editTemplate, setEditTemplate] = useState(null);
   const [addRecurringBill, setAddRecurringBill] = useState(null);
   const [showLimitEdit, setShowLimitEdit] = useState(false);
   const [limitInput, setLimitInput] = useState('');
@@ -266,6 +334,59 @@ export default function Purchases() {
         )}
       </div>
 
+      {/* Recurring Templates */}
+      <div style={{ padding: '0 1rem', marginTop: '1rem' }}>
+        <button onClick={() => setShowTemplates(!showTemplates)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left', padding: '0 0 0.75rem 0' }}>
+          {showTemplates ? <ChevronUp size={14} style={{ color: 'var(--subtle)', flexShrink: 0 }} /> : <ChevronDown size={14} style={{ color: 'var(--subtle)', flexShrink: 0 }} />}
+          <Calendar size={13} style={{ color: 'var(--accent-text)', flexShrink: 0 }} />
+          <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)' }}>Recurring Auto-Log ({recurringTemplates.length})</span>
+        </button>
+        {showTemplates && (
+          <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', overflow: 'hidden', marginBottom: '0.25rem' }}>
+            {recurringTemplates.length === 0 ? (
+              <div style={{ padding: '1.25rem', textAlign: 'center' }}>
+                <p style={{ fontSize: '0.875rem', color: 'var(--muted)', marginBottom: '0.75rem' }}>Auto-log recurring expenses (subscriptions, gym, etc.) each month.</p>
+                <button onClick={() => setShowAddTemplate(true)} className="app-btn-primary" style={{ maxWidth: '12rem', margin: '0 auto', fontSize: '0.8125rem' }}>
+                  <Plus size={14} /> Add Template
+                </button>
+              </div>
+            ) : (
+              <>
+                {recurringTemplates.map((t, i) => {
+                  const currentMk = monthKey(new Date());
+                  const logged = t.lastLoggedMonth === currentMk;
+                  return (
+                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', borderBottom: i < recurringTemplates.length - 1 ? '1px solid var(--border)' : 'none', opacity: t.active ? 1 : 0.55 }}>
+                      <button onClick={() => updateRecurringTemplate(t.id, { active: !t.active })} style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: t.active ? 'var(--accent-text)' : 'var(--muted)', display: 'flex' }}>
+                        {t.active ? <ToggleRight size={22} /> : <ToggleLeft size={22} />}
+                      </button>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--text)' }}>{t.merchant}</p>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>
+                          {formatCurrency(t.amount)} · day {t.dayOfMonth} · {t.category}
+                          {logged && <span style={{ color: 'var(--positive)', marginLeft: '0.375rem' }}>✓ logged</span>}
+                        </p>
+                      </div>
+                      <button onClick={() => setEditTemplate(t)} style={{ flexShrink: 0, padding: '0.25rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                        <Pencil size={13} />
+                      </button>
+                      <button onClick={() => deleteRecurringTemplate(t.id)} style={{ flexShrink: 0, padding: '0.25rem', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  );
+                })}
+                <div style={{ padding: '0.625rem 1rem', backgroundColor: 'var(--surface2)', borderTop: '1px solid var(--border)' }}>
+                  <button onClick={() => setShowAddTemplate(true)} style={{ fontSize: '0.8125rem', fontWeight: '600', color: 'var(--accent-text)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                    <Plus size={13} /> Add template
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Recurring suggestions */}
       {recurringCandidates.length > 0 && (
         <div style={{ padding: '0 1rem', marginTop: '1rem' }}>
@@ -313,6 +434,27 @@ export default function Purchases() {
             initial={editItem}
             onSave={(data) => { updatePurchase(editItem.id, data); setEditItem(null); }}
             onCancel={() => setEditItem(null)}
+            myName={myName}
+            spouseName={spouseName}
+          />
+        </Modal>
+      )}
+      {showAddTemplate && (
+        <Modal title="New Recurring Template" onClose={() => setShowAddTemplate(false)}>
+          <RecurringTemplateForm
+            onSave={(data) => { addRecurringTemplate(data); setShowAddTemplate(false); }}
+            onCancel={() => setShowAddTemplate(false)}
+            myName={myName}
+            spouseName={spouseName}
+          />
+        </Modal>
+      )}
+      {editTemplate && (
+        <Modal title="Edit Template" onClose={() => setEditTemplate(null)}>
+          <RecurringTemplateForm
+            initial={editTemplate}
+            onSave={(data) => { updateRecurringTemplate(editTemplate.id, data); setEditTemplate(null); }}
+            onCancel={() => setEditTemplate(null)}
             myName={myName}
             spouseName={spouseName}
           />
