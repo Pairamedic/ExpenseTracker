@@ -345,6 +345,12 @@ export default function Dashboard() {
   const monthPurchases = purchases.filter((p) => p.date && p.date.startsWith(mk));
   const monthSpent = monthPurchases.reduce((s, p) => s + p.amount, 0);
 
+  // Budget envelope totals — must be declared before availableToSpend
+  const monthBudgetSpends = budgetSpends.filter((s) => (s.month || s.monthKey) === mk);
+  const totalEnvelopeLimit = budgetCategories.reduce((s, c) => s + (c.monthlyLimit || 0), 0);
+  const totalEnvelopeSpent = monthBudgetSpends.reduce((s, sp) => s + (sp.amount || 0), 0);
+  const totalEnvelopeRemaining = totalEnvelopeLimit - totalEnvelopeSpent;
+
   const availableToSpend = monthlyIncome - totalBills - totalDebtMins - activePlannedTotal - (purchasesInAvailable ? monthSpent : 0) - totalEnvelopeSpent;
 
   const spendingBudget = monthlySpendingBudget || 0;
@@ -382,12 +388,6 @@ export default function Dashboard() {
 
   const aaronSpent = monthPurchases.filter((p) => p.person === 'aaron' || p.person === 'me').reduce((s, p) => s + p.amount, 0);
   const cameronSpent = monthPurchases.filter((p) => p.person === 'cameron' || p.person === 'partner').reduce((s, p) => s + p.amount, 0);
-
-  // Budget envelope totals for current viewed month
-  const monthBudgetSpends = budgetSpends.filter((s) => (s.month || s.monthKey) === mk);
-  const totalEnvelopeLimit = budgetCategories.reduce((s, c) => s + (c.monthlyLimit || 0), 0);
-  const totalEnvelopeSpent = monthBudgetSpends.reduce((s, sp) => s + (sp.amount || 0), 0);
-  const totalEnvelopeRemaining = totalEnvelopeLimit - totalEnvelopeSpent;
 
   const activeAgreements = agreements.filter((a) => a.status !== 'settled');
   const settledAgreements = agreements.filter((a) => a.status === 'settled');
