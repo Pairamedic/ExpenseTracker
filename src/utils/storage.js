@@ -45,6 +45,7 @@ const DEFAULT_SETTINGS = {
   lightMode: false,
   purchasesInAvailable: false,
   shareToken: null,
+  sharePin: '3419',
   dashboardSections: {
     pinnedNotes: true,
     savings: true,

@@ -488,6 +488,7 @@ export function AppProvider({ children, uid }) {
     const oldestMk = `${threeMonthsAgo.getFullYear()}-${String(threeMonthsAgo.getMonth() + 1).padStart(2, '0')}`;
     return {
       settings: { myName: settings.myName, spouseName: settings.spouseName, spouseEnabled: settings.spouseEnabled },
+      sharePin: settings.sharePin || '3419',
       bills,
       income,
       purchases: purchases.filter((p) => p.date && p.date >= oldestMk),
