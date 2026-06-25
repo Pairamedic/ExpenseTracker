@@ -30,6 +30,13 @@
       "description": "Check your bills and payments",
       "url": "/ExpenseTracker/bills",
       "icons": [{ "src": "/ExpenseTracker/app-icon.jpeg", "sizes": "512x512", "type": "image/jpeg" }]
+    },
+    {
+      "name": "Upload Document",
+      "short_name": "Upload",
+      "description": "Go to the Document Vault to upload files",
+      "url": "/ExpenseTracker/vault",
+      "icons": [{ "src": "/ExpenseTracker/app-icon.jpeg", "sizes": "512x512", "type": "image/jpeg" }]
     }
   ]
 }
