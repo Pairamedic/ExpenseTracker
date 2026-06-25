@@ -431,16 +431,19 @@ function ImportBudgetModal({ existing, onImport, onCancel }) {
 function CategoryForm({ initial = {}, onSave, onCancel }) {
   const [name, setName] = useState(initial.name || '');
   const [limit, setLimit] = useState(initial.monthlyLimit != null ? String(initial.monthlyLimit) : '');
+  const isPermanent = !!initial.isPermanent;
   return (
     <form onSubmit={(e) => { e.preventDefault(); if (!name || !limit) return; onSave({ name, monthlyLimit: parseFloat(limit) }); }} className="flex flex-col gap-4">
       <div>
-        <label className="app-label">Category Name *</label>
-        <input autoFocus className="app-input" placeholder="e.g. Gas, Leisure, Food"
-          value={name} onChange={(e) => setName(e.target.value)} required />
+        <label className="app-label">Category Name {isPermanent ? '' : '*'}</label>
+        <input autoFocus={!isPermanent} className="app-input" placeholder="e.g. Gas, Leisure, Food"
+          value={name} onChange={(e) => setName(e.target.value)}
+          required disabled={isPermanent}
+          style={isPermanent ? { opacity: 0.6, cursor: 'not-allowed' } : {}} />
       </div>
       <div>
         <label className="app-label">Monthly Limit *</label>
-        <input type="number" min="0" step="0.01" className="app-input" placeholder="0.00"
+        <input autoFocus={isPermanent} type="number" min="0" step="0.01" className="app-input" placeholder="0.00"
           value={limit} onChange={(e) => setLimit(e.target.value)} required />
       </div>
       <div className="flex gap-3 pt-1">
@@ -890,8 +893,8 @@ export default function BillsDebts() {
                           <span style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text)' }}>{cat.name}</span>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--subtle)' }}>{formatCurrency(cat.monthlyLimit)}/mo</span>
-                            <button onClick={() => setEditCategory(cat)} style={{ padding: '0.25rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}><Pencil size={13} /></button>
-                            <button onClick={() => deleteBudgetCategory(cat.id)} style={{ padding: '0.25rem', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}><Trash2 size={13} /></button>
+                            <button onClick={() => { setEditCategory(cat); setShowManageCategories(true); }} style={{ padding: '0.25rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}><Pencil size={13} /></button>
+                            {!cat.isPermanent && <button onClick={() => deleteBudgetCategory(cat.id)} style={{ padding: '0.25rem', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}><Trash2 size={13} /></button>}
                           </div>
                         </div>
 
@@ -1074,7 +1077,7 @@ export default function BillsDebts() {
                     <p style={{ fontSize: '0.8125rem', color: 'var(--subtle)' }}>{formatCurrency(cat.monthlyLimit)}/mo</p>
                   </div>
                   <button onClick={() => setEditCategory(cat)} style={{ padding: '0.375rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}><Pencil size={14} /></button>
-                  <button onClick={() => deleteBudgetCategory(cat.id)} style={{ padding: '0.375rem', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}><Trash2 size={14} /></button>
+                  {!cat.isPermanent && <button onClick={() => deleteBudgetCategory(cat.id)} style={{ padding: '0.375rem', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}><Trash2 size={14} /></button>}
                 </div>
               )
             ))}

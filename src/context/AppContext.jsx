@@ -6,6 +6,15 @@ import { notificationPermission, sendNotification, getDueDateMs, registerFCMToke
 
 const AppContext = createContext(null);
 
+const PERMANENT_BUDGET_CATEGORIES = [
+  { name: 'Gas', monthlyLimit: 200 },
+  { name: 'Groceries', monthlyLimit: 400 },
+  { name: 'Leisure', monthlyLimit: 272 },
+  { name: 'Misc', monthlyLimit: 100 },
+  { name: 'Personal Allowances', monthlyLimit: 900 },
+  { name: 'Work Food Allowance', monthlyLimit: 200 },
+];
+
 // Debounce Firestore writes so rapid changes don't spam the DB
 function useDebounce(fn, delay = 1500) {
   const timer = useRef(null);
@@ -437,6 +446,25 @@ export function AppProvider({ children, uid }) {
     const nextPurchases = [...newPurchases, ...freshPurchases];
     setPurchasesState(nextPurchases); storage.setPurchases(nextPurchases);
     debouncedSync({ purchases: nextPurchases, recurringTemplates: updatedTemplates });
+  }, [cloudLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Seed permanent budget categories after cloud data is ready
+  useEffect(() => {
+    if (!cloudLoaded) return;
+    const current = stateRef.current.budgetCategories;
+    const next = [...current];
+    let changed = false;
+    PERMANENT_BUDGET_CATEGORIES.forEach((p) => {
+      const idx = next.findIndex((c) => c.name.toLowerCase() === p.name.toLowerCase());
+      if (idx === -1) {
+        next.push({ ...p, id: generateId(), isPermanent: true, createdAt: new Date().toISOString() });
+        changed = true;
+      } else if (!next[idx].isPermanent) {
+        next[idx] = { ...next[idx], isPermanent: true };
+        changed = true;
+      }
+    });
+    if (changed) persistBudgetCategories(next);
   }, [cloudLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Paycheck Actuals ──

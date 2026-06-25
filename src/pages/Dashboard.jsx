@@ -345,7 +345,7 @@ export default function Dashboard() {
   const monthPurchases = purchases.filter((p) => p.date && p.date.startsWith(mk));
   const monthSpent = monthPurchases.reduce((s, p) => s + p.amount, 0);
 
-  const availableToSpend = monthlyIncome - totalBills - totalDebtMins - activePlannedTotal - (purchasesInAvailable ? monthSpent : 0);
+  const availableToSpend = monthlyIncome - totalBills - totalDebtMins - activePlannedTotal - (purchasesInAvailable ? monthSpent : 0) - totalEnvelopeSpent;
 
   const spendingBudget = monthlySpendingBudget || 0;
   const savingsTarget = monthlySavingsTarget || 0;
@@ -384,7 +384,7 @@ export default function Dashboard() {
   const cameronSpent = monthPurchases.filter((p) => p.person === 'cameron' || p.person === 'partner').reduce((s, p) => s + p.amount, 0);
 
   // Budget envelope totals for current viewed month
-  const monthBudgetSpends = budgetSpends.filter((s) => s.monthKey === mk);
+  const monthBudgetSpends = budgetSpends.filter((s) => (s.month || s.monthKey) === mk);
   const totalEnvelopeLimit = budgetCategories.reduce((s, c) => s + (c.monthlyLimit || 0), 0);
   const totalEnvelopeSpent = monthBudgetSpends.reduce((s, sp) => s + (sp.amount || 0), 0);
   const totalEnvelopeRemaining = totalEnvelopeLimit - totalEnvelopeSpent;
@@ -1208,7 +1208,7 @@ export default function Dashboard() {
                   <button onClick={() => { setShowQuickSpend(false); setQsAmount(''); setQsDesc(''); setQsCatId(''); }} className="app-btn-secondary">Cancel</button>
                   <button onClick={() => {
                     if (!qsCatId || !qsAmount) return;
-                    addBudgetSpend({ categoryId: qsCatId, amount: parseFloat(qsAmount), description: qsDesc, date: new Date().toISOString().slice(0, 10), monthKey: monthKey(new Date()) });
+                    addBudgetSpend({ categoryId: qsCatId, amount: parseFloat(qsAmount), description: qsDesc, date: new Date().toISOString().slice(0, 10), month: monthKey(new Date()) });
                     setShowQuickSpend(false); setQsAmount(''); setQsDesc(''); setQsCatId('');
                   }} className="app-btn-primary" disabled={!qsCatId || !qsAmount}>Save</button>
                 </div>
