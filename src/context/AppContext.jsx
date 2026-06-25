@@ -562,6 +562,42 @@ export function AppProvider({ children, uid }) {
     return () => Object.values(timers).forEach(clearTimeout);
   }, [shoppingItems, shoppingLists, notifPrefs.todos]);
 
+  // ── To-Do daily list reminders (morning + afternoon) ──
+  const todoListTimersRef = useRef({ morning: null, afternoon: null });
+  useEffect(() => {
+    if (notificationPermission() !== 'granted') return;
+    const prefs = notifPrefs.todos || {};
+    const todoListIds = new Set(shoppingLists.filter((l) => l.type === 'todo').map((l) => l.id));
+    const incompleteCount = shoppingItems.filter((i) =>
+      todoListIds.has(i.listId) && (i.status === 'pending' || !i.status)
+    ).length;
+    const listCount = [...todoListIds].filter((lid) =>
+      shoppingItems.some((i) => i.listId === lid && (i.status === 'pending' || !i.status))
+    ).length;
+    if (incompleteCount === 0) return;
+    const schedule = (timeStr, key) => {
+      const now = new Date();
+      const [h, m] = (timeStr || (key === 'morning' ? '08:00' : '16:00')).split(':').map(Number);
+      const fireAt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0);
+      const delay = fireAt.getTime() - now.getTime();
+      if (delay <= 0) return null;
+      return setTimeout(() => {
+        sendNotification('To-Do Reminder', {
+          body: `${incompleteCount} incomplete item${incompleteCount !== 1 ? 's' : ''} across ${listCount} list${listCount !== 1 ? 's' : ''}`,
+          tag: `todo-daily-${key}`,
+        });
+      }, delay);
+    };
+    clearTimeout(todoListTimersRef.current.morning);
+    clearTimeout(todoListTimersRef.current.afternoon);
+    todoListTimersRef.current.morning = prefs.morningEnabled !== false ? schedule(prefs.morningTime, 'morning') : null;
+    todoListTimersRef.current.afternoon = prefs.afternoonEnabled !== false ? schedule(prefs.afternoonTime, 'afternoon') : null;
+    return () => {
+      clearTimeout(todoListTimersRef.current.morning);
+      clearTimeout(todoListTimersRef.current.afternoon);
+    };
+  }, [shoppingItems, shoppingLists, notifPrefs.todos]);
+
   // ── Bill notifications ──
   const billNotifiedRef = useRef(new Set());
   const billTimersRef = useRef({});
