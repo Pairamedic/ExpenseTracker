@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ShoppingBag, Pencil, Trash2, MoreVertical, ChevronLeft, ChevronRight, Plus, RefreshCw, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Calendar } from 'lucide-react';
+import { ShoppingBag, Pencil, Trash2, MoreVertical, ChevronLeft, ChevronRight, Plus, RefreshCw, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Calendar, Upload, X, AlertCircle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatCurrency, monthKey, monthLabel } from '../utils/helpers';
 import Modal from '../components/Modal';
@@ -71,6 +71,198 @@ function RecurringTemplateForm({ initial = {}, onSave, onCancel, myName, spouseN
   );
 }
 
+// ── Smart Purchase Parser ─────────────────────────────────────────────────────
+
+const SKIP_PATTERNS = /^(date|bill|amount|totals?|total|joint\s*charges?|cost|#|\s*$)/i;
+
+function parseMDY(str) {
+  const m = str.match(/^(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{2,4})$/);
+  if (!m) return null;
+  const y = m[3].length === 2 ? '20' + m[3] : m[3];
+  return `${y}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+}
+
+function parseISO(str) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(str) ? str : null;
+}
+
+function parseAmount(str) {
+  const n = parseFloat(str.replace(/[$,\s]/g, ''));
+  return isNaN(n) || n <= 0 ? null : Math.round(n * 100) / 100;
+}
+
+function parsePurchaseText(text) {
+  const today = new Date().toISOString().slice(0, 10);
+  const results = [];
+
+  for (const rawLine of text.split('\n')) {
+    const line = rawLine.trim();
+    if (!line || SKIP_PATTERNS.test(line)) continue;
+
+    // Try delimited formats first (tab, then comma)
+    for (const sep of ['\t', ',']) {
+      const parts = line.split(sep).map((s) => s.trim()).filter(Boolean);
+      if (parts.length < 2) continue;
+
+      // Try date in first position
+      const dateFromFirst = parseMDY(parts[0]) || parseISO(parts[0]);
+      if (dateFromFirst && parts.length >= 3) {
+        const amt = parseAmount(parts[parts.length - 1]);
+        if (amt) {
+          const merchant = parts.slice(1, parts.length - 1).join(' ').trim() || parts[1];
+          if (merchant) { results.push({ date: dateFromFirst, merchant, amount: amt }); break; }
+        }
+      }
+
+      // Try date in last position
+      const dateFromLast = parseMDY(parts[parts.length - 1]) || parseISO(parts[parts.length - 1]);
+      if (dateFromLast && parts.length >= 3) {
+        const amt = parseAmount(parts[parts.length - 2]);
+        if (amt) {
+          const merchant = parts.slice(0, parts.length - 2).join(' ').trim();
+          if (merchant) { results.push({ date: dateFromLast, merchant, amount: amt }); break; }
+        }
+      }
+
+      // Amount in last column, merchant in middle, no date
+      if (parts.length >= 2) {
+        const amt = parseAmount(parts[parts.length - 1]);
+        const possibleDate = parseMDY(parts[0]) || parseISO(parts[0]);
+        if (amt && !possibleDate) {
+          const merchant = parts.slice(0, parts.length - 1).join(' ').trim();
+          if (merchant) { results.push({ date: today, merchant, amount: amt }); break; }
+        }
+      }
+    }
+
+    // Fallback: whitespace-split "Merchant Amount" or "Amount Merchant"
+    if (!results.find((r) => r._srcLine === line)) {
+      const tokens = line.split(/\s+/);
+      if (tokens.length >= 2) {
+        const lastAmt = parseAmount(tokens[tokens.length - 1]);
+        const firstAmt = parseAmount(tokens[0]);
+        if (lastAmt && !parseMDY(tokens[tokens.length - 1])) {
+          const merchant = tokens.slice(0, -1).join(' ').trim();
+          if (merchant && !SKIP_PATTERNS.test(merchant)) results.push({ date: today, merchant, amount: lastAmt });
+        } else if (firstAmt && !parseMDY(tokens[0])) {
+          const merchant = tokens.slice(1).join(' ').trim();
+          if (merchant && !SKIP_PATTERNS.test(merchant)) results.push({ date: today, merchant, amount: firstAmt });
+        }
+      }
+    }
+  }
+
+  return results;
+}
+
+function ImportPurchasesModal({ onImport, onCancel, myName, spouseName }) {
+  const [person, setPerson] = useState('me');
+  const [text, setText] = useState('');
+  const [parsed, setParsed] = useState(null);
+  const [error, setError] = useState('');
+
+  const handleParse = () => {
+    const entries = parsePurchaseText(text);
+    if (!entries.length) {
+      setError('No purchases detected. Make sure each line has a merchant and amount.');
+      return;
+    }
+    setError('');
+    setParsed(entries);
+  };
+
+  const removeEntry = (idx) => setParsed((prev) => prev.filter((_, i) => i !== idx));
+
+  const handleImport = () => {
+    if (!parsed?.length) return;
+    onImport(parsed.map((e) => ({ ...e, person, category: 'Other' })));
+  };
+
+  const personLabels = [['me', myName || 'Me'], ['cameron', spouseName || 'Partner']];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      {!parsed ? (
+        <>
+          {/* Person selector */}
+          <div>
+            <label className="app-label">Purchases are for</label>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              {personLabels.map(([val, label]) => (
+                <button key={val} type="button" onClick={() => setPerson(val)}
+                  style={{ flex: 1, padding: '0.625rem', borderRadius: '0.75rem', border: `2px solid ${person === val ? 'var(--accent)' : 'var(--border)'}`, backgroundColor: person === val ? 'rgba(99,102,241,0.12)' : 'var(--surface2)', color: person === val ? 'var(--accent-text)' : 'var(--muted)', fontSize: '0.875rem', fontWeight: '600', cursor: 'pointer' }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Text area */}
+          <div>
+            <label className="app-label">Paste from Excel or type entries</label>
+            <textarea
+              value={text}
+              onChange={(e) => { setText(e.target.value); setError(''); }}
+              placeholder={'Examples:\n01.15.2026\tWalmart\t45.23\n01.16.2026\tStarbucks\t8.50\nAmazon 23.99\n9.99 Spotify'}
+              style={{ width: '100%', minHeight: '10rem', padding: '0.875rem', borderRadius: '0.875rem', border: '1px solid var(--border)', backgroundColor: 'var(--surface2)', color: 'var(--text)', fontSize: '0.8125rem', fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box' }}
+            />
+            <p style={{ fontSize: '0.7rem', color: 'var(--subtle)', marginTop: '0.375rem' }}>
+              Accepts: Excel copy (MM.DD.YYYY tab Merchant tab Amount), comma-separated, or Merchant Amount per line
+            </p>
+          </div>
+
+          {error && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: 'rgba(244,63,94,0.1)', border: '1px solid var(--danger)', borderRadius: '0.75rem', padding: '0.75rem' }}>
+              <AlertCircle size={15} style={{ color: 'var(--danger)', flexShrink: 0 }} />
+              <p style={{ fontSize: '0.8125rem', color: 'var(--danger)' }}>{error}</p>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <button type="button" onClick={onCancel} className="app-btn-secondary" style={{ flex: 1 }}>Cancel</button>
+            <button type="button" onClick={handleParse} className="app-btn-primary" style={{ flex: 2 }} disabled={!text.trim()}>
+              Parse Entries →
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <p style={{ fontWeight: '700', color: 'var(--text)' }}>{parsed.length} entr{parsed.length === 1 ? 'y' : 'ies'} found</p>
+            <button onClick={() => setParsed(null)} style={{ fontSize: '0.8125rem', color: 'var(--accent-text)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600' }}>← Edit text</button>
+          </div>
+
+          <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.875rem', overflow: 'hidden', maxHeight: '16rem', overflowY: 'auto' }}>
+            {parsed.map((e, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.625rem 0.875rem', borderBottom: i < parsed.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.merchant}</p>
+                  <p style={{ fontSize: '0.7rem', color: 'var(--subtle)' }}>{e.date}</p>
+                </div>
+                <p style={{ fontSize: '0.9375rem', fontWeight: '700', color: 'var(--text)', flexShrink: 0 }}>${e.amount.toFixed(2)}</p>
+                <button onClick={() => removeEntry(i)} style={{ padding: '0.25rem', color: 'var(--subtle)', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}>
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {parsed.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '1rem' }}>
+              <p style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>All entries removed.</p>
+              <button onClick={() => setParsed(null)} style={{ marginTop: '0.5rem', fontSize: '0.8125rem', color: 'var(--accent-text)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600' }}>← Edit text</button>
+            </div>
+          ) : (
+            <button type="button" onClick={handleImport} className="app-btn-primary">
+              Import {parsed.length} Purchase{parsed.length !== 1 ? 's' : ''}
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function monthOffset(mk, offset) {
   const [y, m] = mk.split('-').map(Number);
   return monthKey(new Date(y, m - 1 + offset, 1));
@@ -136,6 +328,7 @@ export default function Purchases() {
   const [showAddTemplate, setShowAddTemplate] = useState(false);
   const [editTemplate, setEditTemplate] = useState(null);
   const [addRecurringBill, setAddRecurringBill] = useState(null);
+  const [showImport, setShowImport] = useState(false);
   const [showLimitEdit, setShowLimitEdit] = useState(false);
   const [limitInput, setLimitInput] = useState('');
 
@@ -202,10 +395,16 @@ export default function Purchases() {
       <div className="app-header">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
           <h1 style={{ fontSize: '1.625rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-0.02em' }}>Spending</h1>
-          <button onClick={() => setShowAdd(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.875rem', backgroundColor: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer' }}>
-            <Plus size={16} /> Log Purchase
-          </button>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button onClick={() => setShowImport(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.75rem', backgroundColor: 'var(--surface)', color: 'var(--accent-text)', border: '1px solid var(--accent)', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer' }}>
+              <Upload size={15} /> Import
+            </button>
+            <button onClick={() => setShowAdd(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.875rem', backgroundColor: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer' }}>
+              <Plus size={16} /> Log
+            </button>
+          </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
@@ -466,6 +665,19 @@ export default function Purchases() {
             initial={{ name: addRecurringBill.name, amount: addRecurringBill.amount, isRecurring: true }}
             onSave={(data) => { addBill(data); setAddRecurringBill(null); }}
             onCancel={() => setAddRecurringBill(null)}
+            myName={myName}
+            spouseName={spouseName}
+          />
+        </Modal>
+      )}
+      {showImport && (
+        <Modal title="Import Purchases" onClose={() => setShowImport(false)}>
+          <ImportPurchasesModal
+            onImport={(entries) => {
+              entries.forEach((e) => addPurchase(e));
+              setShowImport(false);
+            }}
+            onCancel={() => setShowImport(false)}
             myName={myName}
             spouseName={spouseName}
           />

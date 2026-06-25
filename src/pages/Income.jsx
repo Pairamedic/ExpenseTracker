@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Pencil, Trash2, MoreVertical, TrendingUp, RefreshCw, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { Pencil, Trash2, MoreVertical, TrendingUp, RefreshCw, ChevronLeft, ChevronRight, Plus, Calculator } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatCurrency, monthKey, monthLabel, getIncomeForMonth } from '../utils/helpers';
 import Modal from '../components/Modal';
 import IncomeForm from '../components/IncomeForm';
+import { PlanningContent } from './Planning';
 
 function monthOffset(mk, offset) {
   const [y, m] = mk.split('-').map(Number);
@@ -77,6 +78,7 @@ export default function Income() {
   const [mk, setMk] = useState(() => monthKey(new Date()));
   const [showAdd, setShowAdd] = useState(false);
   const [editItem, setEditItem] = useState(null);
+  const [viewMode, setViewMode] = useState('income');
 
   const monthIncome = getIncomeForMonth(income, mk);
   const totalMonthly = monthIncome.reduce((s, i) => s + monthlyAmount(i), 0);
@@ -86,55 +88,88 @@ export default function Income() {
   return (
     <div className="app-page">
       <div className="app-header">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+        {/* Title row with view toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.875rem' }}>
           <h1 style={{ fontSize: '1.625rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-0.02em' }}>Income</h1>
-          <button onClick={() => setShowAdd(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.875rem', backgroundColor: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer' }}>
-            <Plus size={16} /> Add Income
-          </button>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-          <button onClick={() => setMk(monthOffset(mk, -1))} style={{ padding: '0.5rem', borderRadius: '0.75rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
-            <ChevronLeft size={20} />
-          </button>
-          <span style={{ flex: 1, textAlign: 'center', fontWeight: '700', fontSize: '1rem', color: 'var(--text)' }}>{monthLabel(mk)}</span>
-          <button onClick={() => setMk(monthOffset(mk, 1))} style={{ padding: '0.5rem', borderRadius: '0.75rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
-            <ChevronRight size={20} />
-          </button>
-        </div>
-
-        <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1.25rem', padding: '1.25rem', marginBottom: '0.5rem' }}>
-          <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>Total Monthly Income</p>
-          <p style={{ fontSize: '2.5rem', fontWeight: '900', color: 'var(--positive-text)' }}>{formatCurrency(totalMonthly)}</p>
-          {settings.spouseEnabled && (
-            <div style={{ display: 'flex', gap: '1.25rem', marginTop: '0.75rem' }}>
-              <span style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>Me: <span style={{ color: 'var(--text)', fontWeight: '600' }}>{formatCurrency(myTotal)}</span></span>
-              <span style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>{settings.spouseName || 'Spouse'}: <span style={{ color: 'var(--text)', fontWeight: '600' }}>{formatCurrency(spouseTotal)}</span></span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div style={{ padding: '0 1rem' }}>
-        {monthIncome.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
-            <TrendingUp size={48} style={{ margin: '0 auto 1rem', opacity: 0.2, color: 'var(--muted)', display: 'block' }} />
-            <p style={{ fontWeight: '700', color: 'var(--text)', fontSize: '1.125rem', marginBottom: '0.5rem' }}>No income yet</p>
-            <p style={{ fontSize: '0.9375rem', color: 'var(--muted)', marginBottom: '1.5rem' }}>Add your income sources to get started.</p>
-            <button onClick={() => setShowAdd(true)} className="app-btn-primary" style={{ maxWidth: '14rem', margin: '0 auto' }}>
-              <Plus size={18} /> Add Income
+          <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', padding: '0.2rem', gap: '0.125rem' }}>
+            <button onClick={() => setViewMode('income')}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.375rem 0.75rem', borderRadius: '0.5rem', fontSize: '0.8rem', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                backgroundColor: viewMode === 'income' ? 'var(--surface)' : 'transparent',
+                color: viewMode === 'income' ? 'var(--text)' : 'var(--subtle)',
+                boxShadow: viewMode === 'income' ? '0 1px 4px rgba(0,0,0,0.15)' : 'none' }}>
+              <TrendingUp size={13} /> Income
+            </button>
+            <button onClick={() => setViewMode('planning')}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.375rem 0.75rem', borderRadius: '0.5rem', fontSize: '0.8rem', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                backgroundColor: viewMode === 'planning' ? 'var(--surface)' : 'transparent',
+                color: viewMode === 'planning' ? 'var(--accent-text)' : 'var(--subtle)',
+                boxShadow: viewMode === 'planning' ? '0 1px 4px rgba(0,0,0,0.15)' : 'none' }}>
+              <Calculator size={13} /> Planning
             </button>
           </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {monthIncome.map((item) => (
-              <IncomeCard key={item.id} item={item} onEdit={setEditItem} onDelete={deleteIncome}
-                spouseEnabled={settings.spouseEnabled} spouseName={settings.spouseName} />
-            ))}
-          </div>
+        </div>
+
+        {viewMode === 'income' && (
+          <>
+            {/* Month navigator */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+              <button onClick={() => setMk(monthOffset(mk, -1))} style={{ padding: '0.5rem', borderRadius: '0.75rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                <ChevronLeft size={20} />
+              </button>
+              <span style={{ flex: 1, textAlign: 'center', fontWeight: '700', fontSize: '1rem', color: 'var(--text)' }}>{monthLabel(mk)}</span>
+              <button onClick={() => setMk(monthOffset(mk, 1))} style={{ padding: '0.5rem', borderRadius: '0.75rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                <ChevronRight size={20} />
+              </button>
+            </div>
+
+            {/* Total card */}
+            <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1.25rem', padding: '1.25rem', marginBottom: '0.5rem' }}>
+              <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>Total Monthly Income</p>
+              <p style={{ fontSize: '2.5rem', fontWeight: '900', color: 'var(--positive-text)' }}>{formatCurrency(totalMonthly)}</p>
+              {settings.spouseEnabled && (
+                <div style={{ display: 'flex', gap: '1.25rem', marginTop: '0.75rem' }}>
+                  <span style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>Me: <span style={{ color: 'var(--text)', fontWeight: '600' }}>{formatCurrency(myTotal)}</span></span>
+                  <span style={{ fontSize: '0.875rem', color: 'var(--muted)' }}>{settings.spouseName || 'Spouse'}: <span style={{ color: 'var(--text)', fontWeight: '600' }}>{formatCurrency(spouseTotal)}</span></span>
+                </div>
+              )}
+            </div>
+          </>
         )}
       </div>
+
+      {viewMode === 'income' ? (
+        <div style={{ padding: '0 1rem' }}>
+          {monthIncome.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>
+              <TrendingUp size={48} style={{ margin: '0 auto 1rem', opacity: 0.2, color: 'var(--muted)', display: 'block' }} />
+              <p style={{ fontWeight: '700', color: 'var(--text)', fontSize: '1.125rem', marginBottom: '0.5rem' }}>No income yet</p>
+              <p style={{ fontSize: '0.9375rem', color: 'var(--muted)', marginBottom: '1.5rem' }}>Add your income sources to get started.</p>
+              <button onClick={() => setShowAdd(true)} className="app-btn-primary" style={{ maxWidth: '14rem', margin: '0 auto' }}>
+                <Plus size={18} /> Add Income
+              </button>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
+                <button onClick={() => setShowAdd(true)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.875rem', backgroundColor: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer' }}>
+                  <Plus size={16} /> Add Income
+                </button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {monthIncome.map((item) => (
+                  <IncomeCard key={item.id} item={item} onEdit={setEditItem} onDelete={deleteIncome}
+                    spouseEnabled={settings.spouseEnabled} spouseName={settings.spouseName} />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      ) : (
+        <div style={{ padding: '0 1rem' }}>
+          <PlanningContent />
+        </div>
+      )}
 
       {showAdd && (
         <Modal title="Add Income" onClose={() => setShowAdd(false)}>

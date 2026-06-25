@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { storage } from '../utils/storage';
-import { saveUserData, loadUserData } from '../utils/firestoreSync';
+import { saveUserData, loadUserData, saveSharedView } from '../utils/firestoreSync';
 import { generateId, currentMonthKey, getBillStatus, nextBillStatus } from '../utils/helpers';
 import { notificationPermission, sendNotification, getDueDateMs } from '../utils/notifications';
 
@@ -414,6 +414,49 @@ export function AppProvider({ children, uid }) {
     paycheckActuals.filter((a) => a.id !== id)
   ), [paycheckActuals, persistPaycheckActuals]);
 
+  // ── Share Link ──
+  const generateShareLink = useCallback(async () => {
+    const token = generateId() + generateId();
+    const today = new Date();
+    const threeMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 2, 1);
+    const oldestMk = `${threeMonthsAgo.getFullYear()}-${String(threeMonthsAgo.getMonth() + 1).padStart(2, '0')}`;
+    const snapshot = {
+      settings: { myName: settings.myName, spouseName: settings.spouseName, spouseEnabled: settings.spouseEnabled },
+      bills,
+      income,
+      purchases: purchases.filter((p) => p.date && p.date >= oldestMk),
+      debts,
+      savings,
+      commitments: commitments.filter((c) => !c.completed),
+    };
+    await saveSharedView(token, snapshot);
+    const newSettings = { ...settings, shareToken: token };
+    persistSettings(newSettings);
+    return token;
+  }, [bills, income, purchases, debts, savings, commitments, settings, persistSettings]);
+
+  const revokeShareLink = useCallback(() => {
+    persistSettings({ ...settings, shareToken: null });
+  }, [settings, persistSettings]);
+
+  const refreshShareLink = useCallback(async () => {
+    const token = settings.shareToken;
+    if (!token) return;
+    const today = new Date();
+    const threeMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 2, 1);
+    const oldestMk = `${threeMonthsAgo.getFullYear()}-${String(threeMonthsAgo.getMonth() + 1).padStart(2, '0')}`;
+    const snapshot = {
+      settings: { myName: settings.myName, spouseName: settings.spouseName, spouseEnabled: settings.spouseEnabled },
+      bills,
+      income,
+      purchases: purchases.filter((p) => p.date && p.date >= oldestMk),
+      debts,
+      savings,
+      commitments: commitments.filter((c) => !c.completed),
+    };
+    await saveSharedView(token, snapshot);
+  }, [bills, income, purchases, debts, savings, commitments, settings]);
+
   // ── Global To-Do notification scheduling ──
   const todoNotifiedRef = useRef(new Set());
   useEffect(() => {
@@ -466,6 +509,7 @@ export function AppProvider({ children, uid }) {
       recurringTemplates, addRecurringTemplate, updateRecurringTemplate, deleteRecurringTemplate,
       paycheckActuals, addPaycheckActual, updatePaycheckActual, deletePaycheckActual,
       settings, setSettings: persistSettings,
+      generateShareLink, revokeShareLink, refreshShareLink,
     }}>
       {children}
     </AppContext.Provider>
