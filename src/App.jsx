@@ -14,6 +14,7 @@ import SearchPage from './pages/Search';
 import ShoppingLists from './pages/ShoppingLists';
 import Planning from './pages/Planning';
 import SharedView from './pages/SharedView';
+import DocumentVault from './pages/DocumentVault';
 import Login from './pages/Login';
 
 function ThemeSync() {
@@ -72,6 +73,7 @@ function AuthenticatedApp() {
           <Route path="/search" element={<SearchPage />} />
           <Route path="/lists" element={<ShoppingLists />} />
           <Route path="/planning" element={<Planning />} />
+          <Route path="/vault" element={<DocumentVault />} />
         </Routes>
       </div>
       <BottomNav />

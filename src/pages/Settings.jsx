@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { User, Trash2, AlertTriangle, Wallet, PiggyBank, DollarSign, Sun, Moon, LogOut, Mail, Download, Share2, RefreshCw, Copy, Check, X, Bell, BellOff, Lock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { User, Trash2, AlertTriangle, Wallet, PiggyBank, DollarSign, Sun, Moon, LogOut, Mail, Download, Share2, RefreshCw, Copy, Check, X, Bell, BellOff, Lock, FolderOpen, ChevronRight } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
@@ -35,6 +36,7 @@ function NotifRow({ label, sublabel, checked, onChange }) {
 export default function Settings() {
   const { settings, setSettings, bills, income, debts, savings, commitments, plannedExpenses, purchases, budgetCategories, budgetSpends, shoppingLists, shoppingItems, generateShareLink, revokeShareLink, refreshShareLink, notifPrefs, persistNotifPrefs, fcmToken, enablePushNotifications } = useApp();
   const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   const [form, setForm] = useState({ ...settings });
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -344,6 +346,20 @@ export default function Settings() {
               </div>
             )}
           </div>
+        </section>
+
+        {/* Document Vault */}
+        <section className="mb-4" style={cardStyle}>
+          <div className="flex items-center gap-2 mb-1">
+            <FolderOpen size={15} style={{ color: 'var(--accent-text)' }} />
+            <span style={sectionLabelStyle}>Document Vault</span>
+          </div>
+          <p style={{ fontSize: '0.8125rem', color: 'var(--muted)', marginBottom: '0.875rem' }}>View all uploaded receipts, W-2s, and paystubs in one place.</p>
+          <button onClick={() => navigate('/vault')}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', backgroundColor: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '0.875rem', cursor: 'pointer', color: 'var(--text)', fontSize: '0.875rem', fontWeight: 600 }}>
+            <span>Open Document Vault</span>
+            <ChevronRight size={16} style={{ color: 'var(--subtle)' }} />
+          </button>
         </section>
 
         {/* Notifications */}
