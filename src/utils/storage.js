@@ -20,6 +20,7 @@ const KEYS = {
   PLANNING_SETTINGS: 'bt_planning_settings',
   RECURRING_TEMPLATES: 'bt_recurring_templates',
   PAYCHECK_ACTUALS: 'bt_paycheck_actuals',
+  NOTIF_PREFS: 'bt_notif_prefs',
 };
 
 function get(key) {
@@ -121,6 +122,17 @@ export const storage = {
 
   getPaycheckActuals: () => get(KEYS.PAYCHECK_ACTUALS) || [],
   setPaycheckActuals: (v) => set(KEYS.PAYCHECK_ACTUALS, v),
+
+  getNotifPrefs: () => {
+    const saved = get(KEYS.NOTIF_PREFS) || {};
+    return {
+      bills: { overdue: true, dayBefore: true, ...(saved.bills || {}) },
+      commitments: { expiring: true, daysBefore: 3, ...(saved.commitments || {}) },
+      todos: { enabled: true, ...(saved.todos || {}) },
+      shifts: { reminder: false, reminderTime: '18:00', ...(saved.shifts || {}) },
+    };
+  },
+  setNotifPrefs: (v) => set(KEYS.NOTIF_PREFS, v),
 
   getPlanningSettings: () => ({
     tax: {
