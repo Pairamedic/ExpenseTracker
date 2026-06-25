@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { Pencil, Trash2, MoreVertical, TrendingUp, RefreshCw, ChevronLeft, ChevronRight, Plus, Calculator, Clock } from 'lucide-react';
+import { Pencil, Trash2, MoreVertical, TrendingUp, RefreshCw, ChevronLeft, ChevronRight, Plus, Calculator, Clock, Paperclip } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { formatCurrency, monthKey, monthLabel, getIncomeForMonth } from '../utils/helpers';
 import Modal from '../components/Modal';
+import FileUpload from '../components/FileUpload';
 import IncomeForm from '../components/IncomeForm';
 import { PlanningContent } from './Planning';
 import { WorkTimeContent } from './WorkTime';
@@ -17,9 +19,10 @@ function monthlyAmount(item) {
   return item.amount * mult;
 }
 
-function IncomeCard({ item, onEdit, onDelete, spouseEnabled, spouseName }) {
+function IncomeCard({ item, onEdit, onDelete, onAttach, spouseEnabled, spouseName }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const monthly = monthlyAmount(item);
+  const attachCount = (item.attachments || []).length;
 
   return (
     <div style={{ position: 'relative', backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', padding: '1rem' }}>
@@ -52,9 +55,17 @@ function IncomeCard({ item, onEdit, onDelete, spouseEnabled, spouseName }) {
           </button>
         </div>
       </div>
-      {item.frequency !== 'monthly' && (
-        <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.5rem' }}>{formatCurrency(item.amount)} per paycheck</p>
-      )}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.5rem' }}>
+        {item.frequency !== 'monthly'
+          ? <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>{formatCurrency(item.amount)} per paycheck</p>
+          : <span />}
+        <button
+          onClick={() => onAttach?.(item)}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', color: attachCount > 0 ? 'var(--accent-text)' : 'var(--muted)', backgroundColor: attachCount > 0 ? 'rgba(99,102,241,0.1)' : 'var(--surface2)', border: `1px solid ${attachCount > 0 ? 'rgba(99,102,241,0.3)' : 'var(--border)'}`, padding: '0.375rem 0.625rem', borderRadius: '0.5rem', cursor: 'pointer' }}>
+          <Paperclip size={12} />
+          {attachCount > 0 ? attachCount : 'Attach'}
+        </button>
+      </div>
       {menuOpen && (
         <>
           <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setMenuOpen(false)} />
@@ -76,9 +87,11 @@ function IncomeCard({ item, onEdit, onDelete, spouseEnabled, spouseName }) {
 
 export default function Income() {
   const { income, addIncome, updateIncome, deleteIncome, settings } = useApp();
+  const { user } = useAuth();
   const [mk, setMk] = useState(() => monthKey(new Date()));
   const [showAdd, setShowAdd] = useState(false);
   const [editItem, setEditItem] = useState(null);
+  const [attachItemId, setAttachItemId] = useState(null);
   const [viewMode, setViewMode] = useState('income');
 
   const monthIncome = getIncomeForMonth(income, mk);
@@ -171,6 +184,7 @@ export default function Income() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {monthIncome.map((item) => (
                   <IncomeCard key={item.id} item={item} onEdit={setEditItem} onDelete={deleteIncome}
+                    onAttach={(i) => setAttachItemId(i.id)}
                     spouseEnabled={settings.spouseEnabled} spouseName={settings.spouseName} />
                 ))}
               </div>
@@ -195,6 +209,22 @@ export default function Income() {
             spouseEnabled={settings.spouseEnabled} spouseName={settings.spouseName} />
         </Modal>
       )}
+      {attachItemId && (() => {
+        const item = income.find((i) => i.id === attachItemId);
+        if (!item) return null;
+        return (
+          <Modal title={`Documents · ${item.source}`} onClose={() => setAttachItemId(null)}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '1rem' }}>W-2s, W-4s, paystubs, offer letters</p>
+            <FileUpload
+              storagePath={`users/${user?.uid}/income/${item.id}`}
+              attachments={item.attachments || []}
+              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+              onAdd={(att) => updateIncome(item.id, { attachments: [...(item.attachments || []), att] })}
+              onRemove={(id) => updateIncome(item.id, { attachments: (item.attachments || []).filter((a) => a.id !== id) })}
+            />
+          </Modal>
+        );
+      })()}
     </div>
   );
 }
