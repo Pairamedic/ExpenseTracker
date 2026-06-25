@@ -345,7 +345,7 @@ export default function Dashboard() {
   const monthPurchases = purchases.filter((p) => p.date && p.date.startsWith(mk));
   const monthSpent = monthPurchases.reduce((s, p) => s + p.amount, 0);
 
-  // Budget envelope totals for current viewed month
+  // Budget envelope totals — must be declared before availableToSpend
   const monthBudgetSpends = budgetSpends.filter((s) => (s.month || s.monthKey) === mk);
   const totalEnvelopeLimit = budgetCategories.reduce((s, c) => s + (c.monthlyLimit || 0), 0);
   const totalEnvelopeSpent = monthBudgetSpends.reduce((s, sp) => s + (sp.amount || 0), 0);
