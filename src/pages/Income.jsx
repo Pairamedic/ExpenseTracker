@@ -89,32 +89,34 @@ export default function Income() {
   return (
     <div className="app-page">
       <div className="app-header">
-        {/* Title row with view toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.875rem' }}>
+        {/* Title row */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
           <h1 style={{ fontSize: '1.625rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-0.02em' }}>Income</h1>
-          <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', padding: '0.2rem', gap: '0.125rem' }}>
-            <button onClick={() => setViewMode('income')}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.375rem 0.75rem', borderRadius: '0.5rem', fontSize: '0.8rem', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'all 0.15s',
-                backgroundColor: viewMode === 'income' ? 'var(--surface)' : 'transparent',
-                color: viewMode === 'income' ? 'var(--text)' : 'var(--subtle)',
-                boxShadow: viewMode === 'income' ? '0 1px 4px rgba(0,0,0,0.15)' : 'none' }}>
-              <TrendingUp size={13} /> Income
-            </button>
-            <button onClick={() => setViewMode('planning')}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.375rem 0.75rem', borderRadius: '0.5rem', fontSize: '0.8rem', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'all 0.15s',
-                backgroundColor: viewMode === 'planning' ? 'var(--surface)' : 'transparent',
-                color: viewMode === 'planning' ? 'var(--accent-text)' : 'var(--subtle)',
-                boxShadow: viewMode === 'planning' ? '0 1px 4px rgba(0,0,0,0.15)' : 'none' }}>
-              <Calculator size={13} /> Planning
-            </button>
-            <button onClick={() => setViewMode('worktime')}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.375rem 0.75rem', borderRadius: '0.5rem', fontSize: '0.8rem', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'all 0.15s',
-                backgroundColor: viewMode === 'worktime' ? 'var(--surface)' : 'transparent',
-                color: viewMode === 'worktime' ? 'var(--accent-text)' : 'var(--subtle)',
-                boxShadow: viewMode === 'worktime' ? '0 1px 4px rgba(0,0,0,0.15)' : 'none' }}>
-              <Clock size={13} /> Work Time
-            </button>
-          </div>
+        </div>
+
+        {/* Tab bar — full width so Work Time doesn't wrap */}
+        <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', padding: '0.2rem', gap: '0.125rem', marginBottom: '0.875rem' }}>
+          <button onClick={() => setViewMode('income')}
+            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem', padding: '0.375rem 0.5rem', borderRadius: '0.5rem', fontSize: '0.8rem', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap',
+              backgroundColor: viewMode === 'income' ? 'var(--surface)' : 'transparent',
+              color: viewMode === 'income' ? 'var(--text)' : 'var(--subtle)',
+              boxShadow: viewMode === 'income' ? '0 1px 4px rgba(0,0,0,0.15)' : 'none' }}>
+            <TrendingUp size={13} /> Income
+          </button>
+          <button onClick={() => setViewMode('planning')}
+            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem', padding: '0.375rem 0.5rem', borderRadius: '0.5rem', fontSize: '0.8rem', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap',
+              backgroundColor: viewMode === 'planning' ? 'var(--surface)' : 'transparent',
+              color: viewMode === 'planning' ? 'var(--accent-text)' : 'var(--subtle)',
+              boxShadow: viewMode === 'planning' ? '0 1px 4px rgba(0,0,0,0.15)' : 'none' }}>
+            <Calculator size={13} /> Planning
+          </button>
+          <button onClick={() => setViewMode('worktime')}
+            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem', padding: '0.375rem 0.5rem', borderRadius: '0.5rem', fontSize: '0.8rem', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap',
+              backgroundColor: viewMode === 'worktime' ? 'var(--surface)' : 'transparent',
+              color: viewMode === 'worktime' ? 'var(--accent-text)' : 'var(--subtle)',
+              boxShadow: viewMode === 'worktime' ? '0 1px 4px rgba(0,0,0,0.15)' : 'none' }}>
+            <Clock size={13} /> Work Time
+          </button>
         </div>
 
         {viewMode === 'income' && (
