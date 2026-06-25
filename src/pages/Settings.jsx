@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
 import { formatCurrency, exportAllData, exportAsHTML } from '../utils/helpers';
-import { notificationPermission } from '../utils/notifications';
+import { notificationPermission, sendNotification } from '../utils/notifications';
 
 const ALL_EXPORT_CATS = [
   { key: 'bills', label: 'Bills' },
@@ -341,8 +341,16 @@ export default function Settings() {
               )}
 
               <p style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-text)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem', marginTop: '0.5rem' }}>Bills</p>
-              <NotifRow label="Overdue bill alert" checked={!!notifPrefs.bills?.overdue} onChange={(v) => updatePref('bills', 'overdue', v)} />
+              <NotifRow label="Same-day reminder (8 AM)" sublabel="Notification at 8 AM on the day a bill is due" checked={!!notifPrefs.bills?.sameDay} onChange={(v) => updatePref('bills', 'sameDay', v)} />
+              <NotifRow label="Overdue bill alert" sublabel="Fires immediately when a bill is past due" checked={!!notifPrefs.bills?.overdue} onChange={(v) => updatePref('bills', 'overdue', v)} />
               <NotifRow label="1-day payment reminder" sublabel="Fires the day before a bill is due" checked={!!notifPrefs.bills?.dayBefore} onChange={(v) => updatePref('bills', 'dayBefore', v)} />
+              <div style={{ paddingTop: '0.75rem' }}>
+                <button
+                  onClick={() => sendNotification('Bill Due Today: Rent', { body: '$1,200.00 due today — this is a test', tag: 'test-notif-' + Date.now() })}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--accent-text)', backgroundColor: 'var(--accent-soft)', border: '1px solid var(--accent)', borderRadius: '0.625rem', padding: '0.5rem 0.875rem', cursor: 'pointer' }}>
+                  <Bell size={13} /> Send test notification
+                </button>
+              </div>
 
               <p style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-text)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem', marginTop: '1rem' }}>Commitments</p>
               <NotifRow label="Expiring commitment alert" checked={!!notifPrefs.commitments?.expiring} onChange={(v) => updatePref('commitments', 'expiring', v)} />
