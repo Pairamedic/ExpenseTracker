@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { User, Trash2, AlertTriangle, Wallet, PiggyBank, DollarSign, Sun, Moon, LogOut, Mail, Download, Share2, RefreshCw, Copy, Check, X } from 'lucide-react';
+import { User, Trash2, AlertTriangle, Wallet, PiggyBank, DollarSign, Sun, Moon, LogOut, Mail, Download, Share2, RefreshCw, Copy, Check, X, Bell, BellOff } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
 import { formatCurrency, exportAllData, exportAsHTML } from '../utils/helpers';
+import { notificationPermission } from '../utils/notifications';
 
 const ALL_EXPORT_CATS = [
   { key: 'bills', label: 'Bills' },
@@ -15,8 +16,22 @@ const ALL_EXPORT_CATS = [
   { key: 'purchases', label: 'Spending' },
 ];
 
+function NotifRow({ label, sublabel, checked, onChange }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border)' }}>
+      <div>
+        <p style={{ fontSize: '0.875rem', color: 'var(--text)' }}>{label}</p>
+        {sublabel && <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>{sublabel}</p>}
+      </div>
+      <button onClick={() => onChange(!checked)} style={{ width: '2.75rem', height: '1.625rem', borderRadius: '9999px', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s', backgroundColor: checked ? 'var(--accent)' : 'var(--surface2)', position: 'relative', flexShrink: 0 }}>
+        <span style={{ position: 'absolute', top: '2px', left: checked ? 'calc(100% - 1.25rem)' : '2px', width: '1.25rem', height: '1.25rem', borderRadius: '9999px', backgroundColor: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
+      </button>
+    </div>
+  );
+}
+
 export default function Settings() {
-  const { settings, setSettings, bills, income, debts, savings, commitments, plannedExpenses, purchases, generateShareLink, revokeShareLink, refreshShareLink } = useApp();
+  const { settings, setSettings, bills, income, debts, savings, commitments, plannedExpenses, purchases, generateShareLink, revokeShareLink, refreshShareLink, notifPrefs, persistNotifPrefs, fcmToken, enablePushNotifications } = useApp();
   const { user, signOut } = useAuth();
   const [form, setForm] = useState({ ...settings });
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -25,6 +40,11 @@ export default function Settings() {
   const [shareLoading, setShareLoading] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [shareError, setShareError] = useState('');
+  const [notifPermission, setNotifPermission] = useState(() => notificationPermission());
+  const [notifEnabling, setNotifEnabling] = useState(false);
+
+  const updatePref = (category, key, value) =>
+    persistNotifPrefs({ ...notifPrefs, [category]: { ...(notifPrefs[category] || {}), [key]: value } });
 
   const toggleCat = (key) => setExportCats((prev) =>
     prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
@@ -263,6 +283,88 @@ export default function Settings() {
                   <p style={{ fontWeight: '700', marginBottom: '0.25rem' }}>Firestore rules not deployed</p>
                   <p style={{ color: 'var(--muted)', marginBottom: '0.5rem' }}>Go to Firebase Console → Firestore Database → Rules tab and paste this rule inside the existing rules block:</p>
                   <pre style={{ fontSize: '0.7rem', backgroundColor: 'var(--surface2)', padding: '0.5rem', borderRadius: '0.5rem', overflowX: 'auto', color: 'var(--text)', margin: 0 }}>{`match /shared/{token} {\n  allow read: if true;\n  allow write: if request.auth != null;\n}`}</pre>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* Notifications */}
+        <section className="mb-4" style={cardStyle}>
+          <div className="flex items-center gap-2 mb-3">
+            <Bell size={15} style={{ color: 'var(--accent-text)' }} />
+            <span style={sectionLabelStyle}>Notifications</span>
+          </div>
+
+          {notifPermission === 'denied' ? (
+            <div style={{ backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', padding: '0.75rem' }}>
+              <div className="flex items-center gap-2 mb-1">
+                <BellOff size={15} style={{ color: 'var(--danger)' }} />
+                <p style={{ fontSize: '0.875rem', color: 'var(--danger)', fontWeight: 600 }}>Notifications blocked</p>
+              </div>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--muted)' }}>Open your browser or device settings and allow notifications for this site, then reload.</p>
+            </div>
+          ) : notifPermission !== 'granted' ? (
+            <div>
+              <p style={{ fontSize: '0.875rem', color: 'var(--muted)', marginBottom: '0.75rem' }}>
+                Get alerted for overdue bills, expiring commitments, to-do deadlines, and daily work log reminders — even when the app is in the background.
+              </p>
+              <button
+                onClick={async () => {
+                  setNotifEnabling(true);
+                  const res = await enablePushNotifications();
+                  setNotifEnabling(false);
+                  setNotifPermission(notificationPermission());
+                  if (!res.ok && res.reason === 'denied') return;
+                }}
+                disabled={notifEnabling}
+                className="app-btn-primary"
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Bell size={14} />
+                {notifEnabling ? 'Requesting…' : 'Enable Notifications'}
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <Check size={14} style={{ color: 'var(--positive-text)' }} />
+                <p style={{ fontSize: '0.8125rem', color: 'var(--positive-text)', fontWeight: 600 }}>
+                  {fcmToken ? 'Push notifications active' : 'In-app notifications active'}
+                </p>
+              </div>
+              {!fcmToken && (
+                <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginBottom: '0.75rem', backgroundColor: 'var(--surface2)', padding: '0.625rem', borderRadius: '0.625rem' }}>
+                  Background push (when app is closed) requires a VAPID key — see VITE_FCM_VAPID_KEY in the project README. In-app alerts work now.
+                </p>
+              )}
+
+              <p style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-text)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem', marginTop: '0.5rem' }}>Bills</p>
+              <NotifRow label="Overdue bill alert" checked={!!notifPrefs.bills?.overdue} onChange={(v) => updatePref('bills', 'overdue', v)} />
+              <NotifRow label="1-day payment reminder" sublabel="Fires the day before a bill is due" checked={!!notifPrefs.bills?.dayBefore} onChange={(v) => updatePref('bills', 'dayBefore', v)} />
+
+              <p style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-text)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem', marginTop: '1rem' }}>Commitments</p>
+              <NotifRow label="Expiring commitment alert" checked={!!notifPrefs.commitments?.expiring} onChange={(v) => updatePref('commitments', 'expiring', v)} />
+              {notifPrefs.commitments?.expiring && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0 0.25rem 0.25rem' }}>
+                  <span style={{ fontSize: '0.8125rem', color: 'var(--muted)' }}>Notify</span>
+                  <select value={notifPrefs.commitments?.daysBefore ?? 3} onChange={(e) => updatePref('commitments', 'daysBefore', Number(e.target.value))}
+                    style={{ backgroundColor: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '0.5rem', padding: '0.25rem 0.5rem', color: 'var(--text)', fontSize: '0.875rem' }}>
+                    {[1, 2, 3, 5, 7, 14].map((d) => <option key={d} value={d}>{d} day{d !== 1 ? 's' : ''}</option>)}
+                  </select>
+                  <span style={{ fontSize: '0.8125rem', color: 'var(--muted)' }}>before expiry</span>
+                </div>
+              )}
+
+              <p style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-text)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem', marginTop: '1rem' }}>To-Do Lists</p>
+              <NotifRow label="Item due time reminders" sublabel="Uses the time set on each to-do item" checked={!!notifPrefs.todos?.enabled} onChange={(v) => updatePref('todos', 'enabled', v)} />
+
+              <p style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-text)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem', marginTop: '1rem' }}>Work</p>
+              <NotifRow label="Daily hours log reminder" sublabel="Reminds you to log your work hours" checked={!!notifPrefs.shifts?.reminder} onChange={(v) => updatePref('shifts', 'reminder', v)} />
+              {notifPrefs.shifts?.reminder && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0 0 0.25rem' }}>
+                  <span style={{ fontSize: '0.8125rem', color: 'var(--muted)' }}>Remind me at</span>
+                  <input type="time" value={notifPrefs.shifts?.reminderTime || '18:00'} onChange={(e) => updatePref('shifts', 'reminderTime', e.target.value)}
+                    style={{ backgroundColor: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '0.5rem', padding: '0.25rem 0.5rem', color: 'var(--text)', fontSize: '0.875rem' }} />
                 </div>
               )}
             </div>

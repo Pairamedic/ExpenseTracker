@@ -17,5 +17,7 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
+export const FCM_VAPID_KEY = import.meta.env.VITE_FCM_VAPID_KEY || '';
+
 // Lazily resolve messaging — Safari and some browsers don't support it
 export const messaging = isSupported().then((ok) => (ok ? getMessaging(app) : null));

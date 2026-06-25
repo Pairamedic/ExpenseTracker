@@ -1,5 +1,5 @@
-importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.12.5/firebase-messaging-compat.js');
 
 firebase.initializeApp({
   apiKey: 'AIzaSyA2oIL-WXWvzt1Ct256JF0_590CUpdXd_o',
@@ -12,13 +12,14 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// Handle messages received while the app is in the background
 messaging.onBackgroundMessage((payload) => {
-  const notification = payload.notification || {};
-  self.registration.showNotification(notification.title || 'Finance Manager', {
-    body: notification.body || '',
-    icon: notification.icon || '/ExpenseTracker/app-icon.jpeg',
+  const title = payload.notification?.title || payload.data?.title || 'Finance Manager';
+  const body = payload.notification?.body || payload.data?.body || '';
+  self.registration.showNotification(title, {
+    body,
+    icon: '/ExpenseTracker/app-icon.jpeg',
     badge: '/ExpenseTracker/app-icon.jpeg',
-    data: payload.data || {},
+    tag: payload.data?.tag || 'finance-notification',
+    data: payload.data,
   });
 });

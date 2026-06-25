@@ -36,11 +36,13 @@ export function AppProvider({ children, uid }) {
   const [planningSettings, setPlanningSettingsState] = useState(() => storage.getPlanningSettings());
   const [recurringTemplates, setRecurringTemplatesState] = useState(() => storage.getRecurringTemplates());
   const [paycheckActuals, setPaycheckActualsState] = useState(() => storage.getPaycheckActuals());
+  const [notifPrefs, setNotifPrefsState] = useState(() => storage.getNotifPrefs());
+  const [fcmToken, setFcmToken] = useState(() => localStorage.getItem('bt_fcm_token') || null);
   const [cloudLoaded, setCloudLoaded] = useState(false);
 
   // Use refs to always have fresh values for the save function
   const stateRef = useRef({});
-  stateRef.current = { bills, income, budget, settings, notes, debts, savings, commitments, purchases, plannedExpenses, jobs, shifts, budgetCategories, budgetSpends, agreements, shoppingLists, shoppingItems, planningSettings, recurringTemplates, paycheckActuals };
+  stateRef.current = { bills, income, budget, settings, notes, debts, savings, commitments, purchases, plannedExpenses, jobs, shifts, budgetCategories, budgetSpends, agreements, shoppingLists, shoppingItems, planningSettings, recurringTemplates, paycheckActuals, notifPrefs, fcmToken };
 
   // Load from Firestore on login
   useEffect(() => {
@@ -78,6 +80,8 @@ export function AppProvider({ children, uid }) {
         }
         if (data.recurringTemplates) { setRecurringTemplatesState(data.recurringTemplates); storage.setRecurringTemplates(data.recurringTemplates); }
         if (data.paycheckActuals) { setPaycheckActualsState(data.paycheckActuals); storage.setPaycheckActuals(data.paycheckActuals); }
+        if (data.notifPrefs) { setNotifPrefsState({ ...storage.getNotifPrefs(), ...data.notifPrefs, bills: { ...storage.getNotifPrefs().bills, ...(data.notifPrefs.bills || {}) }, commitments: { ...storage.getNotifPrefs().commitments, ...(data.notifPrefs.commitments || {}) }, todos: { ...storage.getNotifPrefs().todos, ...(data.notifPrefs.todos || {}) }, shifts: { ...storage.getNotifPrefs().shifts, ...(data.notifPrefs.shifts || {}) } }); storage.setNotifPrefs(data.notifPrefs); }
+        if (data.fcmToken && !fcmToken) { setFcmToken(data.fcmToken); localStorage.setItem('bt_fcm_token', data.fcmToken); }
       } else {
         // First login — upload existing localStorage data to Firestore
         saveUserData(uid, stateRef.current);
@@ -169,6 +173,23 @@ export function AppProvider({ children, uid }) {
     setAgreementsState(next); storage.setAgreements(next);
     debouncedSync({ agreements: next });
   }, [debouncedSync]);
+
+  const persistNotifPrefs = useCallback((next) => {
+    setNotifPrefsState(next); storage.setNotifPrefs(next);
+    debouncedSync({ notifPrefs: next });
+  }, [debouncedSync]);
+
+  const enablePushNotifications = useCallback(async () => {
+    const perm = await requestNotificationPermission();
+    if (perm !== 'granted') return { ok: false, reason: perm };
+    const token = await getFcmToken();
+    if (token) {
+      setFcmToken(token);
+      localStorage.setItem('bt_fcm_token', token);
+      if (uid) saveUserData(uid, { fcmToken: token });
+    }
+    return { ok: true, hasPush: !!token };
+  }, [uid]);
 
   const persistShoppingLists = useCallback((next) => {
     setShoppingListsState(next); storage.setShoppingLists(next);
@@ -487,6 +508,7 @@ export function AppProvider({ children, uid }) {
   const todoNotifiedRef = useRef(new Set());
   useEffect(() => {
     if (notificationPermission() !== 'granted') return;
+    if (notifPrefs.todos?.enabled === false) return;
     const timers = {};
     const now = Date.now();
     const todoListIds = new Set(shoppingLists.filter((l) => l.type === 'todo').map((l) => l.id));
@@ -510,7 +532,79 @@ export function AppProvider({ children, uid }) {
       }
     });
     return () => Object.values(timers).forEach(clearTimeout);
-  }, [shoppingItems, shoppingLists]);
+  }, [shoppingItems, shoppingLists, notifPrefs.todos]);
+
+  // ── Bill notifications ──
+  const billNotifiedRef = useRef(new Set());
+  useEffect(() => {
+    if (notificationPermission() !== 'granted') return;
+    const { overdue, dayBefore } = notifPrefs.bills || {};
+    if (!overdue && !dayBefore) return;
+    const today = new Date();
+    const todayDay = today.getDate();
+    const mk = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    bills.forEach((bill) => {
+      if (!bill.dueDay || bill.isPermanent) return;
+      const status = getBillStatus(bill, mk);
+      if (status === 'paid') return;
+      if (overdue && bill.dueDay < todayDay) {
+        const key = `bill-overdue-${bill.id}`;
+        if (!billNotifiedRef.current.has(key)) {
+          billNotifiedRef.current.add(key);
+          sendNotification(`Bill Overdue: ${bill.name}`, { body: `$${bill.amount} — due on the ${bill.dueDay}th`, tag: key });
+        }
+      }
+      if (dayBefore && bill.dueDay === todayDay + 1) {
+        const key = `bill-tomorrow-${bill.id}`;
+        if (!billNotifiedRef.current.has(key)) {
+          billNotifiedRef.current.add(key);
+          sendNotification(`Bill Due Tomorrow: ${bill.name}`, { body: `$${bill.amount} due tomorrow`, tag: key });
+        }
+      }
+    });
+  }, [bills, notifPrefs.bills]);
+
+  // ── Commitment expiry notifications ──
+  const commitNotifiedRef = useRef(new Set());
+  useEffect(() => {
+    if (notificationPermission() !== 'granted') return;
+    if (!notifPrefs.commitments?.expiring) return;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const daysBefore = notifPrefs.commitments.daysBefore ?? 3;
+    commitments.forEach((c) => {
+      if (c.completed || !c.endDate) return;
+      const end = new Date(c.endDate + 'T12:00:00');
+      const diffDays = Math.round((end.getTime() - today.getTime()) / 86400000);
+      if (diffDays < 0 || diffDays > daysBefore) return;
+      const key = `commit-exp-${c.id}`;
+      if (commitNotifiedRef.current.has(key)) return;
+      commitNotifiedRef.current.add(key);
+      const body = diffDays === 0 ? 'Expires today' : diffDays === 1 ? 'Expires tomorrow' : `Expires in ${diffDays} days`;
+      sendNotification(`Commitment: ${c.description || 'Commitment'}`, { body, tag: key });
+    });
+  }, [commitments, notifPrefs.commitments]);
+
+  // ── Shift log reminder ──
+  const shiftReminderRef = useRef({ lastDate: null, timer: null });
+  useEffect(() => {
+    if (notificationPermission() !== 'granted') return;
+    if (!notifPrefs.shifts?.reminder) return;
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+    const [h, m] = (notifPrefs.shifts.reminderTime || '18:00').split(':').map(Number);
+    const reminderMs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m).getTime();
+    const fire = () => {
+      if (shiftReminderRef.current.lastDate !== todayStr) {
+        shiftReminderRef.current.lastDate = todayStr;
+        sendNotification('Work Log Reminder', { body: "Don't forget to log your hours for today!", tag: 'shift-reminder' });
+      }
+    };
+    const delay = reminderMs - now.getTime();
+    if (delay <= 0) { fire(); return; }
+    const t = setTimeout(fire, delay);
+    shiftReminderRef.current.timer = t;
+    return () => clearTimeout(t);
+  }, [notifPrefs.shifts]);
 
   return (
     <AppContext.Provider value={{
@@ -536,6 +630,7 @@ export function AppProvider({ children, uid }) {
       paycheckActuals, addPaycheckActual, updatePaycheckActual, deletePaycheckActual,
       settings, setSettings: persistSettings,
       generateShareLink, revokeShareLink, refreshShareLink,
+      notifPrefs, persistNotifPrefs, fcmToken, enablePushNotifications,
     }}>
       {children}
     </AppContext.Provider>
