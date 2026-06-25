@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ShoppingBag, Pencil, Trash2, MoreVertical, ChevronLeft, ChevronRight, Plus, RefreshCw, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Calendar, Upload, X, AlertCircle, Download, Paperclip } from 'lucide-react';
+import { ShoppingBag, Pencil, Trash2, MoreVertical, ChevronLeft, ChevronRight, Plus, RefreshCw, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Calendar, Upload, X, AlertCircle, Download, Paperclip, CheckCircle2, Circle, Target, Folder, Handshake } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { formatCurrency, monthKey, monthLabel, exportMonthCSV, generateId } from '../utils/helpers';
@@ -9,6 +9,8 @@ import PurchaseForm from '../components/PurchaseForm';
 import BillForm from '../components/BillForm';
 import FileUpload from '../components/FileUpload';
 import { uploadFile } from '../utils/storageUtils';
+import CommitmentForm from '../components/CommitmentForm';
+import PlannedExpenseForm from '../components/PlannedExpenseForm';
 
 const PURCHASE_CATEGORIES = [
   'Food & Dining', 'Groceries', 'Gas & Fuel', 'Shopping', 'Entertainment',
@@ -331,10 +333,461 @@ function PurchaseRow({ purchase, onEdit, onDelete, onAttach, myName, spouseName 
   );
 }
 
+// ── Commitments Tab ──────────────────────────────────────────────────────────
+
+function AgreementForm({ initial = {}, onSave, onCancel, myName, spouseName }) {
+  const [form, setForm] = useState({ description: '', amount: '', person: 'me', date: new Date().toISOString().slice(0, 10), notes: '', ...initial, amount: initial.amount != null ? String(initial.amount) : '' });
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!form.description.trim()) return;
+    onSave({ ...form, amount: form.amount ? parseFloat(form.amount) : null });
+  };
+  return (
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div>
+        <label className="app-label">Description *</label>
+        <input autoFocus className="app-input" placeholder="e.g. Aaron owes Cameron $50 for groceries" value={form.description} onChange={(e) => set('description', e.target.value)} required />
+      </div>
+      <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div style={{ flex: 1 }}>
+          <label className="app-label">Amount <span style={{ color: 'var(--subtle)', fontSize: '0.75rem' }}>(optional)</span></label>
+          <input type="number" min="0" step="0.01" className="app-input" placeholder="0.00" value={form.amount} onChange={(e) => set('amount', e.target.value)} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <label className="app-label">Date</label>
+          <input type="date" className="app-input" value={form.date} onChange={(e) => set('date', e.target.value)} />
+        </div>
+      </div>
+      <div>
+        <label className="app-label">Who</label>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          {[['me', myName || 'Me'], ['partner', spouseName || 'Partner'], ['both', 'Both']].map(([val, label]) => (
+            <button key={val} type="button" onClick={() => set('person', val)}
+              style={{ flex: 1, padding: '0.625rem', borderRadius: '0.75rem', border: `2px solid ${form.person === val ? 'var(--accent)' : 'var(--border)'}`, backgroundColor: form.person === val ? 'rgba(99,102,241,0.12)' : 'var(--surface2)', color: form.person === val ? 'var(--accent-text)' : 'var(--muted)', fontSize: '0.8125rem', fontWeight: '600', cursor: 'pointer' }}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <label className="app-label">Notes <span style={{ color: 'var(--subtle)', fontSize: '0.75rem' }}>(optional)</span></label>
+        <textarea rows={2} className="app-input" style={{ resize: 'none' }} placeholder="Context, terms, etc." value={form.notes} onChange={(e) => set('notes', e.target.value)} />
+      </div>
+      <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <button type="button" onClick={onCancel} className="app-btn-secondary" style={{ flex: 1 }}>Cancel</button>
+        <button type="submit" className="app-btn-primary" style={{ flex: 1 }}>Save Deal</button>
+      </div>
+    </form>
+  );
+}
+
+function CommitmentsTab({ commitments, addCommitment, updateCommitment, deleteCommitment, toggleCommitment, agreements, addAgreement, updateAgreement, deleteAgreement, myName, spouseName }) {
+  const [showAddC, setShowAddC] = useState(false);
+  const [editC, setEditC] = useState(null);
+  const [showDone, setShowDone] = useState(false);
+  const [showAddDeal, setShowAddDeal] = useState(false);
+  const [editDeal, setEditDeal] = useState(null);
+  const [showSettled, setShowSettled] = useState(false);
+
+  const open = commitments.filter((c) => !c.completed);
+  const done = commitments.filter((c) => c.completed);
+  const active = agreements.filter((a) => a.status !== 'settled');
+  const settled = agreements.filter((a) => a.status === 'settled');
+
+  const formatDate = (d) => d ? new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+  const myLabel = myName || 'Me';
+  const partnerLabel = spouseName || 'Partner';
+
+  return (
+    <div style={{ padding: '0 1rem 2rem' }}>
+      {/* Commitments / To-dos */}
+      <div style={{ marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+          <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', fontWeight: '700' }}>To-dos &amp; Commitments</p>
+          <button onClick={() => setShowAddC(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.875rem', color: 'var(--accent-text)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700' }}>
+            <Plus size={15} /> Add
+          </button>
+        </div>
+        {commitments.length === 0 ? (
+          <div style={{ backgroundColor: 'var(--surface)', border: '1px dashed var(--border)', borderRadius: '1rem', padding: '2rem', textAlign: 'center' }}>
+            <CheckCircle2 size={32} style={{ margin: '0 auto 0.75rem', display: 'block', color: 'var(--subtle)' }} />
+            <p style={{ fontSize: '0.9375rem', color: 'var(--muted)', marginBottom: '1rem' }}>Nothing here yet. Add commitments and to-dos to track.</p>
+            <button onClick={() => setShowAddC(true)} className="app-btn-primary" style={{ maxWidth: '12rem', margin: '0 auto', fontSize: '0.875rem' }}>
+              <Plus size={14} /> Add Commitment
+            </button>
+          </div>
+        ) : (
+          <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', overflow: 'hidden' }}>
+            {open.map((c, i) => (
+              <div key={c.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.875rem', padding: '1rem', borderBottom: i < open.length - 1 || done.length > 0 ? '1px solid var(--border)' : 'none' }}>
+                <button onClick={() => toggleCommitment(c.id)} style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--border2)', paddingTop: '0.1rem' }}>
+                  <Circle size={22} />
+                </button>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--text)' }}>{c.description}</p>
+                  <div style={{ display: 'flex', gap: '0.625rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
+                    {c.amount != null && <span style={{ fontSize: '0.8125rem', color: 'var(--accent-text)', fontWeight: '700' }}>{formatCurrency(c.amount)}</span>}
+                    {c.endDate && <span style={{ fontSize: '0.8125rem', color: 'var(--subtle)' }}>Due {formatDate(c.endDate)}</span>}
+                    <span style={{ fontSize: '0.8125rem', color: 'var(--subtle)' }}>{c.person === 'me' ? myLabel : c.person === 'partner' ? partnerLabel : 'Both'}</span>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '0.25rem', flexShrink: 0 }}>
+                  <button onClick={() => setEditC(c)} style={{ padding: '0.375rem', color: 'var(--subtle)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}><Pencil size={14} /></button>
+                  <button onClick={() => deleteCommitment(c.id)} style={{ padding: '0.375rem', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}><Trash2 size={14} /></button>
+                </div>
+              </div>
+            ))}
+            {done.length > 0 && (
+              <button onClick={() => setShowDone(!showDone)} style={{ width: '100%', padding: '0.75rem 1rem', fontSize: '0.8125rem', color: 'var(--subtle)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', borderTop: open.length > 0 ? '1px solid var(--border)' : 'none', borderBottom: showDone ? '1px solid var(--border)' : 'none' }}>
+                {showDone ? '▾' : '▸'} {done.length} completed
+              </button>
+            )}
+            {showDone && done.map((c, i) => (
+              <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', padding: '0.875rem 1rem', borderBottom: i < done.length - 1 ? '1px solid var(--border)' : 'none', opacity: 0.55 }}>
+                <button onClick={() => toggleCommitment(c.id)} style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--positive)' }}>
+                  <CheckCircle2 size={22} />
+                </button>
+                <p style={{ flex: 1, fontSize: '0.9375rem', color: 'var(--muted)', textDecoration: 'line-through' }}>{c.description}</p>
+                <button onClick={() => deleteCommitment(c.id)} style={{ padding: '0.375rem', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}><Trash2 size={14} /></button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Deals / Agreements */}
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+          <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', fontWeight: '700' }}>Financial Deals</p>
+          <button onClick={() => setShowAddDeal(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.875rem', color: 'var(--accent-text)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700' }}>
+            <Plus size={15} /> Add
+          </button>
+        </div>
+        {agreements.length === 0 ? (
+          <div style={{ backgroundColor: 'var(--surface)', border: '1px dashed var(--border)', borderRadius: '1rem', padding: '2rem', textAlign: 'center' }}>
+            <Handshake size={32} style={{ margin: '0 auto 0.75rem', display: 'block', color: 'var(--subtle)' }} />
+            <p style={{ fontSize: '0.9375rem', color: 'var(--muted)', marginBottom: '1rem' }}>No deals recorded. Log who owes what between you and your partner.</p>
+            <button onClick={() => setShowAddDeal(true)} className="app-btn-primary" style={{ maxWidth: '12rem', margin: '0 auto', fontSize: '0.875rem' }}>
+              <Plus size={14} /> Log a Deal
+            </button>
+          </div>
+        ) : (
+          <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', overflow: 'hidden' }}>
+            {active.map((ag, i) => (
+              <div key={ag.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '1rem', borderBottom: i < active.length - 1 || settled.length > 0 ? '1px solid var(--border)' : 'none' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--text)' }}>{ag.description}</p>
+                  <div style={{ display: 'flex', gap: '0.625rem', marginTop: '0.2rem', flexWrap: 'wrap' }}>
+                    {ag.amount != null && ag.amount > 0 && <span style={{ fontSize: '0.8125rem', color: 'var(--accent-text)', fontWeight: '700' }}>{formatCurrency(ag.amount)}</span>}
+                    <span style={{ fontSize: '0.8125rem', color: 'var(--subtle)' }}>{ag.person === 'me' ? myLabel : ag.person === 'partner' ? partnerLabel : 'Both'}{ag.date ? ` · ${formatDate(ag.date)}` : ''}</span>
+                  </div>
+                  {ag.notes && <p style={{ fontSize: '0.8125rem', color: 'var(--subtle)', marginTop: '0.25rem' }}>{ag.notes}</p>}
+                </div>
+                <div style={{ display: 'flex', gap: '0.25rem', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  <button onClick={() => updateAgreement(ag.id, { status: 'settled' })}
+                    style={{ fontSize: '0.75rem', fontWeight: '700', padding: '0.35rem 0.625rem', borderRadius: '0.5rem', backgroundColor: 'rgba(16,185,129,0.12)', color: 'var(--positive-text)', border: 'none', cursor: 'pointer' }}>
+                    Settle
+                  </button>
+                  <button onClick={() => setEditDeal(ag)} style={{ padding: '0.35rem', color: 'var(--subtle)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}><Pencil size={13} /></button>
+                  <button onClick={() => deleteAgreement(ag.id)} style={{ padding: '0.35rem', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}><Trash2 size={13} /></button>
+                </div>
+              </div>
+            ))}
+            {settled.length > 0 && (
+              <>
+                <button onClick={() => setShowSettled(!showSettled)} style={{ width: '100%', padding: '0.75rem 1rem', fontSize: '0.8125rem', color: 'var(--subtle)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', borderTop: active.length > 0 ? '1px solid var(--border)' : 'none', borderBottom: showSettled ? '1px solid var(--border)' : 'none' }}>
+                  {showSettled ? '▾' : '▸'} {settled.length} settled
+                </button>
+                {showSettled && settled.map((ag, i) => (
+                  <div key={ag.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', borderBottom: i < settled.length - 1 ? '1px solid var(--border)' : 'none', opacity: 0.5 }}>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: '0.875rem', color: 'var(--muted)', textDecoration: 'line-through' }}>{ag.description}</p>
+                    </div>
+                    <button onClick={() => deleteAgreement(ag.id)} style={{ padding: '0.35rem', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}><Trash2 size={13} /></button>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {showAddC && (
+        <Modal title="Add Commitment" onClose={() => setShowAddC(false)}>
+          <CommitmentForm
+            onSave={(d) => { addCommitment(d); setShowAddC(false); }}
+            onCancel={() => setShowAddC(false)}
+            spouseName={spouseName}
+          />
+        </Modal>
+      )}
+      {editC && (
+        <Modal title="Edit Commitment" onClose={() => setEditC(null)}>
+          <CommitmentForm
+            initial={editC}
+            onSave={(d) => { updateCommitment(editC.id, d); setEditC(null); }}
+            onCancel={() => setEditC(null)}
+            spouseName={spouseName}
+          />
+        </Modal>
+      )}
+      {showAddDeal && (
+        <Modal title="Log a Deal" onClose={() => setShowAddDeal(false)}>
+          <AgreementForm
+            onSave={(d) => { addAgreement(d); setShowAddDeal(false); }}
+            onCancel={() => setShowAddDeal(false)}
+            myName={myName}
+            spouseName={spouseName}
+          />
+        </Modal>
+      )}
+      {editDeal && (
+        <Modal title="Edit Deal" onClose={() => setEditDeal(null)}>
+          <AgreementForm
+            initial={editDeal}
+            onSave={(d) => { updateAgreement(editDeal.id, d); setEditDeal(null); }}
+            onCancel={() => setEditDeal(null)}
+            myName={myName}
+            spouseName={spouseName}
+          />
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ── Goals Tab ─────────────────────────────────────────────────────────────────
+
+function GoalsTab({ plannedExpenses, addPlannedExpense, updatePlannedExpense, deletePlannedExpense, savings }) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [editGoal, setEditGoal] = useState(null);
+
+  const active = plannedExpenses.filter((pe) => pe.status !== 'completed');
+  const done = plannedExpenses.filter((pe) => pe.status === 'completed');
+  const [showDone, setShowDone] = useState(false);
+
+  const formatDate = (d) => d ? new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+
+  return (
+    <div style={{ padding: '0 1rem 2rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+        <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', fontWeight: '700' }}>Planned Expenses &amp; Goals</p>
+        <button onClick={() => setShowAdd(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.875rem', color: 'var(--accent-text)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700' }}>
+          <Plus size={15} /> Add
+        </button>
+      </div>
+      {active.length === 0 && done.length === 0 ? (
+        <div style={{ backgroundColor: 'var(--surface)', border: '1px dashed var(--border)', borderRadius: '1rem', padding: '2rem', textAlign: 'center' }}>
+          <Target size={32} style={{ margin: '0 auto 0.75rem', display: 'block', color: 'var(--subtle)' }} />
+          <p style={{ fontSize: '0.9375rem', color: 'var(--muted)', marginBottom: '1rem' }}>No goals yet. Plan upcoming trips, purchases, or events and link them to savings.</p>
+          <button onClick={() => setShowAdd(true)} className="app-btn-primary" style={{ maxWidth: '12rem', margin: '0 auto', fontSize: '0.875rem' }}>
+            <Plus size={14} /> Add Goal
+          </button>
+        </div>
+      ) : (
+        <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', overflow: 'hidden', marginBottom: active.length > 0 ? '1.5rem' : 0 }}>
+          {active.map((pe, i) => {
+            const linked = savings.find((s) => s.id === pe.fromSavingsId);
+            return (
+              <div key={pe.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '1rem', borderBottom: i < active.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text)' }}>{pe.name}</p>
+                  <div style={{ display: 'flex', gap: '0.625rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.9375rem', fontWeight: '700', color: 'var(--accent-text)' }}>{formatCurrency(pe.amount)}</span>
+                    {pe.targetDate && <span style={{ fontSize: '0.8125rem', color: 'var(--subtle)' }}>{formatDate(pe.targetDate)}</span>}
+                    {linked && <span style={{ fontSize: '0.8125rem', color: 'var(--positive-text)' }}>from {linked.name}</span>}
+                  </div>
+                  {pe.notes && <p style={{ fontSize: '0.8125rem', color: 'var(--subtle)', marginTop: '0.25rem' }}>{pe.notes}</p>}
+                </div>
+                <div style={{ display: 'flex', gap: '0.25rem', flexShrink: 0 }}>
+                  <button onClick={() => updatePlannedExpense(pe.id, { status: 'completed' })}
+                    style={{ fontSize: '0.75rem', fontWeight: '700', padding: '0.35rem 0.625rem', borderRadius: '0.5rem', backgroundColor: 'rgba(16,185,129,0.12)', color: 'var(--positive-text)', border: 'none', cursor: 'pointer' }}>
+                    Done
+                  </button>
+                  <button onClick={() => setEditGoal(pe)} style={{ padding: '0.35rem', color: 'var(--subtle)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}><Pencil size={13} /></button>
+                  <button onClick={() => deletePlannedExpense(pe.id)} style={{ padding: '0.35rem', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}><Trash2 size={13} /></button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {done.length > 0 && (
+        <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', overflow: 'hidden' }}>
+          <button onClick={() => setShowDone(!showDone)} style={{ width: '100%', padding: '0.75rem 1rem', fontSize: '0.8125rem', color: 'var(--subtle)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', borderBottom: showDone ? '1px solid var(--border)' : 'none' }}>
+            {showDone ? '▾' : '▸'} {done.length} completed goal{done.length !== 1 ? 's' : ''}
+          </button>
+          {showDone && done.map((pe, i) => (
+            <div key={pe.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', borderBottom: i < done.length - 1 ? '1px solid var(--border)' : 'none', opacity: 0.55 }}>
+              <CheckCircle2 size={18} style={{ color: 'var(--positive)', flexShrink: 0 }} />
+              <p style={{ flex: 1, fontSize: '0.875rem', color: 'var(--muted)', textDecoration: 'line-through' }}>{pe.name}</p>
+              <span style={{ fontSize: '0.8125rem', fontWeight: '700', color: 'var(--muted)' }}>{formatCurrency(pe.amount)}</span>
+              <button onClick={() => deletePlannedExpense(pe.id)} style={{ padding: '0.35rem', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}><Trash2 size={13} /></button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showAdd && (
+        <Modal title="Add Goal" onClose={() => setShowAdd(false)}>
+          <PlannedExpenseForm
+            savings={savings}
+            onSave={(d) => { addPlannedExpense(d); setShowAdd(false); }}
+            onCancel={() => setShowAdd(false)}
+          />
+        </Modal>
+      )}
+      {editGoal && (
+        <Modal title="Edit Goal" onClose={() => setEditGoal(null)}>
+          <PlannedExpenseForm
+            initial={editGoal}
+            savings={savings}
+            onSave={(d) => { updatePlannedExpense(editGoal.id, d); setEditGoal(null); }}
+            onCancel={() => setEditGoal(null)}
+          />
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ── Projects Tab ──────────────────────────────────────────────────────────────
+
+function ProjectForm({ initial = {}, onSave, onCancel }) {
+  const [form, setForm] = useState({ name: '', notes: '', reviewDate: '', dueDate: '', ...initial });
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!form.name.trim()) return;
+    onSave({ ...form, reviewDate: form.reviewDate || null, dueDate: form.dueDate || null });
+  };
+  return (
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div>
+        <label className="app-label">Project Name *</label>
+        <input autoFocus className="app-input" placeholder="e.g. Kitchen renovation, Career planning" value={form.name} onChange={(e) => set('name', e.target.value)} required />
+      </div>
+      <div>
+        <label className="app-label">Notes</label>
+        <textarea rows={5} className="app-input" style={{ resize: 'vertical', minHeight: '8rem' }} placeholder="Details, steps, ideas, links..." value={form.notes} onChange={(e) => set('notes', e.target.value)} />
+      </div>
+      <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div style={{ flex: 1 }}>
+          <label className="app-label">Review Date <span style={{ color: 'var(--subtle)', fontSize: '0.75rem' }}>(optional)</span></label>
+          <input type="date" className="app-input" value={form.reviewDate || ''} onChange={(e) => set('reviewDate', e.target.value)} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <label className="app-label">Target Date <span style={{ color: 'var(--subtle)', fontSize: '0.75rem' }}>(optional)</span></label>
+          <input type="date" className="app-input" value={form.dueDate || ''} onChange={(e) => set('dueDate', e.target.value)} />
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <button type="button" onClick={onCancel} className="app-btn-secondary" style={{ flex: 1 }}>Cancel</button>
+        <button type="submit" className="app-btn-primary" style={{ flex: 1 }}>Save</button>
+      </div>
+    </form>
+  );
+}
+
+function ProjectsTab({ projects, addProject, updateProject, deleteProject }) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [editProject, setEditProject] = useState(null);
+  const [showDone, setShowDone] = useState(false);
+
+  const active = projects.filter((p) => !p.completed);
+  const done = projects.filter((p) => p.completed);
+
+  const formatDate = (d) => d ? new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+
+  return (
+    <div style={{ padding: '0 1rem 2rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+        <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', fontWeight: '700' }}>Projects &amp; Plans</p>
+        <button onClick={() => setShowAdd(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.875rem', color: 'var(--accent-text)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '700' }}>
+          <Plus size={15} /> New
+        </button>
+      </div>
+      {active.length === 0 && done.length === 0 ? (
+        <div style={{ backgroundColor: 'var(--surface)', border: '1px dashed var(--border)', borderRadius: '1rem', padding: '2rem', textAlign: 'center' }}>
+          <Folder size={32} style={{ margin: '0 auto 0.75rem', display: 'block', color: 'var(--subtle)' }} />
+          <p style={{ fontSize: '0.9375rem', color: 'var(--muted)', marginBottom: '1rem' }}>No projects yet. Keep notes, plans, and ideas for bigger things you're working on.</p>
+          <button onClick={() => setShowAdd(true)} className="app-btn-primary" style={{ maxWidth: '12rem', margin: '0 auto', fontSize: '0.875rem' }}>
+            <Plus size={14} /> New Project
+          </button>
+        </div>
+      ) : (
+        <>
+          {active.map((p) => (
+            <div key={p.id} style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', padding: '1rem', marginBottom: '0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: '1.0625rem', fontWeight: '700', color: 'var(--text)', marginBottom: '0.125rem' }}>{p.name}</p>
+                  <div style={{ display: 'flex', gap: '0.625rem', flexWrap: 'wrap', marginBottom: p.notes ? '0.75rem' : 0 }}>
+                    {p.reviewDate && <span style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>Review {formatDate(p.reviewDate)}</span>}
+                    {p.dueDate && <span style={{ fontSize: '0.75rem', color: 'var(--accent-text)' }}>Due {formatDate(p.dueDate)}</span>}
+                  </div>
+                  {p.notes && (
+                    <p style={{ fontSize: '0.875rem', color: 'var(--muted)', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>{p.notes}</p>
+                  )}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', flexShrink: 0 }}>
+                  <button onClick={() => setEditProject(p)} style={{ padding: '0.375rem', color: 'var(--subtle)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}><Pencil size={14} /></button>
+                  <button onClick={() => deleteProject(p.id)} style={{ padding: '0.375rem', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}><Trash2 size={14} /></button>
+                </div>
+              </div>
+              <button onClick={() => updateProject(p.id, { completed: true })}
+                style={{ marginTop: '0.875rem', width: '100%', padding: '0.625rem', borderRadius: '0.75rem', backgroundColor: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--muted)', fontSize: '0.8125rem', fontWeight: '700', cursor: 'pointer' }}>
+                Mark Complete
+              </button>
+            </div>
+          ))}
+        </>
+      )}
+      {done.length > 0 && (
+        <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', overflow: 'hidden', marginTop: '0.75rem' }}>
+          <button onClick={() => setShowDone(!showDone)} style={{ width: '100%', padding: '0.75rem 1rem', fontSize: '0.8125rem', color: 'var(--subtle)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', borderBottom: showDone ? '1px solid var(--border)' : 'none' }}>
+            {showDone ? '▾' : '▸'} {done.length} completed project{done.length !== 1 ? 's' : ''}
+          </button>
+          {showDone && done.map((p, i) => (
+            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', borderBottom: i < done.length - 1 ? '1px solid var(--border)' : 'none', opacity: 0.55 }}>
+              <CheckCircle2 size={18} style={{ color: 'var(--positive)', flexShrink: 0 }} />
+              <p style={{ flex: 1, fontSize: '0.875rem', color: 'var(--muted)', textDecoration: 'line-through' }}>{p.name}</p>
+              <button onClick={() => updateProject(p.id, { completed: false })} style={{ fontSize: '0.75rem', color: 'var(--accent-text)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600' }}>Reopen</button>
+              <button onClick={() => deleteProject(p.id)} style={{ padding: '0.35rem', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}><Trash2 size={13} /></button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showAdd && (
+        <Modal title="New Project" onClose={() => setShowAdd(false)}>
+          <ProjectForm
+            onSave={(d) => { addProject(d); setShowAdd(false); }}
+            onCancel={() => setShowAdd(false)}
+          />
+        </Modal>
+      )}
+      {editProject && (
+        <Modal title="Edit Project" onClose={() => setEditProject(null)}>
+          <ProjectForm
+            initial={editProject}
+            onSave={(d) => { updateProject(editProject.id, d); setEditProject(null); }}
+            onCancel={() => setEditProject(null)}
+          />
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function Purchases() {
-  const { purchases, addPurchase, updatePurchase, deletePurchase, settings, setSettings, bills, addBill, income, recurringTemplates, addRecurringTemplate, updateRecurringTemplate, deleteRecurringTemplate } = useApp();
+  const { purchases, addPurchase, updatePurchase, deletePurchase, settings, setSettings, bills, addBill, income, recurringTemplates, addRecurringTemplate, updateRecurringTemplate, deleteRecurringTemplate, commitments, addCommitment, updateCommitment, deleteCommitment, toggleCommitment, agreements, addAgreement, updateAgreement, deleteAgreement, plannedExpenses, addPlannedExpense, updatePlannedExpense, deletePlannedExpense, savings, projects, addProject, updateProject, deleteProject } = useApp();
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
+  const [planTab, setPlanTab] = useState('spending');
   const [mk, setMk] = useState(() => monthKey(new Date()));
   const [showAdd, setShowAdd] = useState(() => searchParams.get('new') === '1');
   const [editItem, setEditItem] = useState(null);
@@ -413,24 +866,41 @@ export default function Purchases() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
           <h1 style={{ fontSize: '1.625rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-0.02em' }}>Spending</h1>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button onClick={() => exportMonthCSV(mk, { bills, income, purchases })}
-              title={`Export ${mk} to CSV`}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.75rem', backgroundColor: 'var(--surface)', color: 'var(--muted)', border: '1px solid var(--border)', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer' }}>
-              <Download size={15} />
-            </button>
-            <button onClick={() => setShowImport(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.75rem', backgroundColor: 'var(--surface)', color: 'var(--accent-text)', border: '1px solid var(--accent)', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer' }}>
-              <Upload size={15} /> Import
-            </button>
-            <button onClick={() => setShowAdd(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.875rem', backgroundColor: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer' }}>
-              <Plus size={16} /> Log
-            </button>
+            {planTab === 'spending' && (
+              <>
+                <button onClick={() => exportMonthCSV(mk, { bills, income, purchases })}
+                  title={`Export ${mk} to CSV`}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.75rem', backgroundColor: 'var(--surface)', color: 'var(--muted)', border: '1px solid var(--border)', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer' }}>
+                  <Download size={15} />
+                </button>
+                <button onClick={() => setShowImport(true)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.75rem', backgroundColor: 'var(--surface)', color: 'var(--accent-text)', border: '1px solid var(--accent)', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer' }}>
+                  <Upload size={15} /> Import
+                </button>
+                <button onClick={() => setShowAdd(true)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.875rem', backgroundColor: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer' }}>
+                  <Plus size={16} /> Log
+                </button>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Person filter — always at top */}
+        {/* Tab nav */}
         <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.875rem', padding: '0.25rem', gap: '0.25rem', marginBottom: '1rem' }}>
+          {[['spending', 'Spending'], ['commitments', 'Commitments'], ['goals', 'Goals'], ['projects', 'Projects']].map(([t, label]) => (
+            <button key={t} onClick={() => setPlanTab(t)}
+              style={{ flex: 1, padding: '0.625rem 0', borderRadius: '0.625rem', fontSize: '0.8125rem', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                backgroundColor: planTab === t ? 'var(--surface)' : 'transparent',
+                color: planTab === t ? 'var(--text)' : 'var(--subtle)',
+                boxShadow: planTab === t ? '0 1px 4px rgba(0,0,0,0.15)' : 'none' }}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Person filter — spending tab only */}
+        {planTab === 'spending' && <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.875rem', padding: '0.25rem', gap: '0.25rem', marginBottom: '1rem' }}>
           {[['all', 'All'], ['aaron', aaronLabel], ['cameron', cameronLabel]].map(([val, label]) => (
             <button key={val} onClick={() => setPersonFilter(val)}
               style={{ flex: 1, padding: '0.625rem 0', borderRadius: '0.625rem', fontSize: '0.875rem', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'all 0.15s',
@@ -440,9 +910,9 @@ export default function Purchases() {
               {label}
             </button>
           ))}
-        </div>
+        </div>}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+        {planTab === 'spending' && <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
           <button onClick={() => setMk(monthOffset(mk, -1))} style={{ padding: '0.5rem', borderRadius: '0.75rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
             <ChevronLeft size={20} />
           </button>
@@ -450,10 +920,10 @@ export default function Purchases() {
           <button onClick={() => setMk(monthOffset(mk, 1))} style={{ padding: '0.5rem', borderRadius: '0.75rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
             <ChevronRight size={20} />
           </button>
-        </div>
+        </div>}
 
-        {/* Spending limit card — always visible */}
-        <div style={{ backgroundColor: spendingLimit > 0 ? limitBg : 'var(--surface)', border: `1px solid ${spendingLimit > 0 ? limitBorderColor : 'var(--border)'}`, borderRadius: '1.25rem', padding: '1rem 1.25rem', marginBottom: '0.75rem' }}>
+        {/* Spending limit card */}
+        {planTab === 'spending' && <div style={{ backgroundColor: spendingLimit > 0 ? limitBg : 'var(--surface)', border: `1px solid ${spendingLimit > 0 ? limitBorderColor : 'var(--border)'}`, borderRadius: '1.25rem', padding: '1rem 1.25rem', marginBottom: '0.75rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: spendingLimit > 0 ? '0.625rem' : 0 }}>
             <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: spendingLimit > 0 ? limitColor : 'var(--subtle)' }}>
               Monthly Spending Limit
@@ -495,9 +965,9 @@ export default function Purchases() {
               Tap to set a monthly spending limit →
             </button>
           )}
-        </div>
+        </div>}
 
-        {monthPurchases.length > 0 && (
+        {planTab === 'spending' && monthPurchases.length > 0 && (
           <>
             <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1.25rem', padding: '1.25rem', marginBottom: '0.75rem' }}>
               <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>Total Spent</p>
@@ -522,7 +992,20 @@ export default function Purchases() {
         )}
       </div>
 
-      <div style={{ padding: '0 1rem' }}>
+      {planTab === 'commitments' && <CommitmentsTab
+        commitments={commitments} addCommitment={addCommitment} updateCommitment={updateCommitment} deleteCommitment={deleteCommitment} toggleCommitment={toggleCommitment}
+        agreements={agreements} addAgreement={addAgreement} updateAgreement={updateAgreement} deleteAgreement={deleteAgreement}
+        myName={myName} spouseName={spouseName}
+      />}
+      {planTab === 'goals' && <GoalsTab
+        plannedExpenses={plannedExpenses} addPlannedExpense={addPlannedExpense} updatePlannedExpense={updatePlannedExpense} deletePlannedExpense={deletePlannedExpense}
+        savings={savings}
+      />}
+      {planTab === 'projects' && <ProjectsTab
+        projects={projects} addProject={addProject} updateProject={updateProject} deleteProject={deleteProject}
+      />}
+
+      {planTab === 'spending' && <div style={{ padding: '0 1rem' }}>
         {sorted.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
             <ShoppingBag size={48} style={{ margin: '0 auto 1rem', opacity: 0.2, color: 'var(--muted)', display: 'block' }} />
@@ -555,10 +1038,9 @@ export default function Purchases() {
             )}
           </div>
         )}
-      </div>
+      </div>}
 
-      {/* Recurring Templates */}
-      <div style={{ padding: '0 1rem', marginTop: '1rem' }}>
+      {planTab === 'spending' && <div style={{ padding: '0 1rem', marginTop: '1rem' }}>
         <button onClick={() => setShowTemplates(!showTemplates)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left', padding: '0 0 0.75rem 0' }}>
           {showTemplates ? <ChevronUp size={14} style={{ color: 'var(--subtle)', flexShrink: 0 }} /> : <ChevronDown size={14} style={{ color: 'var(--subtle)', flexShrink: 0 }} />}
           <Calendar size={13} style={{ color: 'var(--accent-text)', flexShrink: 0 }} />
@@ -608,10 +1090,9 @@ export default function Purchases() {
             )}
           </div>
         )}
-      </div>
+      </div>}
 
-      {/* Recurring suggestions */}
-      {recurringCandidates.length > 0 && (
+      {planTab === 'spending' && recurringCandidates.length > 0 && (
         <div style={{ padding: '0 1rem', marginTop: '1rem' }}>
           <button onClick={() => setShowRecurring(!showRecurring)}
             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left', padding: '0 0 0.75rem 0' }}>

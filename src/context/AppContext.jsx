@@ -47,11 +47,12 @@ export function AppProvider({ children, uid }) {
   const [paycheckActuals, setPaycheckActualsState] = useState(() => storage.getPaycheckActuals());
   const [notifPrefs, setNotifPrefsState] = useState(() => storage.getNotifPrefs());
   const [fcmToken, setFcmToken] = useState(() => localStorage.getItem('bt_fcm_token') || null);
+  const [projects, setProjectsState] = useState(() => storage.getProjects());
   const [cloudLoaded, setCloudLoaded] = useState(false);
 
   // Use refs to always have fresh values for the save function
   const stateRef = useRef({});
-  stateRef.current = { bills, income, budget, settings, notes, debts, savings, commitments, purchases, plannedExpenses, jobs, shifts, budgetCategories, budgetSpends, agreements, shoppingLists, shoppingItems, planningSettings, recurringTemplates, paycheckActuals, notifPrefs, fcmToken };
+  stateRef.current = { bills, income, budget, settings, notes, debts, savings, commitments, purchases, plannedExpenses, jobs, shifts, budgetCategories, budgetSpends, agreements, shoppingLists, shoppingItems, planningSettings, recurringTemplates, paycheckActuals, notifPrefs, fcmToken, projects };
 
   // Load from Firestore on login
   useEffect(() => {
@@ -91,6 +92,7 @@ export function AppProvider({ children, uid }) {
         if (data.paycheckActuals) { setPaycheckActualsState(data.paycheckActuals); storage.setPaycheckActuals(data.paycheckActuals); }
         if (data.notifPrefs) { setNotifPrefsState({ ...storage.getNotifPrefs(), ...data.notifPrefs, bills: { ...storage.getNotifPrefs().bills, ...(data.notifPrefs.bills || {}) }, commitments: { ...storage.getNotifPrefs().commitments, ...(data.notifPrefs.commitments || {}) }, todos: { ...storage.getNotifPrefs().todos, ...(data.notifPrefs.todos || {}) }, shifts: { ...storage.getNotifPrefs().shifts, ...(data.notifPrefs.shifts || {}) } }); storage.setNotifPrefs(data.notifPrefs); }
         if (data.fcmToken && !fcmToken) { setFcmToken(data.fcmToken); localStorage.setItem('bt_fcm_token', data.fcmToken); }
+        if (data.projects) { setProjectsState(data.projects); storage.setProjects(data.projects); }
       } else {
         // First login — upload existing localStorage data to Firestore
         saveUserData(uid, stateRef.current);
@@ -186,6 +188,11 @@ export function AppProvider({ children, uid }) {
   const persistNotifPrefs = useCallback((next) => {
     setNotifPrefsState(next); storage.setNotifPrefs(next);
     debouncedSync({ notifPrefs: next });
+  }, [debouncedSync]);
+
+  const persistProjects = useCallback((next) => {
+    setProjectsState(next); storage.setProjects(next);
+    debouncedSync({ projects: next });
   }, [debouncedSync]);
 
   const enablePushNotifications = useCallback(async () => {
@@ -467,6 +474,20 @@ export function AppProvider({ children, uid }) {
     if (changed) persistBudgetCategories(next);
   }, [cloudLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Projects ──
+  const addProject = useCallback((p) => persistProjects([
+    { ...p, id: generateId(), completed: false, createdAt: new Date().toISOString() },
+    ...projects,
+  ]), [projects, persistProjects]);
+
+  const updateProject = useCallback((id, u) => persistProjects(
+    projects.map((p) => p.id === id ? { ...p, ...u } : p)
+  ), [projects, persistProjects]);
+
+  const deleteProject = useCallback((id) => persistProjects(
+    projects.filter((p) => p.id !== id)
+  ), [projects, persistProjects]);
+
   // ── Paycheck Actuals ──
   const addPaycheckActual = useCallback((a) => persistPaycheckActuals([
     ...paycheckActuals,
@@ -720,6 +741,7 @@ export function AppProvider({ children, uid }) {
       settings, setSettings: persistSettings,
       generateShareLink, revokeShareLink, refreshShareLink,
       notifPrefs, persistNotifPrefs, fcmToken, enablePushNotifications,
+      projects, addProject, updateProject, deleteProject,
     }}>
       {children}
     </AppContext.Provider>

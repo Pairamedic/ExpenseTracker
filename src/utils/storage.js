@@ -21,6 +21,7 @@ const KEYS = {
   RECURRING_TEMPLATES: 'bt_recurring_templates',
   PAYCHECK_ACTUALS: 'bt_paycheck_actuals',
   NOTIF_PREFS: 'bt_notif_prefs',
+  PROJECTS: 'bt_projects',
 };
 
 function get(key) {
@@ -49,18 +50,18 @@ const DEFAULT_SETTINGS = {
   dashboardSections: {
     pinnedNotes: true,
     savings: true,
-    commitments: true,
+    commitments: false,
     billsStatus: true,
     spending: true,
     nextPaycheck: true,
     payDates: true,
-    plannedExpenses: true,
+    plannedExpenses: false,
     netWorth: true,
     spendingTrend: true,
     topCategories: true,
     spendingByPerson: true,
     envelopes: true,
-    agreements: true,
+    agreements: false,
   },
 };
 
@@ -123,6 +124,9 @@ export const storage = {
 
   getPaycheckActuals: () => get(KEYS.PAYCHECK_ACTUALS) || [],
   setPaycheckActuals: (v) => set(KEYS.PAYCHECK_ACTUALS, v),
+
+  getProjects: () => get(KEYS.PROJECTS) || [],
+  setProjects: (v) => set(KEYS.PROJECTS, v),
 
   getNotifPrefs: () => {
     const saved = get(KEYS.NOTIF_PREFS) || {};
