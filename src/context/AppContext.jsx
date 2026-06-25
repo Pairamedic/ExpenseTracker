@@ -415,12 +415,11 @@ export function AppProvider({ children, uid }) {
   ), [paycheckActuals, persistPaycheckActuals]);
 
   // ── Share Link ──
-  const generateShareLink = useCallback(async () => {
-    const token = generateId() + generateId();
+  const buildSnapshot = useCallback(() => {
     const today = new Date();
     const threeMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 2, 1);
     const oldestMk = `${threeMonthsAgo.getFullYear()}-${String(threeMonthsAgo.getMonth() + 1).padStart(2, '0')}`;
-    const snapshot = {
+    return {
       settings: { myName: settings.myName, spouseName: settings.spouseName, spouseEnabled: settings.spouseEnabled },
       bills,
       income,
@@ -429,11 +428,18 @@ export function AppProvider({ children, uid }) {
       savings,
       commitments: commitments.filter((c) => !c.completed),
     };
-    await saveSharedView(token, snapshot);
-    const newSettings = { ...settings, shareToken: token };
-    persistSettings(newSettings);
-    return token;
-  }, [bills, income, purchases, debts, savings, commitments, settings, persistSettings]);
+  }, [bills, income, purchases, debts, savings, commitments, settings]);
+
+  const generateShareLink = useCallback(async () => {
+    const token = generateId() + generateId();
+    try {
+      await saveSharedView(token, buildSnapshot());
+    } catch (err) {
+      return { ok: false, error: err.message || 'Firestore write failed' };
+    }
+    persistSettings({ ...settings, shareToken: token });
+    return { ok: true, token };
+  }, [buildSnapshot, settings, persistSettings]);
 
   const revokeShareLink = useCallback(() => {
     persistSettings({ ...settings, shareToken: null });
@@ -441,21 +447,14 @@ export function AppProvider({ children, uid }) {
 
   const refreshShareLink = useCallback(async () => {
     const token = settings.shareToken;
-    if (!token) return;
-    const today = new Date();
-    const threeMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 2, 1);
-    const oldestMk = `${threeMonthsAgo.getFullYear()}-${String(threeMonthsAgo.getMonth() + 1).padStart(2, '0')}`;
-    const snapshot = {
-      settings: { myName: settings.myName, spouseName: settings.spouseName, spouseEnabled: settings.spouseEnabled },
-      bills,
-      income,
-      purchases: purchases.filter((p) => p.date && p.date >= oldestMk),
-      debts,
-      savings,
-      commitments: commitments.filter((c) => !c.completed),
-    };
-    await saveSharedView(token, snapshot);
-  }, [bills, income, purchases, debts, savings, commitments, settings]);
+    if (!token) return { ok: false, error: 'No active share token' };
+    try {
+      await saveSharedView(token, buildSnapshot());
+    } catch (err) {
+      return { ok: false, error: err.message || 'Firestore write failed' };
+    }
+    return { ok: true };
+  }, [buildSnapshot, settings]);
 
   // ── Global To-Do notification scheduling ──
   const todoNotifiedRef = useRef(new Set());
@@ -500,7 +499,7 @@ export function AppProvider({ children, uid }) {
       plannedExpenses, addPlannedExpense, updatePlannedExpense, deletePlannedExpense,
       jobs, addJob, updateJob, deleteJob,
       shifts, addShift, updateShift, deleteShift, bulkSaveShifts,
-      budgetCategories, addBudgetCategory, updateBudgetCategory, deleteBudgetCategory,
+      budgetCategories, addBudgetCategory, updateBudgetCategory, deleteBudgetCategory, persistBudgetCategories,
       budgetSpends, addBudgetSpend, updateBudgetSpend, deleteBudgetSpend,
       agreements, addAgreement, updateAgreement, deleteAgreement,
       shoppingLists, addShoppingList, updateShoppingList, deleteShoppingList,

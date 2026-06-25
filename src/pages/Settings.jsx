@@ -24,6 +24,7 @@ export default function Settings() {
   const [exportCats, setExportCats] = useState(() => ALL_EXPORT_CATS.map((c) => c.key));
   const [shareLoading, setShareLoading] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  const [shareError, setShareError] = useState('');
 
   const toggleCat = (key) => setExportCats((prev) =>
     prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
@@ -218,7 +219,12 @@ export default function Settings() {
               </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button
-                  onClick={async () => { setShareLoading(true); await refreshShareLink(); setShareLoading(false); }}
+                  onClick={async () => {
+                    setShareLoading(true); setShareError('');
+                    const res = await refreshShareLink();
+                    setShareLoading(false);
+                    if (res && !res.ok) setShareError(res.error);
+                  }}
                   disabled={shareLoading}
                   style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem', padding: '0.625rem', borderRadius: '0.75rem', border: '1px solid var(--border)', backgroundColor: 'var(--surface2)', color: 'var(--muted)', fontSize: '0.8125rem', fontWeight: '600', cursor: 'pointer' }}>
                   <RefreshCw size={13} className={shareLoading ? 'animate-spin' : ''} />
@@ -230,15 +236,36 @@ export default function Settings() {
                   <X size={13} /> Revoke
                 </button>
               </div>
+              {shareError && (
+                <div style={{ backgroundColor: 'rgba(244,63,94,0.08)', border: '1px solid var(--danger)', borderRadius: '0.75rem', padding: '0.75rem', fontSize: '0.8125rem', color: 'var(--danger)' }}>
+                  <p style={{ fontWeight: '700', marginBottom: '0.25rem' }}>Firestore rules not deployed</p>
+                  <p style={{ color: 'var(--muted)', marginBottom: '0.5rem' }}>Go to Firebase Console → Firestore → Rules and paste:</p>
+                  <pre style={{ fontSize: '0.7rem', backgroundColor: 'var(--surface2)', padding: '0.5rem', borderRadius: '0.5rem', overflowX: 'auto', color: 'var(--text)', margin: 0 }}>{`match /shared/{token} {\n  allow read: if true;\n  allow write: if request.auth != null;\n}`}</pre>
+                </div>
+              )}
             </div>
           ) : (
-            <button
-              onClick={async () => { setShareLoading(true); await generateShareLink(); setShareLoading(false); }}
-              disabled={shareLoading}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.625rem 1rem', borderRadius: '0.75rem', border: 'none', backgroundColor: 'var(--accent)', color: '#fff', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer' }}>
-              <Share2 size={14} />
-              {shareLoading ? 'Generating…' : 'Generate Share Link'}
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+              <button
+                onClick={async () => {
+                  setShareLoading(true); setShareError('');
+                  const res = await generateShareLink();
+                  setShareLoading(false);
+                  if (res && !res.ok) setShareError(res.error);
+                }}
+                disabled={shareLoading}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.625rem 1rem', borderRadius: '0.75rem', border: 'none', backgroundColor: 'var(--accent)', color: '#fff', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer' }}>
+                <Share2 size={14} />
+                {shareLoading ? 'Generating…' : 'Generate Share Link'}
+              </button>
+              {shareError && (
+                <div style={{ backgroundColor: 'rgba(244,63,94,0.08)', border: '1px solid var(--danger)', borderRadius: '0.75rem', padding: '0.75rem', fontSize: '0.8125rem', color: 'var(--danger)' }}>
+                  <p style={{ fontWeight: '700', marginBottom: '0.25rem' }}>Firestore rules not deployed</p>
+                  <p style={{ color: 'var(--muted)', marginBottom: '0.5rem' }}>Go to Firebase Console → Firestore Database → Rules tab and paste this rule inside the existing rules block:</p>
+                  <pre style={{ fontSize: '0.7rem', backgroundColor: 'var(--surface2)', padding: '0.5rem', borderRadius: '0.5rem', overflowX: 'auto', color: 'var(--text)', margin: 0 }}>{`match /shared/{token} {\n  allow read: if true;\n  allow write: if request.auth != null;\n}`}</pre>
+                </div>
+              )}
+            </div>
           )}
         </section>
 
