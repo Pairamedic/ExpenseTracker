@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Trash2, AlertTriangle, Wallet, PiggyBank, DollarSign, Sun, Moon, LogOut, Mail, Download } from 'lucide-react';
+import { User, Trash2, AlertTriangle, Wallet, PiggyBank, DollarSign, Sun, Moon, LogOut, Mail, Download, Share2, RefreshCw, Copy, Check, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
@@ -16,12 +16,14 @@ const ALL_EXPORT_CATS = [
 ];
 
 export default function Settings() {
-  const { settings, setSettings, bills, income, debts, savings, commitments, plannedExpenses, purchases } = useApp();
+  const { settings, setSettings, bills, income, debts, savings, commitments, plannedExpenses, purchases, generateShareLink, revokeShareLink, refreshShareLink } = useApp();
   const { user, signOut } = useAuth();
   const [form, setForm] = useState({ ...settings });
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [saved, setSaved] = useState(false);
   const [exportCats, setExportCats] = useState(() => ALL_EXPORT_CATS.map((c) => c.key));
+  const [shareLoading, setShareLoading] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
 
   const toggleCat = (key) => setExportCats((prev) =>
     prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
@@ -187,6 +189,57 @@ export default function Settings() {
             style={{ color: 'var(--muted)', border: '1px solid var(--border)', padding: '0.625rem 1rem', borderRadius: '0.75rem', backgroundColor: 'transparent', cursor: 'pointer', width: '100%', justifyContent: 'center' }}>
             <LogOut size={15} /> Sign Out
           </button>
+        </section>
+
+        {/* Share Link */}
+        <section className="mb-4" style={cardStyle}>
+          <div className="flex items-center gap-2 mb-1">
+            <Share2 size={15} style={{ color: 'var(--accent-text)' }} />
+            <span style={sectionLabelStyle}>Shared View Link</span>
+          </div>
+          <p className="text-xs mb-3" style={{ color: 'var(--muted)' }}>
+            Generate a read-only link to share your family finances. Your partner can view bills, income, spending, debts, and savings without needing an account.
+          </p>
+          {settings.shareToken ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+              <div style={{ backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', padding: '0.625rem 0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
+                <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {`${window.location.origin}/ExpenseTracker/share/${settings.shareToken}`}
+                </p>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/ExpenseTracker/share/${settings.shareToken}`).then(() => {
+                      setShareCopied(true); setTimeout(() => setShareCopied(false), 2000);
+                    });
+                  }}
+                  style={{ flexShrink: 0, padding: '0.25rem', background: 'none', border: 'none', cursor: 'pointer', color: shareCopied ? 'var(--positive-text)' : 'var(--accent-text)' }}>
+                  {shareCopied ? <Check size={16} /> : <Copy size={16} />}
+                </button>
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  onClick={async () => { setShareLoading(true); await refreshShareLink(); setShareLoading(false); }}
+                  disabled={shareLoading}
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem', padding: '0.625rem', borderRadius: '0.75rem', border: '1px solid var(--border)', backgroundColor: 'var(--surface2)', color: 'var(--muted)', fontSize: '0.8125rem', fontWeight: '600', cursor: 'pointer' }}>
+                  <RefreshCw size={13} className={shareLoading ? 'animate-spin' : ''} />
+                  {shareLoading ? 'Refreshing…' : 'Refresh Data'}
+                </button>
+                <button
+                  onClick={() => { if (window.confirm('Revoke this share link? Anyone with the link will lose access.')) revokeShareLink(); }}
+                  style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.625rem', borderRadius: '0.75rem', border: '1px solid var(--danger)', backgroundColor: 'transparent', color: 'var(--danger)', fontSize: '0.8125rem', fontWeight: '600', cursor: 'pointer' }}>
+                  <X size={13} /> Revoke
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={async () => { setShareLoading(true); await generateShareLink(); setShareLoading(false); }}
+              disabled={shareLoading}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.625rem 1rem', borderRadius: '0.75rem', border: 'none', backgroundColor: 'var(--accent)', color: '#fff', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer' }}>
+              <Share2 size={14} />
+              {shareLoading ? 'Generating…' : 'Generate Share Link'}
+            </button>
+          )}
         </section>
 
         {/* Export */}

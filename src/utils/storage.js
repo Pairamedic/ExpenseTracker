@@ -18,6 +18,8 @@ const KEYS = {
   SHOPPING_LISTS: 'bt_shopping_lists',
   SHOPPING_ITEMS: 'bt_shopping_items',
   PLANNING_SETTINGS: 'bt_planning_settings',
+  RECURRING_TEMPLATES: 'bt_recurring_templates',
+  PAYCHECK_ACTUALS: 'bt_paycheck_actuals',
 };
 
 function get(key) {
@@ -41,6 +43,7 @@ const DEFAULT_SETTINGS = {
   monthlySavingsTarget: 0,
   lightMode: false,
   purchasesInAvailable: false,
+  shareToken: null,
   dashboardSections: {
     pinnedNotes: true,
     savings: true,
@@ -112,6 +115,12 @@ export const storage = {
   setShoppingLists: (v) => set(KEYS.SHOPPING_LISTS, v),
   getShoppingItems: () => get(KEYS.SHOPPING_ITEMS) || [],
   setShoppingItems: (v) => set(KEYS.SHOPPING_ITEMS, v),
+
+  getRecurringTemplates: () => get(KEYS.RECURRING_TEMPLATES) || [],
+  setRecurringTemplates: (v) => set(KEYS.RECURRING_TEMPLATES, v),
+
+  getPaycheckActuals: () => get(KEYS.PAYCHECK_ACTUALS) || [],
+  setPaycheckActuals: (v) => set(KEYS.PAYCHECK_ACTUALS, v),
 
   getPlanningSettings: () => ({
     tax: {

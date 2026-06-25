@@ -1,7 +1,8 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { storage } from '../utils/storage';
-import { saveUserData, loadUserData } from '../utils/firestoreSync';
+import { saveUserData, loadUserData, saveSharedView } from '../utils/firestoreSync';
 import { generateId, currentMonthKey, getBillStatus, nextBillStatus } from '../utils/helpers';
+import { notificationPermission, sendNotification, getDueDateMs } from '../utils/notifications';
 
 const AppContext = createContext(null);
 
@@ -33,11 +34,13 @@ export function AppProvider({ children, uid }) {
   const [shoppingLists, setShoppingListsState] = useState(() => storage.getShoppingLists());
   const [shoppingItems, setShoppingItemsState] = useState(() => storage.getShoppingItems());
   const [planningSettings, setPlanningSettingsState] = useState(() => storage.getPlanningSettings());
+  const [recurringTemplates, setRecurringTemplatesState] = useState(() => storage.getRecurringTemplates());
+  const [paycheckActuals, setPaycheckActualsState] = useState(() => storage.getPaycheckActuals());
   const [cloudLoaded, setCloudLoaded] = useState(false);
 
   // Use refs to always have fresh values for the save function
   const stateRef = useRef({});
-  stateRef.current = { bills, income, budget, settings, notes, debts, savings, commitments, purchases, plannedExpenses, jobs, shifts, budgetCategories, budgetSpends, agreements, shoppingLists, shoppingItems, planningSettings };
+  stateRef.current = { bills, income, budget, settings, notes, debts, savings, commitments, purchases, plannedExpenses, jobs, shifts, budgetCategories, budgetSpends, agreements, shoppingLists, shoppingItems, planningSettings, recurringTemplates, paycheckActuals };
 
   // Load from Firestore on login
   useEffect(() => {
@@ -73,6 +76,8 @@ export function AppProvider({ children, uid }) {
           };
           setPlanningSettingsState(merged); storage.setPlanningSettings(merged);
         }
+        if (data.recurringTemplates) { setRecurringTemplatesState(data.recurringTemplates); storage.setRecurringTemplates(data.recurringTemplates); }
+        if (data.paycheckActuals) { setPaycheckActualsState(data.paycheckActuals); storage.setPaycheckActuals(data.paycheckActuals); }
       } else {
         // First login — upload existing localStorage data to Firestore
         saveUserData(uid, stateRef.current);
@@ -178,6 +183,16 @@ export function AppProvider({ children, uid }) {
   const persistPlanningSettings = useCallback((next) => {
     setPlanningSettingsState(next); storage.setPlanningSettings(next);
     debouncedSync({ planningSettings: next });
+  }, [debouncedSync]);
+
+  const persistRecurringTemplates = useCallback((next) => {
+    setRecurringTemplatesState(next); storage.setRecurringTemplates(next);
+    debouncedSync({ recurringTemplates: next });
+  }, [debouncedSync]);
+
+  const persistPaycheckActuals = useCallback((next) => {
+    setPaycheckActualsState(next); storage.setPaycheckActuals(next);
+    debouncedSync({ paycheckActuals: next });
   }, [debouncedSync]);
 
   // ── Bills ──
@@ -328,6 +343,149 @@ export function AppProvider({ children, uid }) {
     persistPlanningSettings(next);
   }, [planningSettings, persistPlanningSettings]);
 
+  // ── Recurring Templates ──
+  const addRecurringTemplate = useCallback((t) => persistRecurringTemplates([
+    ...recurringTemplates,
+    { ...t, id: generateId(), active: true, createdAt: new Date().toISOString() },
+  ]), [recurringTemplates, persistRecurringTemplates]);
+
+  const updateRecurringTemplate = useCallback((id, u) => persistRecurringTemplates(
+    recurringTemplates.map((t) => t.id === id ? { ...t, ...u } : t)
+  ), [recurringTemplates, persistRecurringTemplates]);
+
+  const deleteRecurringTemplate = useCallback((id) => persistRecurringTemplates(
+    recurringTemplates.filter((t) => t.id !== id)
+  ), [recurringTemplates, persistRecurringTemplates]);
+
+  // Auto-log recurring purchases on load (after cloud data is ready)
+  useEffect(() => {
+    if (!cloudLoaded || !recurringTemplates.length) return;
+    const today = new Date();
+    const todayDay = today.getDate();
+    const currentMk = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+
+    const toLog = recurringTemplates.filter((t) => {
+      if (!t.active) return false;
+      if (t.lastLoggedMonth === currentMk) return false;
+      if (t.dayOfMonth && t.dayOfMonth > todayDay) return false;
+      return true;
+    });
+
+    if (!toLog.length) return;
+
+    const newPurchases = toLog.map((t) => {
+      const day = t.dayOfMonth ? String(Math.min(t.dayOfMonth, todayDay)).padStart(2, '0') : String(todayDay).padStart(2, '0');
+      return {
+        id: generateId(),
+        merchant: t.merchant,
+        amount: t.amount,
+        category: t.category || 'Subscriptions',
+        person: t.person || 'me',
+        date: `${currentMk}-${day}`,
+        notes: 'Auto-logged recurring',
+        recurringTemplateId: t.id,
+        createdAt: new Date().toISOString(),
+      };
+    });
+
+    const updatedTemplates = recurringTemplates.map((t) =>
+      toLog.find((tl) => tl.id === t.id) ? { ...t, lastLoggedMonth: currentMk } : t
+    );
+
+    // Use state refs to avoid stale closures
+    const freshPurchases = stateRef.current.purchases;
+    setRecurringTemplatesState(updatedTemplates); storage.setRecurringTemplates(updatedTemplates);
+    const nextPurchases = [...newPurchases, ...freshPurchases];
+    setPurchasesState(nextPurchases); storage.setPurchases(nextPurchases);
+    debouncedSync({ purchases: nextPurchases, recurringTemplates: updatedTemplates });
+  }, [cloudLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Paycheck Actuals ──
+  const addPaycheckActual = useCallback((a) => persistPaycheckActuals([
+    ...paycheckActuals,
+    { ...a, id: generateId(), createdAt: new Date().toISOString() },
+  ]), [paycheckActuals, persistPaycheckActuals]);
+
+  const updatePaycheckActual = useCallback((id, u) => persistPaycheckActuals(
+    paycheckActuals.map((a) => a.id === id ? { ...a, ...u } : a)
+  ), [paycheckActuals, persistPaycheckActuals]);
+
+  const deletePaycheckActual = useCallback((id) => persistPaycheckActuals(
+    paycheckActuals.filter((a) => a.id !== id)
+  ), [paycheckActuals, persistPaycheckActuals]);
+
+  // ── Share Link ──
+  const generateShareLink = useCallback(async () => {
+    const token = generateId() + generateId();
+    const today = new Date();
+    const threeMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 2, 1);
+    const oldestMk = `${threeMonthsAgo.getFullYear()}-${String(threeMonthsAgo.getMonth() + 1).padStart(2, '0')}`;
+    const snapshot = {
+      settings: { myName: settings.myName, spouseName: settings.spouseName, spouseEnabled: settings.spouseEnabled },
+      bills,
+      income,
+      purchases: purchases.filter((p) => p.date && p.date >= oldestMk),
+      debts,
+      savings,
+      commitments: commitments.filter((c) => !c.completed),
+    };
+    await saveSharedView(token, snapshot);
+    const newSettings = { ...settings, shareToken: token };
+    persistSettings(newSettings);
+    return token;
+  }, [bills, income, purchases, debts, savings, commitments, settings, persistSettings]);
+
+  const revokeShareLink = useCallback(() => {
+    persistSettings({ ...settings, shareToken: null });
+  }, [settings, persistSettings]);
+
+  const refreshShareLink = useCallback(async () => {
+    const token = settings.shareToken;
+    if (!token) return;
+    const today = new Date();
+    const threeMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 2, 1);
+    const oldestMk = `${threeMonthsAgo.getFullYear()}-${String(threeMonthsAgo.getMonth() + 1).padStart(2, '0')}`;
+    const snapshot = {
+      settings: { myName: settings.myName, spouseName: settings.spouseName, spouseEnabled: settings.spouseEnabled },
+      bills,
+      income,
+      purchases: purchases.filter((p) => p.date && p.date >= oldestMk),
+      debts,
+      savings,
+      commitments: commitments.filter((c) => !c.completed),
+    };
+    await saveSharedView(token, snapshot);
+  }, [bills, income, purchases, debts, savings, commitments, settings]);
+
+  // ── Global To-Do notification scheduling ──
+  const todoNotifiedRef = useRef(new Set());
+  useEffect(() => {
+    if (notificationPermission() !== 'granted') return;
+    const timers = {};
+    const now = Date.now();
+    const todoListIds = new Set(shoppingLists.filter((l) => l.type === 'todo').map((l) => l.id));
+    const todoItems = shoppingItems.filter((i) =>
+      todoListIds.has(i.listId) && (i.status === 'pending' || !i.status) && i.dueDate && i.notifyEnabled
+    );
+    todoItems.forEach((item) => {
+      if (todoNotifiedRef.current.has(item.id)) return;
+      const dueMs = getDueDateMs(item.dueDate, item.dueTime);
+      if (!dueMs) return;
+      const delay = dueMs - now;
+      const list = shoppingLists.find((l) => l.id === item.listId);
+      if (delay <= 0) {
+        todoNotifiedRef.current.add(item.id);
+        sendNotification(`Overdue: ${item.name}`, { body: list ? `List: ${list.name}` : 'To-do is past due', tag: `todo-${item.id}` });
+      } else if (delay < 7 * 24 * 60 * 60 * 1000) {
+        timers[item.id] = setTimeout(() => {
+          todoNotifiedRef.current.add(item.id);
+          sendNotification(`Due now: ${item.name}`, { body: list ? `List: ${list.name}` : 'Your to-do is due', tag: `todo-${item.id}` });
+        }, Math.min(delay, 2147483647));
+      }
+    });
+    return () => Object.values(timers).forEach(clearTimeout);
+  }, [shoppingItems, shoppingLists]);
+
   return (
     <AppContext.Provider value={{
       cloudLoaded,
@@ -348,7 +506,10 @@ export function AppProvider({ children, uid }) {
       shoppingLists, addShoppingList, updateShoppingList, deleteShoppingList,
       shoppingItems, addShoppingItem, updateShoppingItem, deleteShoppingItem, toggleShoppingItem,
       planningSettings, updatePlanningSettings,
+      recurringTemplates, addRecurringTemplate, updateRecurringTemplate, deleteRecurringTemplate,
+      paycheckActuals, addPaycheckActual, updatePaycheckActual, deletePaycheckActual,
       settings, setSettings: persistSettings,
+      generateShareLink, revokeShareLink, refreshShareLink,
     }}>
       {children}
     </AppContext.Provider>

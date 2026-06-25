@@ -747,7 +747,7 @@ function PTOTab({ s, onChange, jobs, shifts }) {
   );
 }
 
-// ── Main Planning Page ────────────────────────────────────────────────────────
+// ── Planning Tools content (embeddable in other pages) ────────────────────────
 
 const TABS = [
   { key: 'tax', label: 'Tax Return', Icon: Calculator },
@@ -755,31 +755,42 @@ const TABS = [
   { key: 'pto', label: 'PTO', Icon: Clock },
 ];
 
-export default function Planning() {
+export function PlanningContent() {
   const { planningSettings, updatePlanningSettings, income, jobs, shifts } = useApp();
   const [activeTab, setActiveTab] = useState('tax');
 
   return (
-    <div style={{ paddingBottom: '5rem', minHeight: '100svh', backgroundColor: 'var(--bg)' }}>
-      <div style={{ backgroundColor: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '1rem 1rem 0' }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text)', marginBottom: '0.875rem' }}>Planning Tools</h1>
-        <div style={{ display: 'flex' }}>
-          {TABS.map(({ key, label, Icon }) => (
-            <button key={key} onClick={() => setActiveTab(key)}
-              style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', padding: '0.625rem 0.25rem', border: 'none', background: 'none', cursor: 'pointer',
-                borderBottom: activeTab === key ? '2px solid var(--accent)' : '2px solid transparent',
-                color: activeTab === key ? 'var(--accent-text)' : 'var(--subtle)' }}>
-              <Icon size={18} />
-              <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>{label}</span>
-            </button>
-          ))}
-        </div>
+    <div>
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: '1rem' }}>
+        {TABS.map(({ key, label, Icon }) => (
+          <button key={key} onClick={() => setActiveTab(key)}
+            style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', padding: '0.625rem 0.25rem', border: 'none', background: 'none', cursor: 'pointer',
+              borderBottom: activeTab === key ? '2px solid var(--accent)' : '2px solid transparent',
+              color: activeTab === key ? 'var(--accent-text)' : 'var(--subtle)' }}>
+            <Icon size={18} />
+            <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>{label}</span>
+          </button>
+        ))}
       </div>
-
-      <div style={{ padding: '1rem', maxWidth: '640px', margin: '0 auto' }}>
+      <div style={{ maxWidth: '640px', margin: '0 auto' }}>
         {activeTab === 'tax' && <TaxTab s={planningSettings} onChange={updatePlanningSettings} income={income} jobs={jobs} />}
         {activeTab === 'ira' && <IRATab s={planningSettings} onChange={updatePlanningSettings} jobs={jobs} />}
         {activeTab === 'pto' && <PTOTab s={planningSettings} onChange={updatePlanningSettings} jobs={jobs} shifts={shifts} />}
+      </div>
+    </div>
+  );
+}
+
+// ── Standalone Planning page ──────────────────────────────────────────────────
+
+export default function Planning() {
+  return (
+    <div style={{ paddingBottom: '5rem', minHeight: '100svh', backgroundColor: 'var(--bg)' }}>
+      <div style={{ backgroundColor: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '1rem 1rem 0.5rem' }}>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text)', marginBottom: '0.875rem' }}>Planning Tools</h1>
+      </div>
+      <div style={{ padding: '1rem' }}>
+        <PlanningContent />
       </div>
     </div>
   );

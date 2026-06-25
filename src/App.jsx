@@ -13,6 +13,7 @@ import WorkTime from './pages/WorkTime';
 import SearchPage from './pages/Search';
 import ShoppingLists from './pages/ShoppingLists';
 import Planning from './pages/Planning';
+import SharedView from './pages/SharedView';
 import Login from './pages/Login';
 
 function ThemeSync() {
@@ -49,45 +50,52 @@ function LoadingScreen() {
   );
 }
 
-function AppShell() {
+function AuthenticatedApp() {
   const { user } = useAuth();
 
-  // undefined = still checking auth state
   if (user === undefined) return <LoadingScreen />;
-
-  // Not logged in — show login screen (no AppProvider needed)
   if (!user) return <Login />;
 
-  // Logged in — render full app with Firestore sync
   return (
     <AppProvider uid={user.uid}>
-      <BrowserRouter basename="/ExpenseTracker">
-        <ThemeSync />
-        <div className="min-h-screen">
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/bills" element={<BillsDebts />} />
-            <Route path="/debts" element={<Navigate to="/bills" replace />} />
-            <Route path="/income" element={<Income />} />
-            <Route path="/notes" element={<Notes />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/purchases" element={<Purchases />} />
-            <Route path="/work" element={<WorkTime />} />
-            <Route path="/search" element={<SearchPage />} />
-            <Route path="/lists" element={<ShoppingLists />} />
-            <Route path="/planning" element={<Planning />} />
-          </Routes>
-        </div>
-        <BottomNav />
-      </BrowserRouter>
+      <ThemeSync />
+      <div className="min-h-screen">
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/bills" element={<BillsDebts />} />
+          <Route path="/debts" element={<Navigate to="/bills" replace />} />
+          <Route path="/income" element={<Income />} />
+          <Route path="/notes" element={<Notes />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/purchases" element={<Purchases />} />
+          <Route path="/work" element={<WorkTime />} />
+          <Route path="/search" element={<SearchPage />} />
+          <Route path="/lists" element={<ShoppingLists />} />
+          <Route path="/planning" element={<Planning />} />
+        </Routes>
+      </div>
+      <BottomNav />
     </AppProvider>
+  );
+}
+
+function AppShell() {
+  return (
+    <Routes>
+      {/* Public route — accessible without login */}
+      <Route path="/share/:token" element={<SharedView />} />
+      {/* All other routes require auth */}
+      <Route path="*" element={<AuthenticatedApp />} />
+    </Routes>
   );
 }
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppShell />
-    </AuthProvider>
+    <BrowserRouter basename="/ExpenseTracker">
+      <AuthProvider>
+        <AppShell />
+      </AuthProvider>
+    </BrowserRouter>
   );
 }

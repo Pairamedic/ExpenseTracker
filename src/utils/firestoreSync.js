@@ -1,6 +1,20 @@
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 
+// Shared view collection: shared/{token}
+function sharedDocRef(token) {
+  return doc(db, 'shared', token);
+}
+
+export async function saveSharedView(token, data) {
+  await setDoc(sharedDocRef(token), { ...data, updatedAt: new Date().toISOString() });
+}
+
+export async function loadSharedView(token) {
+  const snap = await getDoc(sharedDocRef(token));
+  return snap.exists() ? snap.data() : null;
+}
+
 // Each user gets a single document: users/{uid}/data/app
 // containing all their app data as one JSON blob.
 // This keeps reads/writes minimal and avoids complex collection rules.
