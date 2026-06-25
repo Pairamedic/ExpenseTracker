@@ -385,10 +385,15 @@ export default function Settings() {
               <button
                 onClick={async () => {
                   setNotifEnabling(true);
-                  const res = await enablePushNotifications();
-                  setNotifEnabling(false);
-                  setNotifPermission(notificationPermission());
-                  if (!res.ok && res.reason === 'denied') return;
+                  try {
+                    const res = await enablePushNotifications();
+                    if (!res.ok && res.reason === 'denied') return;
+                  } catch (e) {
+                    console.warn('enablePushNotifications error:', e);
+                  } finally {
+                    setNotifEnabling(false);
+                    setNotifPermission(notificationPermission());
+                  }
                 }}
                 disabled={notifEnabling}
                 className="app-btn-primary"
