@@ -5,14 +5,17 @@ import {
   CalendarOff, AlertTriangle, CreditCard,
   CheckCircle2, Circle, Plus, TrendingDown,
   Wallet, SlidersHorizontal, ChevronDown, ChevronUp, Upload,
+  Paperclip,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import {
   formatCurrency, monthKey, monthLabel, getDueDateLabel,
   getBillsForMonth, getBillStatus, getBillStatusColor, isBillOverdueUnpaid,
   calcDebtPayoff, getPayDatesForMonth,
 } from '../utils/helpers';
 import Modal from '../components/Modal';
+import FileUpload from '../components/FileUpload';
 import BillForm from '../components/BillForm';
 import DebtForm from '../components/DebtForm';
 
@@ -60,9 +63,10 @@ function StatusControl({ status, onSet }) {
   );
 }
 
-function BillCard({ bill, mk, onSetStatus, onEdit, onDelete, myName, spouseName }) {
+function BillCard({ bill, mk, onSetStatus, onEdit, onDelete, onAttach, myName, spouseName }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showNote, setShowNote] = useState(false);
+  const attachCount = (bill.attachments || []).length;
   const status = getBillStatus(bill, mk);
   const isPermanent = bill.isPermanent || (!bill.dueDay && bill.isRecurring);
   const dueDateLabel = !isPermanent && bill.dueDay ? getDueDateLabel(bill.dueDay) : null;
@@ -100,36 +104,41 @@ function BillCard({ bill, mk, onSetStatus, onEdit, onDelete, myName, spouseName 
           </div>
         </div>
 
-        {(bill.notes || (bill.paymentUrl && !isPaid)) && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.625rem' }}>
-            {bill.notes && (
-              <div style={{ position: 'relative' }}>
-                <button onClick={() => setShowNote(!showNote)}
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', color: 'var(--muted)', backgroundColor: 'var(--surface2)', border: '1px solid var(--border)', padding: '0.375rem 0.625rem', borderRadius: '0.5rem', cursor: 'pointer' }}>
-                  <Info size={12} /> Note
-                </button>
-                {showNote && (
-                  <>
-                    <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setShowNote(false)} />
-                    <div style={{ position: 'absolute', left: 0, top: '2.25rem', zIndex: 50, backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem', boxShadow: '0 8px 32px rgba(0,0,0,0.3)', padding: '0.75rem', minWidth: '14rem', maxWidth: '17rem' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                        <p style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{bill.name}</p>
-                        <button onClick={() => setShowNote(false)} style={{ color: 'var(--subtle)', background: 'none', border: 'none', cursor: 'pointer' }}><X size={13} /></button>
-                      </div>
-                      <p style={{ fontSize: '0.875rem', color: 'var(--text)', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-words' }}>{bill.notes}</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.625rem' }}>
+          {bill.notes && (
+            <div style={{ position: 'relative' }}>
+              <button onClick={() => setShowNote(!showNote)}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', color: 'var(--muted)', backgroundColor: 'var(--surface2)', border: '1px solid var(--border)', padding: '0.375rem 0.625rem', borderRadius: '0.5rem', cursor: 'pointer' }}>
+                <Info size={12} /> Note
+              </button>
+              {showNote && (
+                <>
+                  <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setShowNote(false)} />
+                  <div style={{ position: 'absolute', left: 0, top: '2.25rem', zIndex: 50, backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.75rem', boxShadow: '0 8px 32px rgba(0,0,0,0.3)', padding: '0.75rem', minWidth: '14rem', maxWidth: '17rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                      <p style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{bill.name}</p>
+                      <button onClick={() => setShowNote(false)} style={{ color: 'var(--subtle)', background: 'none', border: 'none', cursor: 'pointer' }}><X size={13} /></button>
                     </div>
-                  </>
-                )}
-              </div>
-            )}
-            {bill.paymentUrl && !isPaid && (
-              <a href={bill.paymentUrl} target="_blank" rel="noopener noreferrer"
-                style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', fontWeight: 600, color: '#fff', backgroundColor: 'var(--accent)', padding: '0.375rem 0.75rem', borderRadius: '0.5rem', textDecoration: 'none' }}>
-                Pay <ExternalLink size={10} />
-              </a>
-            )}
-          </div>
-        )}
+                    <p style={{ fontSize: '0.875rem', color: 'var(--text)', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-words' }}>{bill.notes}</p>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+          {bill.paymentUrl && !isPaid && (
+            <a href={bill.paymentUrl} target="_blank" rel="noopener noreferrer"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', fontWeight: 600, color: '#fff', backgroundColor: 'var(--accent)', padding: '0.375rem 0.75rem', borderRadius: '0.5rem', textDecoration: 'none' }}>
+              Pay <ExternalLink size={10} />
+            </a>
+          )}
+          {/* Attachment button — always visible */}
+          <button
+            onClick={() => onAttach?.(bill)}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', color: attachCount > 0 ? 'var(--accent-text)' : 'var(--muted)', backgroundColor: attachCount > 0 ? 'rgba(99,102,241,0.1)' : 'var(--surface2)', border: `1px solid ${attachCount > 0 ? 'rgba(99,102,241,0.3)' : 'var(--border)'}`, padding: '0.375rem 0.625rem', borderRadius: '0.5rem', cursor: 'pointer', marginLeft: 'auto' }}>
+            <Paperclip size={12} />
+            {attachCount > 0 ? attachCount : 'Attach'}
+          </button>
+        </div>
 
         <StatusControl status={status} onSet={(s) => onSetStatus(bill.id, mk, s)} />
       </div>
@@ -642,10 +651,12 @@ export default function BillsDebts() {
     budgetSpends, addBudgetSpend, updateBudgetSpend, deleteBudgetSpend,
     settings, income,
   } = useApp();
+  const { user } = useAuth();
   const [tab, setTab] = useState('bills');
   const [mk, setMk] = useState(() => monthKey(new Date()));
   const [showAddBill, setShowAddBill] = useState(false);
   const [editBill, setEditBill] = useState(null);
+  const [attachBillId, setAttachBillId] = useState(null);
   const [showAddDebt, setShowAddDebt] = useState(false);
   const [editDebt, setEditDebt] = useState(null);
   const [ownerFilter, setOwnerFilter] = useState(null);
@@ -834,7 +845,8 @@ export default function BillsDebts() {
               </div>
             ) : sortedBills.map((bill) => (
               <BillCard key={bill.id} bill={bill} mk={mk} onSetStatus={setBillStatusDirect}
-                onEdit={setEditBill} onDelete={deleteBill} myName={myName} spouseName={spouseName} />
+                onEdit={setEditBill} onDelete={deleteBill} onAttach={(b) => setAttachBillId(b.id)}
+                myName={myName} spouseName={spouseName} />
             ))}
             </>)}
           </div>
@@ -1028,6 +1040,20 @@ export default function BillsDebts() {
           <BillForm initial={editBill} onSave={(data) => { updateBill(editBill.id, data); setEditBill(null); }} onCancel={() => setEditBill(null)} myName={myName} spouseName={spouseName} />
         </Modal>
       )}
+      {attachBillId && (() => {
+        const bill = bills.find((b) => b.id === attachBillId);
+        if (!bill) return null;
+        return (
+          <Modal title={`Receipts · ${bill.name}`} onClose={() => setAttachBillId(null)}>
+            <FileUpload
+              storagePath={`users/${user?.uid}/bills/${bill.id}`}
+              attachments={bill.attachments || []}
+              onAdd={(att) => updateBill(bill.id, { attachments: [...(bill.attachments || []), att] })}
+              onRemove={(id) => updateBill(bill.id, { attachments: (bill.attachments || []).filter((a) => a.id !== id) })}
+            />
+          </Modal>
+        );
+      })()}
       {showAddDebt && (
         <Modal title="Add Debt" onClose={() => setShowAddDebt(false)}>
           <DebtForm onSave={(data) => { addDebt(data); setShowAddDebt(false); }} onCancel={() => setShowAddDebt(false)} myName={myName} spouseName={spouseName} />

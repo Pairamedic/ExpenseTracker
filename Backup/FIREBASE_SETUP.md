@@ -237,6 +237,34 @@ npm run preview
 
 ---
 
+## 9b. Firebase Storage Setup (for file attachments)
+
+The app stores bill receipts and income documents (W-2s, paystubs) in Firebase Storage.
+
+1. In the Firebase console, open **Storage** → **Get started**
+2. Start in **Production mode** → choose the same region as Firestore → Done
+3. Deploy the storage security rules:
+```bash
+firebase deploy --only storage
+```
+The `storage.rules` file at the repo root contains the correct rules:
+```
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
+```
+
+File paths in storage:
+- Bill receipts:  `users/{uid}/bills/{billId}/{fileId}.{ext}`
+- Income docs:    `users/{uid}/income/{incomeId}/{fileId}.{ext}`
+
+---
+
 ## 10. Firestore Indexes
 
 No manual indexes required. The app uses a single-document-per-user pattern,
