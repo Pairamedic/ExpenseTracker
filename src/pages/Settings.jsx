@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Trash2, AlertTriangle, Wallet, PiggyBank, DollarSign, Sun, Moon, LogOut, Mail, Download, Share2, RefreshCw, Copy, Check, X, Bell, BellOff, Lock, FolderOpen, ChevronRight } from 'lucide-react';
+import { User, Trash2, AlertTriangle, Wallet, PiggyBank, DollarSign, Sun, Moon, LogOut, Mail, Download, Share2, RefreshCw, Copy, Check, X, Bell, BellOff, Lock, FolderOpen, ChevronRight, FlaskConical } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
@@ -36,7 +36,7 @@ function NotifRow({ label, sublabel, checked, onChange }) {
 }
 
 export default function Settings() {
-  const { settings, setSettings, bills, income, debts, savings, commitments, plannedExpenses, agreements, projects, purchases, budgetCategories, budgetSpends, shoppingLists, shoppingItems, generateShareLink, revokeShareLink, refreshShareLink, notifPrefs, persistNotifPrefs, fcmToken, enablePushNotifications } = useApp();
+  const { settings, setSettings, bills, income, debts, savings, commitments, plannedExpenses, agreements, projects, purchases, budgetCategories, budgetSpends, shoppingLists, shoppingItems, generateShareLink, revokeShareLink, refreshShareLink, notifPrefs, persistNotifPrefs, fcmToken, enablePushNotifications, testMode, enterTestMode, exitTestMode } = useApp();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ ...settings });
@@ -506,6 +506,35 @@ export default function Settings() {
               <Download size={14} /> Export to CSV
             </button>
           </div>
+        </section>
+
+        {/* Test Mode */}
+        <section className="mb-4" style={cardStyle}>
+          <div className="flex items-center gap-2 mb-2">
+            <FlaskConical size={15} style={{ color: '#d97706' }} />
+            <span style={{ ...sectionLabelStyle, color: '#d97706' }}>Test Mode</span>
+          </div>
+          <p className="text-xs mb-3" style={{ color: 'var(--muted)' }}>
+            While active, nothing is saved — to storage or the cloud. Exiting restores all your original data exactly as it was. Closing or refreshing the app automatically exits test mode.
+          </p>
+          <button
+            onClick={() => testMode ? exitTestMode() : enterTestMode()}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
+              padding: '0.625rem 1rem', borderRadius: '0.75rem',
+              border: `1px solid ${testMode ? 'var(--danger)' : '#d97706'}`,
+              backgroundColor: testMode ? 'var(--danger-soft)' : 'rgba(217,119,6,0.08)',
+              color: testMode ? 'var(--danger)' : '#d97706',
+              fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer',
+            }}>
+            <FlaskConical size={14} />
+            {testMode ? 'Exit Test Mode' : 'Enter Test Mode'}
+          </button>
+          {testMode && (
+            <p className="text-xs mt-2" style={{ color: 'var(--danger)', fontWeight: 600 }}>
+              ⚠ Active — all changes are temporary
+            </p>
+          )}
         </section>
 
         {/* Danger zone */}
