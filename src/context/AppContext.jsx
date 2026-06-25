@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { storage } from '../utils/storage';
-import { saveUserData, loadUserData, saveSharedView } from '../utils/firestoreSync';
+import { saveUserData, loadUserData, saveSharedView, saveFCMToken } from '../utils/firestoreSync';
 import { generateId, currentMonthKey, getBillStatus, nextBillStatus } from '../utils/helpers';
 import { notificationPermission, sendNotification, getDueDateMs, registerFCMToken, onForegroundMessage } from '../utils/notifications';
 
@@ -337,6 +337,24 @@ export function AppProvider({ children, uid }) {
     shoppingItems.map((i) => i.id === id ? { ...i, checked: !i.checked } : i)
   ), [shoppingItems, persistShoppingItems]);
 
+  // Creates a list + all its items in one atomic write (used by paste-import)
+  const importList = useCallback((listData, itemNames) => {
+    const listId = generateId();
+    const now = new Date().toISOString();
+    const newList = { ...listData, id: listId, archived: false, createdAt: now, updatedAt: now };
+    const newItems = itemNames.map((name) => ({
+      id: generateId(), listId, name: name.trim(), createdAt: now,
+      qty: null, price: null, checked: false,
+      status: 'pending', notes: null,
+      dueDate: listData.dueDate || null, dueTime: null, notifyEnabled: false,
+    }));
+    const nextLists = [...shoppingLists, newList];
+    const nextItems = [...shoppingItems, ...newItems];
+    setShoppingListsState(nextLists); storage.setShoppingLists(nextLists);
+    setShoppingItemsState(nextItems); storage.setShoppingItems(nextItems);
+    debouncedSync({ shoppingLists: nextLists, shoppingItems: nextItems });
+  }, [shoppingLists, shoppingItems, debouncedSync]);
+
   // ── Planning Settings ──
   const updatePlanningSettings = useCallback((patch) => {
     const next = { ...planningSettings, ...patch };
@@ -460,10 +478,10 @@ export function AppProvider({ children, uid }) {
   useEffect(() => {
     if (notificationPermission() !== 'granted') return;
     let unsub = () => {};
-    registerFCMToken();
+    registerFCMToken().then((token) => { if (token && uid) saveFCMToken(uid, token); });
     onForegroundMessage().then((fn) => { unsub = fn; });
     return () => unsub();
-  }, []);
+  }, [uid]);
 
   // ── Global To-Do notification scheduling ──
   const todoNotifiedRef = useRef(new Set());
@@ -512,7 +530,7 @@ export function AppProvider({ children, uid }) {
       budgetSpends, addBudgetSpend, updateBudgetSpend, deleteBudgetSpend,
       agreements, addAgreement, updateAgreement, deleteAgreement,
       shoppingLists, addShoppingList, updateShoppingList, deleteShoppingList,
-      shoppingItems, addShoppingItem, updateShoppingItem, deleteShoppingItem, toggleShoppingItem,
+      shoppingItems, addShoppingItem, updateShoppingItem, deleteShoppingItem, toggleShoppingItem, importList,
       planningSettings, updatePlanningSettings,
       recurringTemplates, addRecurringTemplate, updateRecurringTemplate, deleteRecurringTemplate,
       paycheckActuals, addPaycheckActual, updatePaycheckActual, deletePaycheckActual,

@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Pencil, Trash2, MoreVertical, TrendingUp, RefreshCw, ChevronLeft, ChevronRight, Plus, Calculator } from 'lucide-react';
+import { Pencil, Trash2, MoreVertical, TrendingUp, RefreshCw, ChevronLeft, ChevronRight, Plus, Calculator, Clock } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatCurrency, monthKey, monthLabel, getIncomeForMonth } from '../utils/helpers';
 import Modal from '../components/Modal';
 import IncomeForm from '../components/IncomeForm';
 import { PlanningContent } from './Planning';
+import { WorkTimeContent } from './WorkTime';
 
 function monthOffset(mk, offset) {
   const [y, m] = mk.split('-').map(Number);
@@ -106,6 +107,13 @@ export default function Income() {
                 boxShadow: viewMode === 'planning' ? '0 1px 4px rgba(0,0,0,0.15)' : 'none' }}>
               <Calculator size={13} /> Planning
             </button>
+            <button onClick={() => setViewMode('worktime')}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.375rem 0.75rem', borderRadius: '0.5rem', fontSize: '0.8rem', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                backgroundColor: viewMode === 'worktime' ? 'var(--surface)' : 'transparent',
+                color: viewMode === 'worktime' ? 'var(--accent-text)' : 'var(--subtle)',
+                boxShadow: viewMode === 'worktime' ? '0 1px 4px rgba(0,0,0,0.15)' : 'none' }}>
+              <Clock size={13} /> Work Time
+            </button>
           </div>
         </div>
 
@@ -137,7 +145,9 @@ export default function Income() {
         )}
       </div>
 
-      {viewMode === 'income' ? (
+      {viewMode === 'worktime' ? (
+        <WorkTimeContent />
+      ) : viewMode === 'income' ? (
         <div style={{ padding: '0 1rem' }}>
           {monthIncome.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>

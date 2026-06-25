@@ -1137,21 +1137,6 @@ export default function Dashboard() {
         )}
 
 
-        {/* Planning Tools */}
-        <div style={{ marginTop: '0.5rem' }}>
-          <RouterLink to="/planning" style={{ textDecoration: 'none', display: 'block' }}>
-            <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
-              <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: '0.75rem', backgroundColor: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <BarChart2 size={18} style={{ color: 'var(--accent-text)' }} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <p style={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.9375rem' }}>Planning Tools</p>
-                <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.125rem' }}>Tax return estimate · IRA projector · PTO accrual</p>
-              </div>
-              <ChevronRight size={18} style={{ color: 'var(--subtle)' }} />
-            </div>
-          </RouterLink>
-        </div>
 
       </div>
 

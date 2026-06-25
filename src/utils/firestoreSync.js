@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, deleteField } from 'firebase/firestore';
 import { db } from '../firebase';
 
 // Shared view collection: shared/{token}
@@ -36,4 +36,8 @@ export function subscribeUserData(uid, callback) {
   return onSnapshot(userDocRef(uid), (snap) => {
     if (snap.exists()) callback(snap.data());
   });
+}
+
+export async function saveFCMToken(uid, token) {
+  await setDoc(userDocRef(uid), { fcmToken: token || deleteField() }, { merge: true });
 }

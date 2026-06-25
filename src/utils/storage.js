@@ -156,7 +156,7 @@ export const storage = {
       hoursPerShift: 24,
     },
     ...(get(KEYS.PLANNING_SETTINGS) || {}),
-    tax: { ...{ filingStatus: 'single', useStandardDeduction: true, itemizedDeductions: 0, extraPreTaxDeductions: 0, dependentsUnder17: 0, otherCredits: 0, useIncomeData: true, manualGrossIncome: '', manualFedWithheld: '', manualStateWithheld: '' }, ...((get(KEYS.PLANNING_SETTINGS) || {}).tax || {}) },
+    tax: { ...{ filingStatus: 'single', useStandardDeduction: true, itemizedDeductions: 0, deductions: [], dependentsUnder17: 0, otherCredits: 0, useIncomeData: true, manualGrossIncome: '', manualNetIncome: '', manualFedWithheld: '', manualStateWithheld: '' }, ...((get(KEYS.PLANNING_SETTINGS) || {}).tax || {}) },
     ira: { ...{ currentBalance: '', currentAge: '', useJobIRA: true, manualAnnualContribution: '', employerMatchPercent: 100, expectedReturnPercent: 7, iraType: 'traditional', projectionYears: 30, targetBalance: '' }, ...((get(KEYS.PLANNING_SETTINGS) || {}).ira || {}) },
     pto: { ...{ jobId: '', baseDate: '', baseBalance: '', accrualRate: 24, capHours: '', targetHours: '', hoursPerShift: 24 }, ...((get(KEYS.PLANNING_SETTINGS) || {}).pto || {}) },
   }),
