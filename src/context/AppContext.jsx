@@ -564,13 +564,14 @@ export function AppProvider({ children, uid }) {
 
   // ── Bill notifications ──
   const billNotifiedRef = useRef(new Set());
+  const billTimersRef = useRef({});
   useEffect(() => {
     if (notificationPermission() !== 'granted') return;
-    const { overdue, dayBefore } = notifPrefs.bills || {};
-    if (!overdue && !dayBefore) return;
-    const today = new Date();
-    const todayDay = today.getDate();
-    const mk = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    const { overdue, dayBefore, sameDay } = notifPrefs.bills || {};
+    if (!overdue && !dayBefore && !sameDay) return;
+    const now = new Date();
+    const todayDay = now.getDate();
+    const mk = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     bills.forEach((bill) => {
       if (!bill.dueDay || bill.isPermanent) return;
       const status = getBillStatus(bill, mk);
@@ -589,7 +590,28 @@ export function AppProvider({ children, uid }) {
           sendNotification(`Bill Due Tomorrow: ${bill.name}`, { body: `$${bill.amount} due tomorrow`, tag: key });
         }
       }
+      if (sameDay && bill.dueDay === todayDay) {
+        const key = `bill-today-${bill.id}`;
+        if (!billNotifiedRef.current.has(key) && !billTimersRef.current[key]) {
+          const eightAM = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 8, 0, 0, 0);
+          const delay = eightAM.getTime() - now.getTime();
+          if (delay <= 0) {
+            billNotifiedRef.current.add(key);
+            sendNotification(`Bill Due Today: ${bill.name}`, { body: `$${bill.amount} due today`, tag: key });
+          } else {
+            billTimersRef.current[key] = setTimeout(() => {
+              billNotifiedRef.current.add(key);
+              delete billTimersRef.current[key];
+              sendNotification(`Bill Due Today: ${bill.name}`, { body: `$${bill.amount} due today`, tag: key });
+            }, delay);
+          }
+        }
+      }
     });
+    return () => {
+      Object.values(billTimersRef.current).forEach(clearTimeout);
+      billTimersRef.current = {};
+    };
   }, [bills, notifPrefs.bills]);
 
   // ── Commitment expiry notifications ──
