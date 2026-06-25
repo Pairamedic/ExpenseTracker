@@ -47,11 +47,15 @@ export function AppProvider({ children, uid }) {
   const [paycheckActuals, setPaycheckActualsState] = useState(() => storage.getPaycheckActuals());
   const [notifPrefs, setNotifPrefsState] = useState(() => storage.getNotifPrefs());
   const [fcmToken, setFcmToken] = useState(() => localStorage.getItem('bt_fcm_token') || null);
+  const [projects, setProjectsState] = useState(() => storage.getProjects());
   const [cloudLoaded, setCloudLoaded] = useState(false);
+  const [testMode, setTestMode] = useState(false);
+  const testModeRef = useRef(false);
+  const testModeSnapshot = useRef(null);
 
   // Use refs to always have fresh values for the save function
   const stateRef = useRef({});
-  stateRef.current = { bills, income, budget, settings, notes, debts, savings, commitments, purchases, plannedExpenses, jobs, shifts, budgetCategories, budgetSpends, agreements, shoppingLists, shoppingItems, planningSettings, recurringTemplates, paycheckActuals, notifPrefs, fcmToken };
+  stateRef.current = { bills, income, budget, settings, notes, debts, savings, commitments, purchases, plannedExpenses, jobs, shifts, budgetCategories, budgetSpends, agreements, shoppingLists, shoppingItems, planningSettings, recurringTemplates, paycheckActuals, notifPrefs, fcmToken, projects };
 
   // Load from Firestore on login
   useEffect(() => {
@@ -91,6 +95,7 @@ export function AppProvider({ children, uid }) {
         if (data.paycheckActuals) { setPaycheckActualsState(data.paycheckActuals); storage.setPaycheckActuals(data.paycheckActuals); }
         if (data.notifPrefs) { setNotifPrefsState({ ...storage.getNotifPrefs(), ...data.notifPrefs, bills: { ...storage.getNotifPrefs().bills, ...(data.notifPrefs.bills || {}) }, commitments: { ...storage.getNotifPrefs().commitments, ...(data.notifPrefs.commitments || {}) }, todos: { ...storage.getNotifPrefs().todos, ...(data.notifPrefs.todos || {}) }, shifts: { ...storage.getNotifPrefs().shifts, ...(data.notifPrefs.shifts || {}) } }); storage.setNotifPrefs(data.notifPrefs); }
         if (data.fcmToken && !fcmToken) { setFcmToken(data.fcmToken); localStorage.setItem('bt_fcm_token', data.fcmToken); }
+        if (data.projects) { setProjectsState(data.projects); storage.setProjects(data.projects); }
       } else {
         // First login — upload existing localStorage data to Firestore
         saveUserData(uid, stateRef.current);
@@ -108,85 +113,128 @@ export function AppProvider({ children, uid }) {
   const debouncedSync = useDebounce(syncToCloud);
 
   // Persist helpers: update state, localStorage, and queue Firestore sync
+  // In Test Mode, only React state is updated — nothing persists to storage or cloud
   const persistBills = useCallback((next) => {
-    setBillsState(next); storage.setBills(next);
-    debouncedSync({ bills: next });
+    setBillsState(next);
+    if (!testModeRef.current) { storage.setBills(next); debouncedSync({ bills: next }); }
   }, [debouncedSync]);
 
   const persistIncome = useCallback((next) => {
-    setIncomeState(next); storage.setIncome(next);
-    debouncedSync({ income: next });
+    setIncomeState(next);
+    if (!testModeRef.current) { storage.setIncome(next); debouncedSync({ income: next }); }
   }, [debouncedSync]);
 
   const persistBudget = useCallback((next) => {
-    setBudgetState(next); storage.setBudget(next);
-    debouncedSync({ budget: next });
+    setBudgetState(next);
+    if (!testModeRef.current) { storage.setBudget(next); debouncedSync({ budget: next }); }
   }, [debouncedSync]);
 
   const persistSettings = useCallback((next) => {
-    setSettingsState(next); storage.setSettings(next);
-    debouncedSync({ settings: next });
+    setSettingsState(next);
+    if (!testModeRef.current) { storage.setSettings(next); debouncedSync({ settings: next }); }
   }, [debouncedSync]);
 
   const persistDebts = useCallback((next) => {
-    setDebtsState(next); storage.setDebts(next);
-    debouncedSync({ debts: next });
+    setDebtsState(next);
+    if (!testModeRef.current) { storage.setDebts(next); debouncedSync({ debts: next }); }
   }, [debouncedSync]);
 
   const persistSavings = useCallback((next) => {
-    setSavingsState(next); storage.setSavings(next);
-    debouncedSync({ savings: next });
+    setSavingsState(next);
+    if (!testModeRef.current) { storage.setSavings(next); debouncedSync({ savings: next }); }
   }, [debouncedSync]);
 
   const persistCommitments = useCallback((next) => {
-    setCommitmentsState(next); storage.setCommitments(next);
-    debouncedSync({ commitments: next });
+    setCommitmentsState(next);
+    if (!testModeRef.current) { storage.setCommitments(next); debouncedSync({ commitments: next }); }
   }, [debouncedSync]);
 
   const persistPurchases = useCallback((next) => {
-    setPurchasesState(next); storage.setPurchases(next);
-    debouncedSync({ purchases: next });
+    setPurchasesState(next);
+    if (!testModeRef.current) { storage.setPurchases(next); debouncedSync({ purchases: next }); }
   }, [debouncedSync]);
 
   const persistPlannedExpenses = useCallback((next) => {
-    setPlannedExpensesState(next); storage.setPlannedExpenses(next);
-    debouncedSync({ plannedExpenses: next });
+    setPlannedExpensesState(next);
+    if (!testModeRef.current) { storage.setPlannedExpenses(next); debouncedSync({ plannedExpenses: next }); }
   }, [debouncedSync]);
 
   const persistNotes = useCallback((next) => {
-    setNotesState(next); storage.setNotes(next);
-    debouncedSync({ notes: next });
+    setNotesState(next);
+    if (!testModeRef.current) { storage.setNotes(next); debouncedSync({ notes: next }); }
   }, [debouncedSync]);
 
   const persistJobs = useCallback((next) => {
-    setJobsState(next); storage.setJobs(next);
-    debouncedSync({ jobs: next });
+    setJobsState(next);
+    if (!testModeRef.current) { storage.setJobs(next); debouncedSync({ jobs: next }); }
   }, [debouncedSync]);
 
   const persistShifts = useCallback((next) => {
-    setShiftsState(next); storage.setShifts(next);
-    debouncedSync({ shifts: next });
+    setShiftsState(next);
+    if (!testModeRef.current) { storage.setShifts(next); debouncedSync({ shifts: next }); }
   }, [debouncedSync]);
 
   const persistBudgetCategories = useCallback((next) => {
-    setBudgetCategoriesState(next); storage.setBudgetCategories(next);
-    debouncedSync({ budgetCategories: next });
+    setBudgetCategoriesState(next);
+    if (!testModeRef.current) { storage.setBudgetCategories(next); debouncedSync({ budgetCategories: next }); }
   }, [debouncedSync]);
 
   const persistBudgetSpends = useCallback((next) => {
-    setBudgetSpendsState(next); storage.setBudgetSpends(next);
-    debouncedSync({ budgetSpends: next });
+    setBudgetSpendsState(next);
+    if (!testModeRef.current) { storage.setBudgetSpends(next); debouncedSync({ budgetSpends: next }); }
   }, [debouncedSync]);
 
   const persistAgreements = useCallback((next) => {
-    setAgreementsState(next); storage.setAgreements(next);
-    debouncedSync({ agreements: next });
+    setAgreementsState(next);
+    if (!testModeRef.current) { storage.setAgreements(next); debouncedSync({ agreements: next }); }
   }, [debouncedSync]);
 
   const persistNotifPrefs = useCallback((next) => {
-    setNotifPrefsState(next); storage.setNotifPrefs(next);
-    debouncedSync({ notifPrefs: next });
+    setNotifPrefsState(next);
+    if (!testModeRef.current) { storage.setNotifPrefs(next); debouncedSync({ notifPrefs: next }); }
   }, [debouncedSync]);
+
+  const persistProjects = useCallback((next) => {
+    setProjectsState(next);
+    if (!testModeRef.current) { storage.setProjects(next); debouncedSync({ projects: next }); }
+  }, [debouncedSync]);
+
+  const enterTestMode = useCallback(() => {
+    testModeSnapshot.current = { ...stateRef.current };
+    testModeRef.current = true;
+    setTestMode(true);
+  }, []);
+
+  const exitTestMode = useCallback(() => {
+    if (testModeSnapshot.current) {
+      const snap = testModeSnapshot.current;
+      setBillsState(snap.bills); storage.setBills(snap.bills);
+      setIncomeState(snap.income); storage.setIncome(snap.income);
+      setBudgetState(snap.budget); storage.setBudget(snap.budget);
+      setSettingsState(snap.settings); storage.setSettings(snap.settings);
+      setNotesState(snap.notes); storage.setNotes(snap.notes);
+      setDebtsState(snap.debts); storage.setDebts(snap.debts);
+      setSavingsState(snap.savings); storage.setSavings(snap.savings);
+      setCommitmentsState(snap.commitments); storage.setCommitments(snap.commitments);
+      setPurchasesState(snap.purchases); storage.setPurchases(snap.purchases);
+      setPlannedExpensesState(snap.plannedExpenses); storage.setPlannedExpenses(snap.plannedExpenses);
+      setJobsState(snap.jobs); storage.setJobs(snap.jobs);
+      setShiftsState(snap.shifts); storage.setShifts(snap.shifts);
+      setBudgetCategoriesState(snap.budgetCategories); storage.setBudgetCategories(snap.budgetCategories);
+      setBudgetSpendsState(snap.budgetSpends); storage.setBudgetSpends(snap.budgetSpends);
+      setAgreementsState(snap.agreements); storage.setAgreements(snap.agreements);
+      setShoppingListsState(snap.shoppingLists); storage.setShoppingLists(snap.shoppingLists);
+      setShoppingItemsState(snap.shoppingItems); storage.setShoppingItems(snap.shoppingItems);
+      setPlanningSettingsState(snap.planningSettings); storage.setPlanningSettings(snap.planningSettings);
+      setRecurringTemplatesState(snap.recurringTemplates); storage.setRecurringTemplates(snap.recurringTemplates);
+      setPaycheckActualsState(snap.paycheckActuals); storage.setPaycheckActuals(snap.paycheckActuals);
+      setNotifPrefsState(snap.notifPrefs); storage.setNotifPrefs(snap.notifPrefs);
+      setProjectsState(snap.projects); storage.setProjects(snap.projects);
+      testModeSnapshot.current = null;
+    }
+    testModeRef.current = false;
+    setTestMode(false);
+  }, []);
 
   const enablePushNotifications = useCallback(async () => {
     const perm = await requestNotificationPermission();
@@ -201,28 +249,28 @@ export function AppProvider({ children, uid }) {
   }, [uid]);
 
   const persistShoppingLists = useCallback((next) => {
-    setShoppingListsState(next); storage.setShoppingLists(next);
-    debouncedSync({ shoppingLists: next });
+    setShoppingListsState(next);
+    if (!testModeRef.current) { storage.setShoppingLists(next); debouncedSync({ shoppingLists: next }); }
   }, [debouncedSync]);
 
   const persistShoppingItems = useCallback((next) => {
-    setShoppingItemsState(next); storage.setShoppingItems(next);
-    debouncedSync({ shoppingItems: next });
+    setShoppingItemsState(next);
+    if (!testModeRef.current) { storage.setShoppingItems(next); debouncedSync({ shoppingItems: next }); }
   }, [debouncedSync]);
 
   const persistPlanningSettings = useCallback((next) => {
-    setPlanningSettingsState(next); storage.setPlanningSettings(next);
-    debouncedSync({ planningSettings: next });
+    setPlanningSettingsState(next);
+    if (!testModeRef.current) { storage.setPlanningSettings(next); debouncedSync({ planningSettings: next }); }
   }, [debouncedSync]);
 
   const persistRecurringTemplates = useCallback((next) => {
-    setRecurringTemplatesState(next); storage.setRecurringTemplates(next);
-    debouncedSync({ recurringTemplates: next });
+    setRecurringTemplatesState(next);
+    if (!testModeRef.current) { storage.setRecurringTemplates(next); debouncedSync({ recurringTemplates: next }); }
   }, [debouncedSync]);
 
   const persistPaycheckActuals = useCallback((next) => {
-    setPaycheckActualsState(next); storage.setPaycheckActuals(next);
-    debouncedSync({ paycheckActuals: next });
+    setPaycheckActualsState(next);
+    if (!testModeRef.current) { storage.setPaycheckActuals(next); debouncedSync({ paycheckActuals: next }); }
   }, [debouncedSync]);
 
   // ── Bills ──
@@ -344,9 +392,13 @@ export function AppProvider({ children, uid }) {
   const deleteShoppingList = useCallback((id) => {
     const newLists = shoppingLists.filter((l) => l.id !== id);
     const newItems = shoppingItems.filter((i) => i.listId !== id);
-    setShoppingListsState(newLists); storage.setShoppingLists(newLists);
-    setShoppingItemsState(newItems); storage.setShoppingItems(newItems);
-    debouncedSync({ shoppingLists: newLists, shoppingItems: newItems });
+    setShoppingListsState(newLists);
+    setShoppingItemsState(newItems);
+    if (!testModeRef.current) {
+      storage.setShoppingLists(newLists);
+      storage.setShoppingItems(newItems);
+      debouncedSync({ shoppingLists: newLists, shoppingItems: newItems });
+    }
   }, [shoppingLists, shoppingItems, debouncedSync]);
 
   // ── Shopping Items ──
@@ -380,9 +432,13 @@ export function AppProvider({ children, uid }) {
     }));
     const nextLists = [...shoppingLists, newList];
     const nextItems = [...shoppingItems, ...newItems];
-    setShoppingListsState(nextLists); storage.setShoppingLists(nextLists);
-    setShoppingItemsState(nextItems); storage.setShoppingItems(nextItems);
-    debouncedSync({ shoppingLists: nextLists, shoppingItems: nextItems });
+    setShoppingListsState(nextLists);
+    setShoppingItemsState(nextItems);
+    if (!testModeRef.current) {
+      storage.setShoppingLists(nextLists);
+      storage.setShoppingItems(nextItems);
+      debouncedSync({ shoppingLists: nextLists, shoppingItems: nextItems });
+    }
   }, [shoppingLists, shoppingItems, debouncedSync]);
 
   // ── Planning Settings ──
@@ -467,6 +523,20 @@ export function AppProvider({ children, uid }) {
     if (changed) persistBudgetCategories(next);
   }, [cloudLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Projects ──
+  const addProject = useCallback((p) => persistProjects([
+    { ...p, id: generateId(), completed: false, createdAt: new Date().toISOString() },
+    ...projects,
+  ]), [projects, persistProjects]);
+
+  const updateProject = useCallback((id, u) => persistProjects(
+    projects.map((p) => p.id === id ? { ...p, ...u } : p)
+  ), [projects, persistProjects]);
+
+  const deleteProject = useCallback((id) => persistProjects(
+    projects.filter((p) => p.id !== id)
+  ), [projects, persistProjects]);
+
   // ── Paycheck Actuals ──
   const addPaycheckActual = useCallback((a) => persistPaycheckActuals([
     ...paycheckActuals,
@@ -534,6 +604,26 @@ export function AppProvider({ children, uid }) {
     onForegroundMessage().then((fn) => { unsub = fn; });
     return () => unsub();
   }, [uid]);
+
+  // ── One-time migration: hide moved Dashboard sections after Spending tabs added ──
+  useEffect(() => {
+    if (!cloudLoaded && uid) return;
+    const current = stateRef.current.settings;
+    if (!current._planningTabsMigrated) {
+      const next = {
+        ...current,
+        dashboardSections: {
+          ...current.dashboardSections,
+          commitments: false,
+          agreements: false,
+          plannedExpenses: false,
+        },
+        _planningTabsMigrated: true,
+      };
+      setSettingsState(next); storage.setSettings(next);
+      debouncedSync({ settings: next });
+    }
+  }, [cloudLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Global To-Do notification scheduling ──
   const todoNotifiedRef = useRef(new Set());
@@ -673,6 +763,45 @@ export function AppProvider({ children, uid }) {
     });
   }, [commitments, notifPrefs.commitments]);
 
+  // ── Goal (planned expense) target date notifications ──
+  const goalNotifiedRef = useRef(new Set());
+  useEffect(() => {
+    if (notificationPermission() !== 'granted') return;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    plannedExpenses.forEach((pe) => {
+      if (pe.status === 'completed' || !pe.targetDate) return;
+      const target = new Date(pe.targetDate + 'T12:00:00');
+      const diffDays = Math.round((target.getTime() - today.getTime()) / 86400000);
+      if (diffDays < 0 || diffDays > 7) return;
+      const key = `goal-due-${pe.id}`;
+      if (goalNotifiedRef.current.has(key)) return;
+      goalNotifiedRef.current.add(key);
+      const body = diffDays === 0 ? 'Target date is today' : diffDays === 1 ? 'Target date is tomorrow' : `Target date in ${diffDays} days`;
+      sendNotification(`Goal: ${pe.name}`, { body, tag: key });
+    });
+  }, [plannedExpenses]);
+
+  // ── Project date notifications ──
+  const projectNotifiedRef = useRef(new Set());
+  useEffect(() => {
+    if (notificationPermission() !== 'granted') return;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    projects.forEach((p) => {
+      if (p.completed) return;
+      for (const [field, label] of [['reviewDate', 'Review'], ['dueDate', 'Due']]) {
+        if (!p[field]) continue;
+        const date = new Date(p[field] + 'T12:00:00');
+        const diffDays = Math.round((date.getTime() - today.getTime()) / 86400000);
+        if (diffDays < 0 || diffDays > 3) continue;
+        const key = `project-${field}-${p.id}`;
+        if (projectNotifiedRef.current.has(key)) return;
+        projectNotifiedRef.current.add(key);
+        const body = diffDays === 0 ? `${label} date is today` : diffDays === 1 ? `${label} date is tomorrow` : `${label} date in ${diffDays} days`;
+        sendNotification(`Project: ${p.name}`, { body, tag: key });
+      }
+    });
+  }, [projects]);
+
   // ── Shift log reminder ──
   const shiftReminderRef = useRef({ lastDate: null, timer: null });
   useEffect(() => {
@@ -720,6 +849,8 @@ export function AppProvider({ children, uid }) {
       settings, setSettings: persistSettings,
       generateShareLink, revokeShareLink, refreshShareLink,
       notifPrefs, persistNotifPrefs, fcmToken, enablePushNotifications,
+      projects, addProject, updateProject, deleteProject,
+      testMode, enterTestMode, exitTestMode,
     }}>
       {children}
     </AppContext.Provider>

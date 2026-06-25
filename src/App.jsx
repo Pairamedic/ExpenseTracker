@@ -32,6 +32,31 @@ function ThemeSync() {
   return null;
 }
 
+function TestModeBanner() {
+  const { testMode, exitTestMode } = useApp();
+  if (!testMode) return null;
+  return (
+    <>
+      <div style={{ height: '2.75rem' }} />
+      <div style={{
+        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
+        backgroundColor: '#f59e0b', color: '#000',
+        padding: '0.625rem 1rem',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        fontSize: '0.8125rem', fontWeight: '800',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
+      }}>
+        <span>⚠ TEST MODE — nothing is being saved</span>
+        <button
+          onClick={exitTestMode}
+          style={{ background: 'rgba(0,0,0,0.15)', border: 'none', borderRadius: '0.5rem', padding: '0.25rem 0.625rem', fontSize: '0.8125rem', fontWeight: '800', color: '#000', cursor: 'pointer' }}>
+          Exit
+        </button>
+      </div>
+    </>
+  );
+}
+
 function LoadingScreen() {
   return (
     <div style={{
@@ -60,6 +85,7 @@ function AuthenticatedApp() {
   return (
     <AppProvider uid={user.uid}>
       <ThemeSync />
+      <TestModeBanner />
       <div className="min-h-screen">
         <Routes>
           <Route path="/" element={<Dashboard />} />
