@@ -14,6 +14,8 @@ const ALL_EXPORT_CATS = [
   { key: 'commitments', label: 'Commitments' },
   { key: 'planned', label: 'Planned Expenses' },
   { key: 'purchases', label: 'Spending' },
+  { key: 'budget', label: 'Budget' },
+  { key: 'lists', label: 'Shopping Lists' },
 ];
 
 function NotifRow({ label, sublabel, checked, onChange }) {
@@ -31,7 +33,7 @@ function NotifRow({ label, sublabel, checked, onChange }) {
 }
 
 export default function Settings() {
-  const { settings, setSettings, bills, income, debts, savings, commitments, plannedExpenses, purchases, generateShareLink, revokeShareLink, refreshShareLink, notifPrefs, persistNotifPrefs, fcmToken, enablePushNotifications } = useApp();
+  const { settings, setSettings, bills, income, debts, savings, commitments, plannedExpenses, purchases, budgetCategories, budgetSpends, shoppingLists, shoppingItems, generateShareLink, revokeShareLink, refreshShareLink, notifPrefs, persistNotifPrefs, fcmToken, enablePushNotifications } = useApp();
   const { user, signOut } = useAuth();
   const [form, setForm] = useState({ ...settings });
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -390,7 +392,7 @@ export default function Settings() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
             <button
-              onClick={() => exportAsHTML({ bills, income, debts, savings, purchases, commitments, plannedExpenses, include: exportCats })}
+              onClick={() => exportAsHTML({ bills, income, debts, savings, purchases, commitments, plannedExpenses, budgetCategories, budgetSpends, shoppingLists, shoppingItems, settings, include: exportCats })}
               className="flex items-center gap-2 text-sm font-semibold"
               style={{ color: '#fff', border: 'none', padding: '0.625rem 1rem', borderRadius: '0.75rem', backgroundColor: 'var(--accent)', cursor: 'pointer' }}>
               <Download size={14} /> Export to HTML (Printable)

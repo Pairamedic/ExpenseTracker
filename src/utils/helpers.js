@@ -199,10 +199,21 @@ export function exportAllData({ bills, income, debts, savings, purchases }) {
   if (purchases.length) exportToCSV(purchases.map((p) => ({ date: p.date, merchant: p.merchant, amount: p.amount, category: p.category, person: p.person, notes: p.notes || '' })), `spending-${ts}.csv`);
 }
 
-export function exportAsHTML({ bills, income, debts, savings, purchases, commitments = [], plannedExpenses = [], include = null }) {
+export function exportAsHTML({ bills, income, debts, savings, purchases, commitments = [], plannedExpenses = [], budgetCategories = [], budgetSpends = [], shoppingLists = [], shoppingItems = [], settings = {}, mk = null, include = null }) {
   const ts = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const fmt = (n) => '$' + (n ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const inc = (key) => !include || include.includes(key);
+
+  const myName = settings.myName || 'Me';
+  const spouseName = settings.spouseName || 'Partner';
+
+  const personName = (p) => {
+    if (!p) return myName;
+    const lp = p.toLowerCase();
+    if (lp === 'spouse' || lp === 'cameron' || lp === 'partner') return spouseName;
+    if (lp === 'me' || lp === 'mine') return myName;
+    return p.charAt(0).toUpperCase() + p.slice(1);
+  };
 
   const table = (headers, rows) => `
     <table>
@@ -216,7 +227,8 @@ export function exportAsHTML({ bills, income, debts, savings, purchases, commitm
       ${content}
     </section>`;
 
-  const ownerLabel = (o) => o === 'mine' ? 'Aaron' : o === 'partner' ? 'Cameron' : o ? o.charAt(0).toUpperCase() + o.slice(1) : '';
+  const ownerLabel = (o) => o === 'mine' ? myName : o === 'partner' ? spouseName : o === 'both' || o === 'joint' ? 'Joint' : o ? o.charAt(0).toUpperCase() + o.slice(1) : '';
+  const ownerBadgeClass = (o) => o === 'mine' ? 'primary' : o === 'partner' ? 'secondary' : 'joint';
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -238,8 +250,8 @@ export function exportAsHTML({ bills, income, debts, savings, purchases, commitm
   .badge-paid { background: #d1fae5; color: #065f46; }
   .badge-pending { background: #fef3c7; color: #92400e; }
   .badge-unpaid { background: #fee2e2; color: #991b1b; }
-  .badge-aaron { background: #e0e7ff; color: #3730a3; }
-  .badge-cameron { background: #ede9fe; color: #5b21b6; }
+  .badge-primary { background: #e0e7ff; color: #3730a3; }
+  .badge-secondary { background: #ede9fe; color: #5b21b6; }
   .badge-joint { background: #d1fae5; color: #065f46; }
   .amount { font-weight: 700; font-variant-numeric: tabular-nums; }
   .amount-neg { color: #dc2626; }
@@ -260,7 +272,7 @@ ${inc('bills') && bills.length ? section('Bills', table(
     b.name,
     `<span class="amount">${fmt(b.amount)}</span>`,
     b.category || '—',
-    `<span class="badge badge-${(b.owner === 'mine' ? 'aaron' : b.owner === 'partner' ? 'cameron' : b.owner) || 'aaron'}">${ownerLabel(b.owner)}</span>`,
+    `<span class="badge badge-${ownerBadgeClass(b.owner)}">${ownerLabel(b.owner)}</span>`,
     b.dueDay ? `Day ${b.dueDay}` : '—',
     b.isRecurring ? 'Yes' : 'No',
   ])
@@ -272,7 +284,7 @@ ${inc('income') && income.length ? section('Income', table(
     i.name,
     `<span class="amount amount-pos">${fmt(i.amount)}</span>`,
     i.frequency || '—',
-    i.person === 'spouse' ? 'Cameron' : 'Aaron',
+    personName(i.person),
   ])
 )) : ''}
 
@@ -283,7 +295,7 @@ ${inc('debts') && debts.length ? section('Debts', table(
     `<span class="amount amount-neg">${fmt(d.balance)}</span>`,
     `<span class="amount">${fmt(d.minPayment)}/mo</span>`,
     d.interestRate != null ? `${d.interestRate}% APR` : '—',
-    `<span class="badge badge-${(d.owner === 'mine' ? 'aaron' : d.owner === 'partner' ? 'cameron' : d.owner) || 'aaron'}">${ownerLabel(d.owner)}</span>`,
+    `<span class="badge badge-${ownerBadgeClass(d.owner)}">${ownerLabel(d.owner)}</span>`,
   ])
 )) : ''}
 
@@ -302,7 +314,7 @@ ${inc('commitments') && commitments.length ? section('Commitments', table(
   commitments.map((c) => [
     c.description,
     c.amount ? `<span class="amount">${fmt(c.amount)}</span>` : '—',
-    c.person === 'me' ? 'Me' : c.person === 'partner' ? 'Cameron' : 'Both',
+    c.person === 'me' ? myName : c.person === 'partner' ? spouseName : 'Both',
     c.endDate ? new Date(c.endDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—',
     c.completed ? '<span class="badge badge-paid">Done</span>' : '<span class="badge badge-unpaid">Open</span>',
   ])
@@ -320,16 +332,60 @@ ${inc('planned') && plannedExpenses.length ? section('Planned Expenses', table(
 )) : ''}
 
 ${inc('purchases') && purchases.length ? section('Spending', table(
-  ['Date', 'Merchant', 'Amount', 'Category', 'Person', 'Notes'],
+  ['Date', 'Merchant', 'Amount', 'Category', 'By', 'Notes'],
   purchases.map((p) => [
     p.date || '—',
     p.merchant || '—',
     `<span class="amount amount-neg">${fmt(p.amount)}</span>`,
     p.category || '—',
-    p.person === 'spouse' || p.person === 'cameron' ? 'Cameron' : 'Aaron',
+    personName(p.person),
     p.notes || '',
   ])
 )) : ''}
+
+${inc('budget') && budgetCategories.length ? (() => {
+  const monthSpends = budgetSpends.filter((s) => !mk || (s.month || s.monthKey) === mk);
+  const rows = budgetCategories.map((cat) => {
+    const spent = monthSpends.filter((s) => s.categoryId === cat.id).reduce((sum, s) => sum + (s.amount || 0), 0);
+    const remaining = (cat.monthlyLimit || 0) - spent;
+    return [
+      cat.name,
+      `<span class="amount">${fmt(cat.monthlyLimit)}</span>`,
+      `<span class="amount ${spent > 0 ? 'amount-neg' : ''}">${fmt(spent)}</span>`,
+      `<span class="amount ${remaining < 0 ? 'amount-neg' : 'amount-pos'}">${fmt(remaining)}</span>`,
+    ];
+  });
+  const totalLimit = budgetCategories.reduce((s, c) => s + (c.monthlyLimit || 0), 0);
+  const totalSpent = budgetCategories.reduce((sum, cat) => {
+    return sum + monthSpends.filter((s) => s.categoryId === cat.id).reduce((s2, s) => s2 + (s.amount || 0), 0);
+  }, 0);
+  rows.push([
+    '<strong>Total</strong>',
+    `<strong>${fmt(totalLimit)}</strong>`,
+    `<strong class="amount-neg">${fmt(totalSpent)}</strong>`,
+    `<strong class="${totalLimit - totalSpent < 0 ? 'amount-neg' : 'amount-pos'}">${fmt(totalLimit - totalSpent)}</strong>`,
+  ]);
+  return section('Budget', table(['Category', 'Limit', 'Spent', 'Remaining'], rows));
+})() : ''}
+
+${inc('lists') && shoppingLists.length ? (() => {
+  const listBlocks = shoppingLists.filter((l) => l.type !== 'todo').map((list) => {
+    const items = shoppingItems.filter((i) => i.listId === list.id);
+    const done = items.filter((i) => i.checked);
+    const pending = items.filter((i) => !i.checked);
+    const priced = items.filter((i) => i.price != null);
+    const total = priced.reduce((s, i) => s + (i.price || 0), 0);
+    const doneTotal = done.filter((i) => i.price != null).reduce((s, i) => s + (i.price || 0), 0);
+    const rows = [
+      ...pending.map((i) => ['', i.name, i.qty || '—', i.price != null ? fmt(i.price) : '—']),
+      ...done.map((i) => ['&#10003;', i.name, i.qty || '—', i.price != null ? fmt(i.price) : '—']),
+    ];
+    if (rows.length === 0) return '';
+    const summary = `<p style="margin-top:0.5rem;font-size:12px;color:#666;">${done.length}/${items.length} items complete${priced.length > 0 ? ` &nbsp;·&nbsp; Total: <strong>${fmt(total)}</strong>${done.length > 0 && doneTotal > 0 ? ` &nbsp;·&nbsp; Spent: <strong>${fmt(doneTotal)}</strong>` : ''}` : ''}</p>`;
+    return `<div style="margin-bottom:1.5rem"><h3 style="font-size:0.9rem;font-weight:700;margin-bottom:0.5rem;color:#374151">${list.name || 'Shopping List'}</h3>${table(['Done', 'Item', 'Qty', 'Price'], rows)}${summary}</div>`;
+  }).filter(Boolean);
+  return listBlocks.length ? section('Shopping Lists', listBlocks.join('')) : '';
+})() : ''}
 
 </body>
 </html>`;
