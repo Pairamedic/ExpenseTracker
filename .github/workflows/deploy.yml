@@ -31,6 +31,8 @@ jobs:
       - run: npm install
 
       - run: npm run build
+        env:
+          VITE_FCM_VAPID_KEY: bdUnK4mtP19w7NtBQniJNN39vroY5Q4lRHefPiSkc9M
 
       - uses: actions/configure-pages@v5
 
