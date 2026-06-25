@@ -494,8 +494,10 @@ export function AppProvider({ children, uid }) {
       debts,
       savings,
       commitments: commitments.filter((c) => !c.completed),
+      shoppingLists,
+      shoppingItems,
     };
-  }, [bills, income, purchases, debts, savings, commitments, settings]);
+  }, [bills, income, purchases, debts, savings, commitments, settings, shoppingLists, shoppingItems]);
 
   const generateShareLink = useCallback(async () => {
     const token = generateId() + generateId();
