@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
-import { ShoppingBag, Pencil, Trash2, MoreVertical, ChevronLeft, ChevronRight, Plus, RefreshCw, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Calendar, Upload, X, AlertCircle } from 'lucide-react';
+import { ShoppingBag, Pencil, Trash2, MoreVertical, ChevronLeft, ChevronRight, Plus, RefreshCw, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Calendar, Upload, X, AlertCircle, Download } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { formatCurrency, monthKey, monthLabel } from '../utils/helpers';
+import { formatCurrency, monthKey, monthLabel, exportMonthCSV } from '../utils/helpers';
 import Modal from '../components/Modal';
 import PurchaseForm from '../components/PurchaseForm';
 import BillForm from '../components/BillForm';
@@ -317,13 +317,13 @@ function PurchaseRow({ purchase, onEdit, onDelete, myName, spouseName }) {
 }
 
 export default function Purchases() {
-  const { purchases, addPurchase, updatePurchase, deletePurchase, settings, setSettings, bills, addBill, recurringTemplates, addRecurringTemplate, updateRecurringTemplate, deleteRecurringTemplate } = useApp();
+  const { purchases, addPurchase, updatePurchase, deletePurchase, settings, setSettings, bills, addBill, income, recurringTemplates, addRecurringTemplate, updateRecurringTemplate, deleteRecurringTemplate } = useApp();
   const [mk, setMk] = useState(() => monthKey(new Date()));
   const [showAdd, setShowAdd] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [personFilter, setPersonFilter] = useState('all');
   const [showRecurring, setShowRecurring] = useState(false);
-  const [showTemplates, setShowTemplates] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(true);
   const [showAddTemplate, setShowAddTemplate] = useState(false);
   const [editTemplate, setEditTemplate] = useState(null);
   const [addRecurringBill, setAddRecurringBill] = useState(null);
@@ -395,6 +395,11 @@ export default function Purchases() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
           <h1 style={{ fontSize: '1.625rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-0.02em' }}>Spending</h1>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button onClick={() => exportMonthCSV(mk, { bills, income, purchases })}
+              title={`Export ${mk} to CSV`}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.75rem', backgroundColor: 'var(--surface)', color: 'var(--muted)', border: '1px solid var(--border)', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer' }}>
+              <Download size={15} />
+            </button>
             <button onClick={() => setShowImport(true)}
               style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.75rem', backgroundColor: 'var(--surface)', color: 'var(--accent-text)', border: '1px solid var(--accent)', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer' }}>
               <Upload size={15} /> Import
