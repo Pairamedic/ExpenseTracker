@@ -4,7 +4,7 @@ import {
   ChevronLeft, ChevronRight, Receipt, Info, X,
   CalendarOff, AlertTriangle, CreditCard,
   CheckCircle2, Circle, Plus, TrendingDown,
-  Wallet, SlidersHorizontal, ChevronDown, ChevronUp,
+  Wallet, SlidersHorizontal, ChevronDown, ChevronUp, Upload,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import {
@@ -346,6 +346,88 @@ function BillCalendarView({ bills, income, mk, onSetStatus, myName, spouseName }
 const CAT_COLORS = ['#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#f97316'];
 function catColor(idx) { return CAT_COLORS[idx % CAT_COLORS.length]; }
 
+function parseBudgetText(text) {
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+  if (lines.length < 1) return [];
+  const headers = lines[0].split('\t').map((h) => h.trim()).filter(Boolean);
+  if (!headers.length) return [];
+  const rawAmounts = (lines[1] || '').split('\t').map((a) => a.trim());
+  return headers.map((name, i) => {
+    const raw = rawAmounts[i] || '';
+    const limit = raw ? Math.round(parseFloat(raw.replace(/[$,]/g, '')) * 100) / 100 : 0;
+    return { name, monthlyLimit: isNaN(limit) ? 0 : limit };
+  }).filter((c) => c.name);
+}
+
+function ImportBudgetModal({ existing, onImport, onCancel }) {
+  const [text, setText] = useState('');
+  const [parsed, setParsed] = useState(null);
+  const [selected, setSelected] = useState({});
+
+  function handleParse() {
+    const results = parseBudgetText(text);
+    setParsed(results);
+    const sel = {};
+    results.forEach((_, i) => { sel[i] = true; });
+    setSelected(sel);
+  }
+
+  function handleImport() {
+    const toImport = parsed.filter((_, i) => selected[i]);
+    onImport(toImport);
+  }
+
+  const existingNames = existing.map((c) => c.name.toLowerCase());
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <p style={{ fontSize: '0.875rem', color: 'var(--subtle)', margin: 0 }}>
+        Paste from Excel: Row 1 = category names, Row 2 = monthly limits (tab-separated).
+      </p>
+      <textarea
+        style={{ width: '100%', minHeight: '100px', padding: '0.75rem', borderRadius: '0.75rem', border: '1.5px solid var(--border)', backgroundColor: 'var(--surface2)', color: 'var(--text)', fontSize: '0.875rem', fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box' }}
+        placeholder={'Leisure\tFood\tMisc\n272.86\t\t'}
+        value={text}
+        onChange={(e) => { setText(e.target.value); setParsed(null); }}
+      />
+      {!parsed && (
+        <button onClick={handleParse} disabled={!text.trim()} className="app-btn-primary" style={{ alignSelf: 'flex-start' }}>
+          Preview
+        </button>
+      )}
+      {parsed && parsed.length === 0 && (
+        <p style={{ color: 'var(--danger)', fontSize: '0.875rem' }}>Could not parse any categories. Check format.</p>
+      )}
+      {parsed && parsed.length > 0 && (
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {parsed.map((cat, i) => {
+              const isUpdate = existingNames.includes(cat.name.toLowerCase());
+              return (
+                <label key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', padding: '0.5rem 0.75rem', borderRadius: '0.75rem', backgroundColor: 'var(--surface2)' }}>
+                  <input type="checkbox" checked={!!selected[i]} onChange={(e) => setSelected((s) => ({ ...s, [i]: e.target.checked }))} />
+                  <span style={{ flex: 1, fontSize: '0.875rem', color: 'var(--text)' }}>{cat.name}</span>
+                  <span style={{ fontSize: '0.875rem', color: 'var(--subtle)' }}>${cat.monthlyLimit.toFixed(2)}/mo</span>
+                  {isUpdate && <span style={{ fontSize: '0.75rem', color: '#f59e0b', fontWeight: 600 }}>update</span>}
+                </label>
+              );
+            })}
+          </div>
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <button type="button" onClick={onCancel} className="app-btn-secondary" style={{ flex: 1 }}>Cancel</button>
+            <button type="button" onClick={handleImport} disabled={!Object.values(selected).some(Boolean)} className="app-btn-primary" style={{ flex: 1 }}>
+              Import Selected
+            </button>
+          </div>
+        </>
+      )}
+      {!parsed && (
+        <button type="button" onClick={onCancel} className="app-btn-secondary">Cancel</button>
+      )}
+    </div>
+  );
+}
+
 function CategoryForm({ initial = {}, onSave, onCancel }) {
   const [name, setName] = useState(initial.name || '');
   const [limit, setLimit] = useState(initial.monthlyLimit != null ? String(initial.monthlyLimit) : '');
@@ -553,7 +635,7 @@ export default function BillsDebts() {
   const {
     bills, addBill, updateBill, deleteBill, setBillStatusDirect,
     debts, addDebt, updateDebt, deleteDebt, toggleDebtPaid,
-    budgetCategories, addBudgetCategory, updateBudgetCategory, deleteBudgetCategory,
+    budgetCategories, addBudgetCategory, updateBudgetCategory, deleteBudgetCategory, persistBudgetCategories,
     budgetSpends, addBudgetSpend, updateBudgetSpend, deleteBudgetSpend,
     settings, income,
   } = useApp();
@@ -567,6 +649,7 @@ export default function BillsDebts() {
   const [calView, setCalView] = useState(false);
 
   // Budget tab state
+  const [showImportBudget, setShowImportBudget] = useState(false);
   const [showManageCategories, setShowManageCategories] = useState(false);
   const [editCategory, setEditCategory] = useState(null);
   const [showAddSpend, setShowAddSpend] = useState(null); // null | { categoryId }
@@ -628,10 +711,16 @@ export default function BillsDebts() {
           <h1 style={{ fontSize: '1.625rem', fontWeight: 900, color: 'var(--text)', letterSpacing: '-0.02em' }}>Bills & Debts</h1>
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
             {tab === 'budget' && (
-              <button onClick={() => setShowManageCategories(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.75rem', backgroundColor: 'var(--surface2)', color: 'var(--muted)', border: '1px solid var(--border)', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: 700, cursor: 'pointer' }}>
-                <SlidersHorizontal size={15} />
-              </button>
+              <>
+                <button onClick={() => setShowImportBudget(true)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.75rem', backgroundColor: 'var(--surface2)', color: 'var(--muted)', border: '1px solid var(--border)', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: 700, cursor: 'pointer' }}>
+                  <Upload size={15} />
+                </button>
+                <button onClick={() => setShowManageCategories(true)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.75rem', backgroundColor: 'var(--surface2)', color: 'var(--muted)', border: '1px solid var(--border)', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: 700, cursor: 'pointer' }}>
+                  <SlidersHorizontal size={15} />
+                </button>
+              </>
             )}
             <button
               onClick={() => {
@@ -948,6 +1037,27 @@ export default function BillsDebts() {
       )}
 
       {/* ── Budget modals ── */}
+      {showImportBudget && (
+        <Modal title="Import Budget" onClose={() => setShowImportBudget(false)}>
+          <ImportBudgetModal
+            existing={budgetCategories}
+            onImport={(toImport) => {
+              const updated = [...budgetCategories];
+              toImport.forEach(({ name, monthlyLimit }) => {
+                const idx = updated.findIndex((c) => c.name.toLowerCase() === name.toLowerCase());
+                if (idx >= 0) {
+                  updated[idx] = { ...updated[idx], monthlyLimit };
+                } else {
+                  updated.push({ id: Date.now() + Math.random(), name, monthlyLimit });
+                }
+              });
+              persistBudgetCategories(updated);
+              setShowImportBudget(false);
+            }}
+            onCancel={() => setShowImportBudget(false)}
+          />
+        </Modal>
+      )}
       {showManageCategories && (
         <Modal title="Manage Envelopes" onClose={() => { setShowManageCategories(false); setEditCategory(null); }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>

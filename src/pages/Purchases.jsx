@@ -99,57 +99,56 @@ function parsePurchaseText(text) {
     const line = rawLine.trim();
     if (!line || SKIP_PATTERNS.test(line)) continue;
 
-    // Try delimited formats first (tab, then comma)
+    let entry = null;
+
+    // Try tab then comma delimiters
     for (const sep of ['\t', ',']) {
+      if (!line.includes(sep)) continue;
       const parts = line.split(sep).map((s) => s.trim()).filter(Boolean);
       if (parts.length < 2) continue;
 
-      // Try date in first position
-      const dateFromFirst = parseMDY(parts[0]) || parseISO(parts[0]);
-      if (dateFromFirst && parts.length >= 3) {
-        const amt = parseAmount(parts[parts.length - 1]);
-        if (amt) {
-          const merchant = parts.slice(1, parts.length - 1).join(' ').trim() || parts[1];
-          if (merchant) { results.push({ date: dateFromFirst, merchant, amount: amt }); break; }
+      // Date | Merchant | Amount
+      if (parts.length >= 3) {
+        const dateFirst = parseMDY(parts[0]) || parseISO(parts[0]);
+        if (dateFirst) {
+          const amt = parseAmount(parts[parts.length - 1]);
+          if (amt) {
+            const merchant = parts.slice(1, parts.length - 1).join(' ').trim();
+            if (merchant && !SKIP_PATTERNS.test(merchant)) { entry = { date: dateFirst, merchant, amount: amt }; break; }
+          }
+        }
+        // Merchant | Amount | Date
+        const dateLast = parseMDY(parts[parts.length - 1]) || parseISO(parts[parts.length - 1]);
+        if (dateLast) {
+          const amt = parseAmount(parts[parts.length - 2]);
+          if (amt) {
+            const merchant = parts.slice(0, parts.length - 2).join(' ').trim();
+            if (merchant && !SKIP_PATTERNS.test(merchant)) { entry = { date: dateLast, merchant, amount: amt }; break; }
+          }
         }
       }
 
-      // Try date in last position
-      const dateFromLast = parseMDY(parts[parts.length - 1]) || parseISO(parts[parts.length - 1]);
-      if (dateFromLast && parts.length >= 3) {
-        const amt = parseAmount(parts[parts.length - 2]);
-        if (amt) {
-          const merchant = parts.slice(0, parts.length - 2).join(' ').trim();
-          if (merchant) { results.push({ date: dateFromLast, merchant, amount: amt }); break; }
-        }
-      }
-
-      // Amount in last column, merchant in middle, no date
-      if (parts.length >= 2) {
-        const amt = parseAmount(parts[parts.length - 1]);
-        const possibleDate = parseMDY(parts[0]) || parseISO(parts[0]);
-        if (amt && !possibleDate) {
-          const merchant = parts.slice(0, parts.length - 1).join(' ').trim();
-          if (merchant) { results.push({ date: today, merchant, amount: amt }); break; }
-        }
+      // Merchant | Amount  (most common — no date)
+      const lastAmt = parseAmount(parts[parts.length - 1]);
+      if (lastAmt && !parseMDY(parts[parts.length - 1]) && !parseISO(parts[parts.length - 1])) {
+        const merchant = parts.slice(0, parts.length - 1).join(' ').trim();
+        if (merchant && !SKIP_PATTERNS.test(merchant)) { entry = { date: today, merchant, amount: lastAmt }; break; }
       }
     }
 
-    // Fallback: whitespace-split "Merchant Amount" or "Amount Merchant"
-    if (!results.find((r) => r._srcLine === line)) {
+    // Fallback: whitespace-only (no tab/comma) — only runs when delimiter loop found nothing
+    if (!entry) {
       const tokens = line.split(/\s+/);
       if (tokens.length >= 2) {
         const lastAmt = parseAmount(tokens[tokens.length - 1]);
-        const firstAmt = parseAmount(tokens[0]);
         if (lastAmt && !parseMDY(tokens[tokens.length - 1])) {
-          const merchant = tokens.slice(0, -1).join(' ').trim();
-          if (merchant && !SKIP_PATTERNS.test(merchant)) results.push({ date: today, merchant, amount: lastAmt });
-        } else if (firstAmt && !parseMDY(tokens[0])) {
-          const merchant = tokens.slice(1).join(' ').trim();
-          if (merchant && !SKIP_PATTERNS.test(merchant)) results.push({ date: today, merchant, amount: firstAmt });
+          const merchant = tokens.slice(0, tokens.length - 1).join(' ').trim();
+          if (merchant && !SKIP_PATTERNS.test(merchant)) entry = { date: today, merchant, amount: lastAmt };
         }
       }
     }
+
+    if (entry) results.push(entry);
   }
 
   return results;
@@ -407,6 +406,19 @@ export default function Purchases() {
           </div>
         </div>
 
+        {/* Person filter — always at top */}
+        <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.875rem', padding: '0.25rem', gap: '0.25rem', marginBottom: '1rem' }}>
+          {[['all', 'All'], ['aaron', aaronLabel], ['cameron', cameronLabel]].map(([val, label]) => (
+            <button key={val} onClick={() => setPersonFilter(val)}
+              style={{ flex: 1, padding: '0.625rem 0', borderRadius: '0.625rem', fontSize: '0.875rem', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                backgroundColor: personFilter === val ? 'var(--surface)' : 'transparent',
+                color: personFilter === val ? 'var(--text)' : 'var(--subtle)',
+                boxShadow: personFilter === val ? '0 1px 4px rgba(0,0,0,0.15)' : 'none' }}>
+              {label}
+            </button>
+          ))}
+        </div>
+
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
           <button onClick={() => setMk(monthOffset(mk, -1))} style={{ padding: '0.5rem', borderRadius: '0.75rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
             <ChevronLeft size={20} />
@@ -483,18 +495,6 @@ export default function Purchases() {
                 ))}
               </div>
             )}
-
-            <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.875rem', padding: '0.25rem', gap: '0.25rem' }}>
-              {[['all', 'All'], ['aaron', aaronLabel], ['cameron', cameronLabel]].map(([val, label]) => (
-                <button key={val} onClick={() => setPersonFilter(val)}
-                  style={{ flex: 1, padding: '0.625rem 0', borderRadius: '0.625rem', fontSize: '0.875rem', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'all 0.15s',
-                    backgroundColor: personFilter === val ? 'var(--surface)' : 'transparent',
-                    color: personFilter === val ? 'var(--text)' : 'var(--subtle)',
-                    boxShadow: personFilter === val ? '0 1px 4px rgba(0,0,0,0.15)' : 'none' }}>
-                  {label}
-                </button>
-              ))}
-            </div>
           </>
         )}
       </div>
