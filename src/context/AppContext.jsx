@@ -286,7 +286,7 @@ export function AppProvider({ children, uid }) {
   const toggleNoteDashboardPin = useCallback((id) => persistNotes(notes.map((n) => n.id === id ? { ...n, pinnedToDashboard: !n.pinnedToDashboard } : n)), [notes, persistNotes]);
 
   // ── Purchases ──
-  const addPurchase = useCallback((p) => persistPurchases([{ ...p, id: generateId(), createdAt: new Date().toISOString() }, ...purchases]), [purchases, persistPurchases]);
+  const addPurchase = useCallback((p) => persistPurchases([{ ...p, id: p.id || generateId(), createdAt: new Date().toISOString() }, ...purchases]), [purchases, persistPurchases]);
   const updatePurchase = useCallback((id, u) => persistPurchases(purchases.map((p) => p.id === id ? { ...p, ...u } : p)), [purchases, persistPurchases]);
   const deletePurchase = useCallback((id) => persistPurchases(purchases.filter((p) => p.id !== id)), [purchases, persistPurchases]);
 

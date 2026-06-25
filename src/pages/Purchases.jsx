@@ -1,10 +1,14 @@
 import { useState, useMemo } from 'react';
-import { ShoppingBag, Pencil, Trash2, MoreVertical, ChevronLeft, ChevronRight, Plus, RefreshCw, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Calendar, Upload, X, AlertCircle, Download } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { ShoppingBag, Pencil, Trash2, MoreVertical, ChevronLeft, ChevronRight, Plus, RefreshCw, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Calendar, Upload, X, AlertCircle, Download, Paperclip } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { formatCurrency, monthKey, monthLabel, exportMonthCSV } from '../utils/helpers';
+import { useAuth } from '../context/AuthContext';
+import { formatCurrency, monthKey, monthLabel, exportMonthCSV, generateId } from '../utils/helpers';
 import Modal from '../components/Modal';
 import PurchaseForm from '../components/PurchaseForm';
 import BillForm from '../components/BillForm';
+import FileUpload from '../components/FileUpload';
+import { uploadFile } from '../utils/storageUtils';
 
 const PURCHASE_CATEGORIES = [
   'Food & Dining', 'Groceries', 'Gas & Fuel', 'Shopping', 'Entertainment',
@@ -267,11 +271,12 @@ function monthOffset(mk, offset) {
   return monthKey(new Date(y, m - 1 + offset, 1));
 }
 
-function PurchaseRow({ purchase, onEdit, onDelete, myName, spouseName }) {
+function PurchaseRow({ purchase, onEdit, onDelete, onAttach, myName, spouseName }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const isAaron = purchase.person === 'aaron' || purchase.person === 'me';
   const personLabel = isAaron ? (myName || 'Aaron') : (spouseName || 'Cameron');
   const dateLabel = new Date(purchase.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const attachCount = (purchase.attachments || []).length;
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem 1rem', borderBottom: '1px solid var(--border)' }}>
@@ -289,7 +294,13 @@ function PurchaseRow({ purchase, onEdit, onDelete, myName, spouseName }) {
           {purchase.notes && <span>· {purchase.notes}</span>}
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', flexShrink: 0 }}>
+        <button
+          onClick={() => onAttach?.(purchase)}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.7rem', color: attachCount > 0 ? 'var(--accent-text)' : 'var(--subtle)', backgroundColor: attachCount > 0 ? 'rgba(99,102,241,0.1)' : 'transparent', border: `1px solid ${attachCount > 0 ? 'rgba(99,102,241,0.3)' : 'transparent'}`, padding: '0.25rem 0.375rem', borderRadius: '0.375rem', cursor: 'pointer' }}>
+          <Paperclip size={11} />
+          {attachCount > 0 && attachCount}
+        </button>
         <p style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text)' }}>{formatCurrency(purchase.amount)}</p>
         <div style={{ position: 'relative' }}>
           <button onClick={() => setMenuOpen(!menuOpen)} style={{ padding: '0.25rem', color: 'var(--subtle)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}>
@@ -302,6 +313,10 @@ function PurchaseRow({ purchase, onEdit, onDelete, myName, spouseName }) {
                 <button onClick={() => { onEdit(purchase); setMenuOpen(false); }}
                   style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.875rem 1rem', fontSize: '0.875rem', color: 'var(--text)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
                   <Pencil size={13} /> Edit
+                </button>
+                <button onClick={() => { onAttach?.(purchase); setMenuOpen(false); }}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.875rem 1rem', fontSize: '0.875rem', color: 'var(--text)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+                  <Paperclip size={13} /> Receipt
                 </button>
                 <button onClick={() => { onDelete(purchase.id); setMenuOpen(false); }}
                   style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.875rem 1rem', fontSize: '0.875rem', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
@@ -318,9 +333,12 @@ function PurchaseRow({ purchase, onEdit, onDelete, myName, spouseName }) {
 
 export default function Purchases() {
   const { purchases, addPurchase, updatePurchase, deletePurchase, settings, setSettings, bills, addBill, income, recurringTemplates, addRecurringTemplate, updateRecurringTemplate, deleteRecurringTemplate } = useApp();
+  const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [mk, setMk] = useState(() => monthKey(new Date()));
-  const [showAdd, setShowAdd] = useState(false);
+  const [showAdd, setShowAdd] = useState(() => searchParams.get('new') === '1');
   const [editItem, setEditItem] = useState(null);
+  const [attachPurchaseId, setAttachPurchaseId] = useState(null);
   const [personFilter, setPersonFilter] = useState('all');
   const [showRecurring, setShowRecurring] = useState(false);
   const [showTemplates, setShowTemplates] = useState(true);
@@ -525,6 +543,7 @@ export default function Purchases() {
             {sorted.map((p, i) => (
               <div key={p.id} style={i === sorted.length - 1 ? { borderBottom: 'none' } : {}}>
                 <PurchaseRow purchase={p} onEdit={setEditItem} onDelete={deletePurchase}
+                  onAttach={(p) => setAttachPurchaseId(p.id)}
                   myName={myName} spouseName={spouseName} />
               </div>
             ))}
@@ -625,7 +644,17 @@ export default function Purchases() {
       {showAdd && (
         <Modal title="Log Purchase" onClose={() => setShowAdd(false)}>
           <PurchaseForm
-            onSave={(data) => { addPurchase(data); setShowAdd(false); }}
+            onSave={async (data, pendingFile) => {
+              const id = generateId();
+              addPurchase({ ...data, id });
+              setShowAdd(false);
+              if (pendingFile && user?.uid) {
+                try {
+                  const att = await uploadFile(`users/${user.uid}/purchases/${id}`, pendingFile);
+                  updatePurchase(id, { attachments: [att] });
+                } catch { /* receipt upload failed silently */ }
+              }
+            }}
             onCancel={() => setShowAdd(false)}
             myName={myName}
             spouseName={spouseName}
@@ -688,6 +717,21 @@ export default function Purchases() {
           />
         </Modal>
       )}
+      {attachPurchaseId && (() => {
+        const purchase = purchases.find((p) => p.id === attachPurchaseId);
+        if (!purchase) return null;
+        return (
+          <Modal title={`Receipt · ${purchase.merchant}`} onClose={() => setAttachPurchaseId(null)}>
+            <FileUpload
+              storagePath={`users/${user?.uid}/purchases/${purchase.id}`}
+              attachments={purchase.attachments || []}
+              accept="image/*,.pdf"
+              onAdd={(att) => updatePurchase(purchase.id, { attachments: [...(purchase.attachments || []), att] })}
+              onRemove={(id) => updatePurchase(purchase.id, { attachments: (purchase.attachments || []).filter((a) => a.id !== id) })}
+            />
+          </Modal>
+        );
+      })()}
       {showLimitEdit && (
         <Modal title="Monthly Spending Limit" onClose={() => setShowLimitEdit(false)}>
           <div>

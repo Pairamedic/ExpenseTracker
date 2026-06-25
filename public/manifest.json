@@ -15,5 +15,21 @@
       "type": "image/jpeg",
       "purpose": "any maskable"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "Log Purchase",
+      "short_name": "Log",
+      "description": "Quickly log a new purchase",
+      "url": "/ExpenseTracker/purchases?new=1",
+      "icons": [{ "src": "/ExpenseTracker/app-icon.jpeg", "sizes": "512x512", "type": "image/jpeg" }]
+    },
+    {
+      "name": "View Bills",
+      "short_name": "Bills",
+      "description": "Check your bills and payments",
+      "url": "/ExpenseTracker/bills",
+      "icons": [{ "src": "/ExpenseTracker/app-icon.jpeg", "sizes": "512x512", "type": "image/jpeg" }]
+    }
   ]
 }
