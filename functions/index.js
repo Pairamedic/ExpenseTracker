@@ -6,10 +6,10 @@ admin.initializeApp();
 const db = admin.firestore();
 const messaging = admin.messaging();
 
-// Runs daily at 8:00 AM Central Time
+// Runs daily at 8:00 AM Eastern — checks bills, commitments, and shift reminders
 // Requires Firebase Blaze (pay-as-you-go) plan to deploy Cloud Functions
 exports.dailyNotifications = onSchedule(
-  { schedule: 'every day 13:00', timeZone: 'UTC' }, // 8 AM Central (UTC-5)
+  { schedule: 'every day 08:00', timeZone: 'America/New_York' },
   async () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -18,7 +18,6 @@ exports.dailyNotifications = onSchedule(
     const tomorrowDay = todayDay + 1;
     const mk = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
 
-    // List all user docs
     const usersSnap = await db.collection('users').listDocuments();
 
     for (const userRef of usersSnap) {
@@ -89,7 +88,6 @@ exports.dailyNotifications = onSchedule(
           });
         }
 
-        // Send all notifications
         for (const msg of messages) {
           try {
             await messaging.send({
@@ -106,7 +104,6 @@ exports.dailyNotifications = onSchedule(
             });
           } catch (e) {
             if (e.code === 'messaging/registration-token-not-registered') {
-              // Token stale — clear it
               await db.doc(`${userRef.path}/data/app`).update({ fcmToken: admin.firestore.FieldValue.delete() });
               break;
             }

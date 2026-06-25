@@ -3,7 +3,7 @@ import {
   ShoppingCart, Plus, X, MoreVertical, Pencil, Trash2,
   Archive, ArchiveRestore, MessageSquare, Check, Store,
   ClipboardList, Bell, BellOff, CheckCircle2, Ban,
-  Circle,
+  Circle, Clipboard, Calendar,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import Modal from '../components/Modal';
@@ -237,6 +237,123 @@ function ExportModal({ list, items, onClose }) {
   );
 }
 
+// ── List text parser ─────────────────────────────────────────────────────────
+function parseListText(raw) {
+  const lines = raw.split('\n').map((l) => l.trim()).filter(Boolean);
+  if (lines.length === 0) return null;
+
+  const firstLine = lines[0];
+  let listName = firstLine;
+  let dueDate = null;
+
+  // Match trailing date: "- 06-24-26" or "- 06/24/2026"
+  const dateMatch = firstLine.match(/[-–]\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})\s*$/);
+  if (dateMatch) {
+    listName = firstLine.slice(0, firstLine.lastIndexOf(dateMatch[0])).trim();
+    const parts = dateMatch[1].split(/[\/\-]/);
+    if (parts.length === 3) {
+      let [m, d, y] = parts;
+      if (y.length === 2) y = '20' + y;
+      dueDate = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    }
+  }
+
+  const nameLower = listName.toLowerCase();
+  const type = (nameLower.includes('to do') || nameLower.includes('todo') ||
+    nameLower.includes('task') || nameLower.includes('errand')) ? 'todo' : 'grocery';
+
+  const items = [];
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+    const match = line.match(/^[-•*]\s*(.+)$/) || line.match(/^\d+[.)]\s*(.+)$/);
+    if (match) {
+      items.push(match[1].trim());
+    } else if (line && !line.match(/^[#=\-]{2,}/)) {
+      items.push(line);
+    }
+  }
+
+  return { name: listName.trim() || 'My List', type, dueDate, items };
+}
+
+function fmtDate(dateStr) {
+  if (!dateStr) return null;
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// ── PasteImportModal ──────────────────────────────────────────────────────────
+function PasteImportModal({ onImport, onCancel }) {
+  const [raw, setRaw] = useState('');
+  const parsed = useMemo(() => (raw.trim() ? parseListText(raw) : null), [raw]);
+  const canCreate = parsed && parsed.items.length > 0;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div>
+        <label className="app-label">Paste your list</label>
+        <textarea
+          className="app-input"
+          style={{ minHeight: '9rem', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.65, fontSize: '0.9375rem' }}
+          placeholder={'Grocery List - 06-24-26\n- Watermelon\n- Milk\n- Eggs\n\nTo Do List - 06-24-26\n- Go to Walmart'}
+          value={raw}
+          onChange={(e) => setRaw(e.target.value)}
+          autoFocus
+        />
+        <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.375rem' }}>
+          First line is the list name + optional date. Each item starts with a dash (-)
+        </p>
+      </div>
+
+      {parsed && (
+        <div style={{ backgroundColor: 'var(--surface2)', borderRadius: '0.875rem', padding: '1rem', border: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.625rem' }}>
+            <span style={{
+              fontSize: '0.6875rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.06em',
+              color: 'var(--accent-text)', backgroundColor: 'rgba(99,102,241,0.14)',
+              padding: '0.15rem 0.5rem', borderRadius: '0.375rem',
+            }}>
+              {parsed.type === 'todo' ? 'To-Do' : 'Grocery'}
+            </span>
+            <span style={{ fontWeight: '700', color: 'var(--text)', fontSize: '0.9375rem' }}>{parsed.name}</span>
+            {parsed.dueDate && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.8125rem', color: 'var(--muted)' }}>
+                <Calendar size={11} /> {fmtDate(parsed.dueDate)}
+              </span>
+            )}
+          </div>
+          {parsed.items.length === 0 ? (
+            <p style={{ fontSize: '0.8125rem', color: 'var(--subtle)' }}>No items found — make sure each item starts with a dash (-)</p>
+          ) : (
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+              {parsed.items.map((item, i) => (
+                <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontSize: '0.875rem', color: 'var(--text)' }}>
+                  <span style={{ color: 'var(--border)', flexShrink: 0, marginTop: '0.1rem' }}>○</span> {item}
+                </li>
+              ))}
+            </ul>
+          )}
+          <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.75rem', borderTop: '1px solid var(--border)', paddingTop: '0.5rem' }}>
+            {parsed.items.length} {parsed.items.length === 1 ? 'item' : 'items'} will be created
+          </p>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <button type="button" onClick={onCancel} className="app-btn-secondary" style={{ flex: 1 }}>Cancel</button>
+        <button
+          type="button"
+          onClick={() => canCreate && onImport(parsed)}
+          disabled={!canCreate}
+          className="app-btn-primary"
+          style={{ flex: 1, opacity: canCreate ? 1 : 0.45 }}
+        >
+          Create List
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Shared menu button style ──────────────────────────────────────────────────
 const MENU_BTN = {
   width: '100%', display: 'flex', alignItems: 'center', gap: '0.625rem',
@@ -279,6 +396,12 @@ function GroceryListCard({
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.25rem' }}>
                 <Store size={11} style={{ color: 'var(--subtle)' }} />
                 <span style={{ fontSize: '0.8125rem', color: 'var(--subtle)' }}>{list.store}</span>
+              </div>
+            )}
+            {list.dueDate && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.25rem' }}>
+                <Calendar size={11} style={{ color: 'var(--subtle)' }} />
+                <span style={{ fontSize: '0.8125rem', color: 'var(--subtle)' }}>Shop by {fmtDate(list.dueDate)}</span>
               </div>
             )}
             <div style={{ fontSize: '0.8125rem', color: 'var(--muted)', display: 'flex', gap: '0.625rem', flexWrap: 'wrap' }}>
@@ -404,6 +527,11 @@ function TodoListCard({
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
               <ClipboardList size={14} style={{ color: 'var(--accent-text)', flexShrink: 0 }} />
               <span style={{ fontWeight: '700', fontSize: '1rem', color: 'var(--text)' }}>{list.name}</span>
+              {list.dueDate && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.75rem', color: 'var(--muted)' }}>
+                  <Calendar size={10} /> {fmtDate(list.dueDate)}
+                </span>
+              )}
               {overdue.length > 0 && (
                 <span style={{ fontSize: '0.6875rem', fontWeight: '700', color: 'var(--danger)', backgroundColor: 'rgba(244,63,94,0.12)', padding: '0.125rem 0.375rem', borderRadius: '0.375rem' }}>
                   {overdue.length} overdue
@@ -522,12 +650,13 @@ function TodoListCard({
 export default function ShoppingLists() {
   const {
     shoppingLists, addShoppingList, updateShoppingList, deleteShoppingList,
-    shoppingItems, addShoppingItem, updateShoppingItem, deleteShoppingItem, toggleShoppingItem,
+    shoppingItems, addShoppingItem, updateShoppingItem, deleteShoppingItem, toggleShoppingItem, importList,
   } = useApp();
 
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [showNewList, setShowNewList] = useState(false);
+  const [showPaste, setShowPaste] = useState(false);
   const [editList, setEditList] = useState(null);
   const [editItem, setEditItem] = useState(null);
   const [editItemListType, setEditItemListType] = useState('grocery');
@@ -598,12 +727,21 @@ export default function ShoppingLists() {
       <div className="app-header">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
           <h1 style={{ fontSize: '1.625rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-0.02em' }}>Lists</h1>
-          <button
-            onClick={() => setShowNewList(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.875rem', backgroundColor: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer' }}
-          >
-            <Plus size={16} /> New List
-          </button>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button
+              onClick={() => setShowPaste(true)}
+              title="Paste list from text"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.5rem 0.75rem', backgroundColor: 'var(--surface2)', color: 'var(--muted)', border: '1px solid var(--border)', borderRadius: '0.75rem', cursor: 'pointer' }}
+            >
+              <Clipboard size={16} />
+            </button>
+            <button
+              onClick={() => setShowNewList(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.875rem', backgroundColor: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer' }}
+            >
+              <Plus size={16} /> New List
+            </button>
+          </div>
         </div>
 
         {/* Type filter tabs */}
@@ -684,6 +822,17 @@ export default function ShoppingLists() {
       </div>
 
       {/* Modals */}
+      {showPaste && (
+        <Modal title="Paste List" onClose={() => setShowPaste(false)}>
+          <PasteImportModal
+            onImport={({ name, type, dueDate, items }) => {
+              importList({ name, type, dueDate: dueDate || null }, items);
+              setShowPaste(false);
+            }}
+            onCancel={() => setShowPaste(false)}
+          />
+        </Modal>
+      )}
       {showNewList && (
         <Modal title="New List" onClose={() => setShowNewList(false)}>
           <ListForm onSave={(data) => { addShoppingList(data); setShowNewList(false); }} onCancel={() => setShowNewList(false)} />

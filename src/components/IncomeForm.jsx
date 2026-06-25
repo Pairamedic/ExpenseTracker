@@ -1,11 +1,12 @@
 import { useState } from 'react';
 
-const FREQUENCIES = ['monthly', 'biweekly', 'weekly'];
+const FREQUENCIES = ['monthly', 'biweekly', 'weekly', 'semimonthly'];
 
 export default function IncomeForm({ initial = {}, onSave, onCancel, spouseEnabled, spouseName, jobs = [] }) {
   const [form, setForm] = useState({
     source: '',
     amount: '',
+    grossAmount: '',
     isRecurring: true,
     frequency: 'biweekly',
     startDate: '',
@@ -14,15 +15,29 @@ export default function IncomeForm({ initial = {}, onSave, onCancel, spouseEnabl
     linkedJobId: '',
     includeInAvailability: true,
     ...initial,
+    amount: initial.amount != null ? String(initial.amount) : '',
+    grossAmount: initial.grossAmount != null ? String(initial.grossAmount) : '',
     includeInAvailability: initial.includeInAvailability !== false,
   });
 
   const set = (key, val) => setForm((f) => ({ ...f, [key]: val }));
 
+  const net = parseFloat(form.amount) || 0;
+  const gross = parseFloat(form.grossAmount) || 0;
+  const mult = form.frequency === 'weekly' ? 52 : form.frequency === 'biweekly' ? 26 : form.frequency === 'semimonthly' ? 24 : 12;
+  const annualNet = net * mult;
+  const annualGross = gross * mult;
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!form.source || !form.amount) return;
-    onSave({ ...form, amount: parseFloat(form.amount), linkedJobId: form.linkedJobId || null, includeInAvailability: form.includeInAvailability });
+    onSave({
+      ...form,
+      amount: parseFloat(form.amount),
+      grossAmount: form.grossAmount !== '' ? parseFloat(form.grossAmount) : null,
+      linkedJobId: form.linkedJobId || null,
+      includeInAvailability: form.includeInAvailability,
+    });
   };
 
   return (
@@ -33,17 +48,59 @@ export default function IncomeForm({ initial = {}, onSave, onCancel, spouseEnabl
           value={form.source} onChange={(e) => set('source', e.target.value)} required />
       </div>
 
-      <div>
-        <label className="app-label">Amount (per paycheck) *</label>
-        <input type="number" min="0" step="0.01" className="app-input" placeholder="0.00"
-          value={form.amount} onChange={(e) => set('amount', e.target.value)} required />
+      {/* Gross / Net pay side by side */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+          <div>
+            <label className="app-label">Gross Pay *</label>
+            <p style={{ fontSize: '0.7rem', color: 'var(--subtle)', marginBottom: '0.25rem' }}>Before taxes &amp; deductions</p>
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontSize: '0.9375rem' }}>$</span>
+              <input type="number" min="0" step="0.01" className="app-input" placeholder="0.00"
+                value={form.grossAmount} onChange={(e) => set('grossAmount', e.target.value)}
+                style={{ paddingLeft: '1.75rem' }} />
+            </div>
+          </div>
+          <div>
+            <label className="app-label">Net Pay (take-home) *</label>
+            <p style={{ fontSize: '0.7rem', color: 'var(--subtle)', marginBottom: '0.25rem' }}>After taxes &amp; deductions</p>
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontSize: '0.9375rem' }}>$</span>
+              <input type="number" min="0" step="0.01" className="app-input" placeholder="0.00"
+                value={form.amount} onChange={(e) => set('amount', e.target.value)} required
+                style={{ paddingLeft: '1.75rem' }} />
+            </div>
+          </div>
+        </div>
+
+        {/* Annual summary row */}
+        {(net > 0 || gross > 0) && (
+          <div style={{ backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', padding: '0.625rem 0.875rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+            {gross > 0 && (
+              <div>
+                <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--subtle)' }}>Annual Gross</p>
+                <p style={{ fontWeight: '700', color: 'var(--text)', fontSize: '0.9375rem' }}>
+                  ${annualGross.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </p>
+              </div>
+            )}
+            {net > 0 && (
+              <div>
+                <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--subtle)' }}>Annual Net</p>
+                <p style={{ fontWeight: '700', color: 'var(--positive-text)', fontSize: '0.9375rem' }}>
+                  ${annualNet.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div>
         <label className="app-label">Frequency</label>
         <select className="app-input" value={form.frequency} onChange={(e) => set('frequency', e.target.value)}>
           {FREQUENCIES.map((f) => (
-            <option key={f} value={f}>{f.charAt(0).toUpperCase() + f.slice(1)}</option>
+            <option key={f} value={f}>{f === 'biweekly' ? 'Biweekly (every 2 weeks)' : f === 'semimonthly' ? 'Semimonthly (twice/month)' : f.charAt(0).toUpperCase() + f.slice(1)}</option>
           ))}
         </select>
       </div>
@@ -97,7 +154,7 @@ export default function IncomeForm({ initial = {}, onSave, onCancel, spouseEnabl
       <div style={{ backgroundColor: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '0.875rem', padding: '0.875rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <p style={{ fontSize: '0.875rem', fontWeight: '700', color: 'var(--text)' }}>Factor into Availability</p>
-          <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.125rem' }}>Include in the Dashboard available amount</p>
+          <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.125rem' }}>Include net pay in Dashboard available amount</p>
         </div>
         <button type="button" onClick={() => set('includeInAvailability', !form.includeInAvailability)}
           style={{ width: '2.75rem', height: '1.5rem', borderRadius: '9999px', border: 'none', cursor: 'pointer', transition: 'background 0.2s', position: 'relative', flexShrink: 0,

@@ -39,10 +39,28 @@ function calcARTax(agi, filing) {
   return Math.max(0, tax);
 }
 
-function annualFromRecords(income) {
+const DEDUCTION_TYPES = [
+  { type: 'health', label: 'Health Insurance' },
+  { type: 'dental', label: 'Dental Insurance' },
+  { type: 'vision', label: 'Vision Insurance' },
+  { type: '401k', label: '401k / Pre-Tax IRA' },
+  { type: 'hsa', label: 'HSA' },
+  { type: 'fsa', label: 'FSA' },
+  { type: 'life', label: 'Life Insurance' },
+  { type: 'ot_adj', label: 'Overtime Adjustment' },
+  { type: 'union', label: 'Union Dues' },
+  { type: 'garnish', label: 'Child Support / Garnishment' },
+  { type: 'other', label: 'Other / Custom' },
+];
+
+// Uses grossAmount from income records when available, falls back to amount
+function annualFromRecords(income, useGross = true) {
   return income.reduce((s, i) => {
     const mult = i.frequency === 'weekly' ? 52 : i.frequency === 'biweekly' ? 26 : i.frequency === 'semimonthly' ? 24 : 12;
-    return s + (parseFloat(i.amount) || 0) * mult;
+    const amt = useGross
+      ? (parseFloat(i.grossAmount) || parseFloat(i.amount) || 0)
+      : (parseFloat(i.amount) || 0);
+    return s + amt * mult;
   }, 0);
 }
 
@@ -127,7 +145,8 @@ function Toggle({ value, onChange }) {
 function TaxTab({ s, onChange, income, jobs }) {
   const update = (key, val) => onChange({ ...s, tax: { ...s.tax, [key]: val } });
 
-  const grossFromRecords = annualFromRecords(income);
+  const grossFromRecords = annualFromRecords(income, true);
+  const netFromRecords = annualFromRecords(income, false);
   const grossIncome = s.tax.useIncomeData ? grossFromRecords : (parseFloat(s.tax.manualGrossIncome) || 0);
 
   const autoIRADeduction = useMemo(() => {
@@ -140,7 +159,20 @@ function TaxTab({ s, onChange, income, jobs }) {
     }, 0);
   }, [jobs, grossIncome]);
 
-  const preTaxDeductions = autoIRADeduction + (parseFloat(s.tax.extraPreTaxDeductions) || 0);
+  // Deductions list
+  const deductions = s.tax.deductions || [];
+  const addDeduction = (type) => {
+    if (!type) return;
+    const preset = DEDUCTION_TYPES.find((d) => d.type === type);
+    update('deductions', [...deductions, { id: Date.now(), type, label: preset?.label || 'Deduction', annualAmount: '' }]);
+  };
+  const updateDeduction = (id, field, val) =>
+    update('deductions', deductions.map((d) => d.id === id ? { ...d, [field]: val } : d));
+  const removeDeduction = (id) =>
+    update('deductions', deductions.filter((d) => d.id !== id));
+  const manualDeductionsTotal = deductions.reduce((s, d) => s + (parseFloat(d.annualAmount) || 0), 0);
+
+  const preTaxDeductions = autoIRADeduction + manualDeductionsTotal;
   const agi = Math.max(0, grossIncome - preTaxDeductions);
   const deductionAmt = s.tax.useStandardDeduction
     ? (STD_DEDUCTIONS_FED[s.tax.filingStatus] || 15000)
@@ -153,10 +185,14 @@ function TaxTab({ s, onChange, income, jobs }) {
   const fedNet = Math.max(0, fedTax - ctc - otherCredits);
   const arTax = calcARTax(agi, s.tax.filingStatus);
 
-  const fedWithheld = parseFloat(s.tax.manualFedWithheld) || 0;
-  const arWithheld = parseFloat(s.tax.manualStateWithheld) || 0;
+  // Withholding: default to calculated expected (= tax owed); manual entry overrides for accuracy
+  const fedWithheldManual = s.tax.manualFedWithheld !== '' ? parseFloat(s.tax.manualFedWithheld) : null;
+  const arWithheldManual = s.tax.manualStateWithheld !== '' ? parseFloat(s.tax.manualStateWithheld) : null;
+  const fedWithheld = fedWithheldManual ?? fedNet;
+  const arWithheld = arWithheldManual ?? arTax;
   const fedDiff = fedWithheld - fedNet;
   const arDiff = arWithheld - arTax;
+  const usingAutoWithholding = fedWithheldManual === null && arWithheldManual === null;
 
   const effRate = grossIncome > 0 ? ((fedNet / grossIncome) * 100).toFixed(1) : '0.0';
   const marginalRate = (() => {
@@ -182,45 +218,99 @@ function TaxTab({ s, onChange, income, jobs }) {
             </Sel>
           </div>
 
-          <div style={{ backgroundColor: 'var(--surface2)', borderRadius: '0.875rem', padding: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text)' }}>Use Income Records</p>
-              <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>
-                {s.tax.useIncomeData
-                  ? income.length > 0 ? `Est. ${formatCurrency(grossFromRecords)}/yr from ${income.length} record${income.length !== 1 ? 's' : ''}` : 'No income records found'
-                  : 'Enter gross income manually'}
-              </p>
+          {/* Income source */}
+          <div style={{ backgroundColor: 'var(--surface2)', borderRadius: '0.875rem', padding: '0.75rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: s.tax.useIncomeData && income.length > 0 ? '0.625rem' : 0 }}>
+              <div>
+                <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text)' }}>Use Income Records</p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>
+                  {s.tax.useIncomeData
+                    ? income.length > 0 ? `${income.length} record${income.length !== 1 ? 's' : ''} found` : 'No income records — enter manually'
+                    : 'Enter income manually below'}
+                </p>
+              </div>
+              <Toggle value={s.tax.useIncomeData} onChange={(v) => update('useIncomeData', v)} />
             </div>
-            <Toggle value={s.tax.useIncomeData} onChange={(v) => update('useIncomeData', v)} />
+            {s.tax.useIncomeData && income.length > 0 && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', borderTop: '1px solid var(--border)', paddingTop: '0.625rem' }}>
+                <div>
+                  <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--subtle)' }}>Annual Gross</p>
+                  <p style={{ fontWeight: 700, color: 'var(--text)', fontSize: '0.9375rem' }}>{formatCurrency(grossFromRecords)}</p>
+                </div>
+                <div>
+                  <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--subtle)' }}>Annual Net</p>
+                  <p style={{ fontWeight: 700, color: 'var(--positive-text)', fontSize: '0.9375rem' }}>{formatCurrency(netFromRecords)}</p>
+                </div>
+              </div>
+            )}
           </div>
 
-          {!s.tax.useIncomeData && (
-            <div>
-              <Label>Expected Gross Income (Annual)</Label>
-              <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }}>$</span>
-                <Input type="number" min="0" step="1" placeholder="75000" value={s.tax.manualGrossIncome}
-                  onChange={(e) => update('manualGrossIncome', e.target.value)} style={{ paddingLeft: '1.75rem' }} />
+          {(!s.tax.useIncomeData || income.length === 0) && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div>
+                <Label>Annual Gross Income</Label>
+                <p style={{ fontSize: '0.7rem', color: 'var(--subtle)', marginBottom: '0.25rem' }}>Before taxes</p>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }}>$</span>
+                  <Input type="number" min="0" step="1" placeholder="75000" value={s.tax.manualGrossIncome}
+                    onChange={(e) => update('manualGrossIncome', e.target.value)} style={{ paddingLeft: '1.75rem' }} />
+                </div>
+              </div>
+              <div>
+                <Label>Annual Net Income</Label>
+                <p style={{ fontSize: '0.7rem', color: 'var(--subtle)', marginBottom: '0.25rem' }}>Take-home (reference)</p>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }}>$</span>
+                  <Input type="number" min="0" step="1" placeholder="55000" value={s.tax.manualNetIncome || ''}
+                    onChange={(e) => update('manualNetIncome', e.target.value)} style={{ paddingLeft: '1.75rem' }} />
+                </div>
               </div>
             </div>
           )}
 
+          {/* Pre-tax deductions */}
           <div>
-            <Label>Extra Pre-Tax Deductions (annual)</Label>
-            <p style={{ fontSize: '0.7rem', color: 'var(--subtle)', marginBottom: '0.375rem' }}>
-              HSA, FSA, 401k not in job settings
-              {autoIRADeduction > 0 && ` · IRA from jobs: ${formatCurrency(autoIRADeduction)}/yr`}
-            </p>
-            <div style={{ position: 'relative' }}>
-              <span style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }}>$</span>
-              <Input type="number" min="0" step="1" placeholder="0" value={s.tax.extraPreTaxDeductions}
-                onChange={(e) => update('extraPreTaxDeductions', e.target.value)} style={{ paddingLeft: '1.75rem' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <Label>Pre-Tax Deductions</Label>
+              {preTaxDeductions > 0 && (
+                <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--accent-text)' }}>
+                  {formatCurrency(preTaxDeductions)}/yr
+                </span>
+              )}
             </div>
+            {autoIRADeduction > 0 && (
+              <div style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginBottom: '0.5rem', padding: '0.375rem 0.625rem', backgroundColor: 'var(--surface2)', borderRadius: '0.5rem' }}>
+                IRA from job settings: {formatCurrency(autoIRADeduction)}/yr (auto-included)
+              </div>
+            )}
+            {deductions.map((d) => (
+              <div key={d.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <span style={{ flex: 1, fontSize: '0.875rem', color: 'var(--text)', fontWeight: 500 }}>{d.label}</span>
+                <div style={{ position: 'relative', width: '8rem', flexShrink: 0 }}>
+                  <span style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontSize: '0.875rem' }}>$</span>
+                  <Input type="number" min="0" step="1" placeholder="0"
+                    value={d.annualAmount}
+                    onChange={(e) => updateDeduction(d.id, 'annualAmount', e.target.value)}
+                    style={{ paddingLeft: '1.625rem', paddingRight: '0.5rem' }} />
+                </div>
+                <span style={{ fontSize: '0.7rem', color: 'var(--subtle)', flexShrink: 0 }}>/yr</span>
+                <button type="button" onClick={() => removeDeduction(d.id)}
+                  style={{ flexShrink: 0, width: '1.75rem', height: '1.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '0.5rem', border: 'none', backgroundColor: 'rgba(239,68,68,0.1)', color: 'var(--danger)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1 }}>
+                  ×
+                </button>
+              </div>
+            ))}
+            <Sel value="" onChange={(e) => { addDeduction(e.target.value); e.target.value = ''; }}
+              style={{ color: deductions.length === 0 ? 'var(--muted)' : undefined }}>
+              <option value="">+ Add deduction…</option>
+              {DEDUCTION_TYPES.map((t) => <option key={t.type} value={t.type}>{t.label}</option>)}
+            </Sel>
           </div>
 
+          {/* Fed/itemized deduction */}
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.375rem' }}>
-              <Label>Deduction</Label>
+              <Label>Federal Deduction</Label>
               <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.5rem', padding: '0.125rem', gap: '0.125rem' }}>
                 {[['standard', 'Standard'], ['itemized', 'Itemized']].map(([v, l]) => (
                   <button key={v} type="button" onClick={() => update('useStandardDeduction', v === 'standard')}
@@ -262,23 +352,46 @@ function TaxTab({ s, onChange, income, jobs }) {
             </div>
           </div>
 
+          {/* Withholding */}
           <div style={{ borderTop: '1px solid var(--border)', paddingTop: '0.875rem' }}>
-            <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.625rem' }}>Expected Withholding (Full Year)</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+              <div>
+                <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)' }}>Withholding (Full Year)</p>
+                {usingAutoWithholding && grossIncome > 0 && (
+                  <p style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: '0.2rem' }}>
+                    Auto-estimated from brackets · Enter actual for best accuracy
+                  </p>
+                )}
+              </div>
+              {!usingAutoWithholding && (
+                <button type="button"
+                  onClick={() => { update('manualFedWithheld', ''); onChange({ ...s, tax: { ...s.tax, manualFedWithheld: '', manualStateWithheld: '' } }); }}
+                  style={{ fontSize: '0.7rem', color: 'var(--accent-text)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+                  Reset to auto
+                </button>
+              )}
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
               <div>
                 <Label>Federal Withheld</Label>
                 <div style={{ position: 'relative' }}>
                   <span style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }}>$</span>
-                  <Input type="number" min="0" step="1" placeholder="0" value={s.tax.manualFedWithheld}
-                    onChange={(e) => update('manualFedWithheld', e.target.value)} style={{ paddingLeft: '1.75rem' }} />
+                  <Input type="number" min="0" step="1"
+                    placeholder={grossIncome > 0 ? Math.round(fedNet).toString() : '0'}
+                    value={s.tax.manualFedWithheld}
+                    onChange={(e) => update('manualFedWithheld', e.target.value)}
+                    style={{ paddingLeft: '1.75rem' }} />
                 </div>
               </div>
               <div>
                 <Label>AR State Withheld</Label>
                 <div style={{ position: 'relative' }}>
                   <span style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }}>$</span>
-                  <Input type="number" min="0" step="1" placeholder="0" value={s.tax.manualStateWithheld}
-                    onChange={(e) => update('manualStateWithheld', e.target.value)} style={{ paddingLeft: '1.75rem' }} />
+                  <Input type="number" min="0" step="1"
+                    placeholder={grossIncome > 0 ? Math.round(arTax).toString() : '0'}
+                    value={s.tax.manualStateWithheld}
+                    onChange={(e) => update('manualStateWithheld', e.target.value)}
+                    style={{ paddingLeft: '1.75rem' }} />
                 </div>
               </div>
             </div>
@@ -291,8 +404,15 @@ function TaxTab({ s, onChange, income, jobs }) {
           <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.75rem' }}>Estimated 2025 Tax Return</p>
 
           <Row label="Gross Income" value={formatCurrency(grossIncome)} />
-          {preTaxDeductions > 0 && <Row label="Pre-Tax Deductions" value={`−${formatCurrency(preTaxDeductions)}`} color="var(--danger)" />}
-          <Row label="AGI" value={formatCurrency(agi)} />
+          {preTaxDeductions > 0 && (
+            <>
+              {autoIRADeduction > 0 && <Row label="IRA / Job deductions" value={`−${formatCurrency(autoIRADeduction)}`} color="var(--danger)" />}
+              {deductions.filter((d) => parseFloat(d.annualAmount) > 0).map((d) => (
+                <Row key={d.id} label={d.label} value={`−${formatCurrency(parseFloat(d.annualAmount))}`} color="var(--danger)" />
+              ))}
+            </>
+          )}
+          <Row label="Adjusted Gross Income (AGI)" value={formatCurrency(agi)} />
           <Row label={`${s.tax.useStandardDeduction ? 'Standard' : 'Itemized'} Deduction`} value={`−${formatCurrency(deductionAmt)}`} color="var(--danger)" />
           <Row label="Federal Taxable Income" value={formatCurrency(fedTaxable)} />
 
@@ -304,17 +424,15 @@ function TaxTab({ s, onChange, income, jobs }) {
               {otherCredits > 0 && <Row label="Other credits" value={`−${formatCurrency(otherCredits)}`} color="var(--positive-text)" />}
               <div style={{ borderTop: '1px solid var(--border)', marginTop: '0.375rem', paddingTop: '0.375rem' }}>
                 <Row label="Net tax" value={formatCurrency(fedNet)} large />
-                {fedWithheld > 0 && <Row label="Withheld" value={formatCurrency(fedWithheld)} />}
+                <Row label={fedWithheldManual !== null ? 'Withheld (actual)' : 'Withheld (est.)'} value={formatCurrency(fedWithheld)} />
               </div>
-              {fedWithheld > 0 && (
-                <div style={{ marginTop: '0.5rem', padding: '0.5rem', borderRadius: '0.5rem', textAlign: 'center',
-                  backgroundColor: fedDiff >= 0 ? 'var(--positive-soft)' : 'rgba(239,68,68,0.1)' }}>
-                  <p style={{ fontSize: '0.65rem', color: 'var(--subtle)' }}>{fedDiff >= 0 ? 'Refund' : 'Owe'}</p>
-                  <p style={{ fontSize: '1.125rem', fontWeight: 800, color: fedDiff >= 0 ? 'var(--positive-text)' : 'var(--danger)' }}>
-                    {formatCurrency(Math.abs(fedDiff))}
-                  </p>
-                </div>
-              )}
+              <div style={{ marginTop: '0.5rem', padding: '0.5rem', borderRadius: '0.5rem', textAlign: 'center',
+                backgroundColor: fedDiff >= 0 ? 'var(--positive-soft)' : 'rgba(239,68,68,0.1)' }}>
+                <p style={{ fontSize: '0.65rem', color: 'var(--subtle)' }}>{fedDiff >= 0 ? 'Est. Refund' : 'Est. Owe'}</p>
+                <p style={{ fontSize: '1.125rem', fontWeight: 800, color: fedDiff >= 0 ? 'var(--positive-text)' : 'var(--danger)' }}>
+                  {formatCurrency(Math.abs(fedDiff))}
+                </p>
+              </div>
             </div>
 
             <div style={{ backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', padding: '0.75rem' }}>
@@ -322,19 +440,15 @@ function TaxTab({ s, onChange, income, jobs }) {
               <Row label="AR AGI" value={formatCurrency(agi)} />
               <div style={{ borderTop: '1px solid var(--border)', marginTop: '0.375rem', paddingTop: '0.375rem' }}>
                 <Row label="Tax owed" value={formatCurrency(arTax)} large />
-                {arWithheld > 0 && <Row label="Withheld" value={formatCurrency(arWithheld)} />}
+                <Row label={arWithheldManual !== null ? 'Withheld (actual)' : 'Withheld (est.)'} value={formatCurrency(arWithheld)} />
               </div>
-              {arWithheld > 0 ? (
-                <div style={{ marginTop: '0.5rem', padding: '0.5rem', borderRadius: '0.5rem', textAlign: 'center',
-                  backgroundColor: arDiff >= 0 ? 'var(--positive-soft)' : 'rgba(239,68,68,0.1)' }}>
-                  <p style={{ fontSize: '0.65rem', color: 'var(--subtle)' }}>{arDiff >= 0 ? 'Refund' : 'Owe'}</p>
-                  <p style={{ fontSize: '1.125rem', fontWeight: 800, color: arDiff >= 0 ? 'var(--positive-text)' : 'var(--danger)' }}>
-                    {formatCurrency(Math.abs(arDiff))}
-                  </p>
-                </div>
-              ) : (
-                <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.5rem' }}>Enter withheld above</p>
-              )}
+              <div style={{ marginTop: '0.5rem', padding: '0.5rem', borderRadius: '0.5rem', textAlign: 'center',
+                backgroundColor: arDiff >= 0 ? 'var(--positive-soft)' : 'rgba(239,68,68,0.1)' }}>
+                <p style={{ fontSize: '0.65rem', color: 'var(--subtle)' }}>{arDiff >= 0 ? 'Est. Refund' : 'Est. Owe'}</p>
+                <p style={{ fontSize: '1.125rem', fontWeight: 800, color: arDiff >= 0 ? 'var(--positive-text)' : 'var(--danger)' }}>
+                  {formatCurrency(Math.abs(arDiff))}
+                </p>
+              </div>
             </div>
           </div>
 
@@ -347,7 +461,12 @@ function TaxTab({ s, onChange, income, jobs }) {
             ))}
           </div>
 
-          <p style={{ fontSize: '0.7rem', color: 'var(--subtle)', marginTop: '0.75rem', textAlign: 'center' }}>
+          {usingAutoWithholding && (
+            <p style={{ fontSize: '0.7rem', color: 'var(--subtle)', marginTop: '0.75rem', textAlign: 'center' }}>
+              Refund/owe based on estimated withholding · Enter actual YTD amounts above for accuracy
+            </p>
+          )}
+          <p style={{ fontSize: '0.7rem', color: 'var(--subtle)', marginTop: '0.375rem', textAlign: 'center' }}>
             2025 federal &amp; Arkansas brackets. Estimates only — consult a tax professional.
           </p>
         </Card>
