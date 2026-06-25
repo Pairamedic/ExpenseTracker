@@ -367,6 +367,22 @@ export default function Settings() {
 
               <p style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-text)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem', marginTop: '1rem' }}>To-Do Lists</p>
               <NotifRow label="Item due time reminders" sublabel="Uses the time set on each to-do item" checked={!!notifPrefs.todos?.enabled} onChange={(v) => updatePref('todos', 'enabled', v)} />
+              <NotifRow label="Morning reminder" sublabel="Push at set time if you have incomplete to-dos" checked={notifPrefs.todos?.morningEnabled !== false} onChange={(v) => updatePref('todos', 'morningEnabled', v)} />
+              {notifPrefs.todos?.morningEnabled !== false && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.375rem 0 0 0.25rem' }}>
+                  <span style={{ fontSize: '0.8125rem', color: 'var(--muted)' }}>Time</span>
+                  <input type="time" value={notifPrefs.todos?.morningTime || '08:00'} onChange={(e) => updatePref('todos', 'morningTime', e.target.value)}
+                    style={{ backgroundColor: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '0.5rem', padding: '0.25rem 0.5rem', color: 'var(--text)', fontSize: '0.875rem' }} />
+                </div>
+              )}
+              <NotifRow label="Afternoon reminder" sublabel="Push at set time if you have incomplete to-dos" checked={notifPrefs.todos?.afternoonEnabled !== false} onChange={(v) => updatePref('todos', 'afternoonEnabled', v)} />
+              {notifPrefs.todos?.afternoonEnabled !== false && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.375rem 0 0 0.25rem' }}>
+                  <span style={{ fontSize: '0.8125rem', color: 'var(--muted)' }}>Time</span>
+                  <input type="time" value={notifPrefs.todos?.afternoonTime || '16:00'} onChange={(e) => updatePref('todos', 'afternoonTime', e.target.value)}
+                    style={{ backgroundColor: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '0.5rem', padding: '0.25rem 0.5rem', color: 'var(--text)', fontSize: '0.875rem' }} />
+                </div>
+              )}
 
               <p style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-text)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem', marginTop: '1rem' }}>Work</p>
               <NotifRow label="Daily hours log reminder" sublabel="Reminds you to log your work hours" checked={!!notifPrefs.shifts?.reminder} onChange={(v) => updatePref('shifts', 'reminder', v)} />
