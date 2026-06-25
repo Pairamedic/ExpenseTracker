@@ -1605,9 +1605,9 @@ function SegmentedControl({ value, onChange, options }) {
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+// ── Page Content (also exported for embedding) ────────────────────────────────
 
-export default function WorkTime() {
+export function WorkTimeContent() {
   const { jobs, addJob, updateJob, deleteJob, shifts, addShift, updateShift, deleteShift, bulkSaveShifts, addIncome, paycheckActuals, addPaycheckActual } = useApp();
   const [tab, setTab] = useState(() => {
     const s = localStorage.getItem('workTimeTab');
@@ -1615,25 +1615,23 @@ export default function WorkTime() {
   });
   const [showJobForm, setShowJobForm] = useState(false);
   const [editJob, setEditJob] = useState(null);
-  const [calShiftPreset, setCalShiftPreset] = useState(null); // { date, jobId }
+  const [calShiftPreset, setCalShiftPreset] = useState(null);
 
   return (
-    <div className="app-page">
-      <div className="app-header">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-          <h1 style={{ fontSize: '1.625rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-0.02em' }}>Work Time</h1>
-          {tab === 'jobs' && jobs.length > 0 && (
-            <button onClick={() => setShowJobForm(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.875rem', backgroundColor: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer' }}>
-              <Plus size={16} /> Add Job
-            </button>
-          )}
+    <>
+      <div style={{ padding: '0 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+        <div style={{ flex: 1 }}>
+          <SegmentedControl value={tab} onChange={(t) => { setTab(t); localStorage.setItem('workTimeTab', t); }} options={TABS} />
         </div>
-        <SegmentedControl value={tab} onChange={(t) => { setTab(t); localStorage.setItem('workTimeTab', t); }} options={TABS} />
+        {tab === 'jobs' && jobs.length > 0 && (
+          <button onClick={() => setShowJobForm(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.875rem', backgroundColor: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer', flexShrink: 0 }}>
+            <Plus size={16} /> Add Job
+          </button>
+        )}
       </div>
 
       <div style={{ marginTop: '0.25rem' }}>
-        {/* Jobs tab */}
         {tab === 'jobs' && (
           <div style={{ padding: '0 1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {jobs.length === 0 ? (
@@ -1694,6 +1692,19 @@ export default function WorkTime() {
           />
         </Modal>
       )}
+    </>
+  );
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────────
+
+export default function WorkTime() {
+  return (
+    <div className="app-page">
+      <div className="app-header">
+        <h1 style={{ fontSize: '1.625rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-0.02em', marginBottom: '1rem' }}>Work Time</h1>
+      </div>
+      <WorkTimeContent />
     </div>
   );
 }
