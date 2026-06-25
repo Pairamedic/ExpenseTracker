@@ -26,7 +26,7 @@ exports.dailyNotifications = onSchedule(
         if (!dataSnap.exists) continue;
 
         const data = dataSnap.data();
-        const { bills = [], commitments = [], fcmToken, notifPrefs } = data;
+        const { bills = [], commitments = [], plannedExpenses = [], projects = [], fcmToken, notifPrefs } = data;
         if (!fcmToken) continue;
 
         const prefs = {
@@ -75,6 +75,41 @@ exports.dailyNotifications = onSchedule(
               title: `Commitment: ${c.description || 'Commitment'}`,
               body,
               tag: `commit-exp-${c.id}-${todayStr}`,
+            });
+          }
+        }
+
+        // ── Goal (planned expense) target date checks ──
+        for (const pe of plannedExpenses) {
+          if (pe.status === 'completed' || !pe.targetDate) continue;
+          const target = new Date(pe.targetDate + 'T12:00:00');
+          const diffDays = Math.round((target.getTime() - today.getTime()) / 86400000);
+          if (diffDays < 0 || diffDays > 7) continue;
+          const body = diffDays === 0 ? 'Target date is today'
+            : diffDays === 1 ? 'Target date is tomorrow'
+            : `Target date in ${diffDays} days`;
+          messages.push({
+            title: `Goal: ${pe.name}`,
+            body,
+            tag: `goal-due-${pe.id}-${todayStr}`,
+          });
+        }
+
+        // ── Project date checks ──
+        for (const p of projects) {
+          if (p.completed) continue;
+          for (const [field, label] of [['reviewDate', 'Review'], ['dueDate', 'Due']]) {
+            if (!p[field]) continue;
+            const date = new Date(p[field] + 'T12:00:00');
+            const diffDays = Math.round((date.getTime() - today.getTime()) / 86400000);
+            if (diffDays < 0 || diffDays > 3) continue;
+            const body = diffDays === 0 ? `${label} date is today`
+              : diffDays === 1 ? `${label} date is tomorrow`
+              : `${label} date in ${diffDays} days`;
+            messages.push({
+              title: `Project: ${p.name}`,
+              body,
+              tag: `project-${field}-${p.id}-${todayStr}`,
             });
           }
         }

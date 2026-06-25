@@ -199,7 +199,7 @@ export function exportAllData({ bills, income, debts, savings, purchases }) {
   if (purchases.length) exportToCSV(purchases.map((p) => ({ date: p.date, merchant: p.merchant, amount: p.amount, category: p.category, person: p.person, notes: p.notes || '' })), `spending-${ts}.csv`);
 }
 
-export function exportAsHTML({ bills, income, debts, savings, purchases, commitments = [], plannedExpenses = [], budgetCategories = [], budgetSpends = [], shoppingLists = [], shoppingItems = [], settings = {}, mk = null, include = null }) {
+export function exportAsHTML({ bills, income, debts, savings, purchases, commitments = [], plannedExpenses = [], agreements = [], projects = [], budgetCategories = [], budgetSpends = [], shoppingLists = [], shoppingItems = [], settings = {}, mk = null, include = null }) {
   const ts = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const fmt = (n) => '$' + (n ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const inc = (key) => !include || include.includes(key);
@@ -328,6 +328,29 @@ ${inc('planned') && plannedExpenses.length ? section('Planned Expenses', table(
     pe.targetDate ? new Date(pe.targetDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—',
     pe.fromSavingsId || '—',
     pe.notes || '',
+  ])
+)) : ''}
+
+${inc('agreements') && agreements.length ? section('Financial Deals', table(
+  ['Description', 'Amount', 'Who', 'Date', 'Status', 'Notes'],
+  agreements.map((ag) => [
+    ag.description,
+    ag.amount != null && ag.amount > 0 ? `<span class="amount">${fmt(ag.amount)}</span>` : '—',
+    ag.person === 'me' ? 'Aaron' : ag.person === 'partner' ? 'Cameron' : 'Both',
+    ag.date ? new Date(ag.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—',
+    ag.status === 'settled' ? '<span class="badge badge-paid">Settled</span>' : '<span class="badge badge-pending">Active</span>',
+    ag.notes || '',
+  ])
+)) : ''}
+
+${inc('projects') && projects.length ? section('Projects', table(
+  ['Name', 'Notes', 'Review Date', 'Due Date', 'Status'],
+  projects.map((p) => [
+    p.name,
+    p.notes ? `<span style="white-space:pre-wrap;font-size:11px;">${p.notes}</span>` : '—',
+    p.reviewDate ? new Date(p.reviewDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—',
+    p.dueDate ? new Date(p.dueDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—',
+    p.completed ? '<span class="badge badge-paid">Done</span>' : '<span class="badge badge-unpaid">Active</span>',
   ])
 )) : ''}
 

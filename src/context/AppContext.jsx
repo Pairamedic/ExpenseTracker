@@ -556,6 +556,26 @@ export function AppProvider({ children, uid }) {
     return () => unsub();
   }, [uid]);
 
+  // ── One-time migration: hide moved Dashboard sections after Spending tabs added ──
+  useEffect(() => {
+    if (!cloudLoaded && uid) return;
+    const current = stateRef.current.settings;
+    if (!current._planningTabsMigrated) {
+      const next = {
+        ...current,
+        dashboardSections: {
+          ...current.dashboardSections,
+          commitments: false,
+          agreements: false,
+          plannedExpenses: false,
+        },
+        _planningTabsMigrated: true,
+      };
+      setSettingsState(next); storage.setSettings(next);
+      debouncedSync({ settings: next });
+    }
+  }, [cloudLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Global To-Do notification scheduling ──
   const todoNotifiedRef = useRef(new Set());
   useEffect(() => {
@@ -693,6 +713,45 @@ export function AppProvider({ children, uid }) {
       sendNotification(`Commitment: ${c.description || 'Commitment'}`, { body, tag: key });
     });
   }, [commitments, notifPrefs.commitments]);
+
+  // ── Goal (planned expense) target date notifications ──
+  const goalNotifiedRef = useRef(new Set());
+  useEffect(() => {
+    if (notificationPermission() !== 'granted') return;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    plannedExpenses.forEach((pe) => {
+      if (pe.status === 'completed' || !pe.targetDate) return;
+      const target = new Date(pe.targetDate + 'T12:00:00');
+      const diffDays = Math.round((target.getTime() - today.getTime()) / 86400000);
+      if (diffDays < 0 || diffDays > 7) return;
+      const key = `goal-due-${pe.id}`;
+      if (goalNotifiedRef.current.has(key)) return;
+      goalNotifiedRef.current.add(key);
+      const body = diffDays === 0 ? 'Target date is today' : diffDays === 1 ? 'Target date is tomorrow' : `Target date in ${diffDays} days`;
+      sendNotification(`Goal: ${pe.name}`, { body, tag: key });
+    });
+  }, [plannedExpenses]);
+
+  // ── Project date notifications ──
+  const projectNotifiedRef = useRef(new Set());
+  useEffect(() => {
+    if (notificationPermission() !== 'granted') return;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    projects.forEach((p) => {
+      if (p.completed) return;
+      for (const [field, label] of [['reviewDate', 'Review'], ['dueDate', 'Due']]) {
+        if (!p[field]) continue;
+        const date = new Date(p[field] + 'T12:00:00');
+        const diffDays = Math.round((date.getTime() - today.getTime()) / 86400000);
+        if (diffDays < 0 || diffDays > 3) continue;
+        const key = `project-${field}-${p.id}`;
+        if (projectNotifiedRef.current.has(key)) return;
+        projectNotifiedRef.current.add(key);
+        const body = diffDays === 0 ? `${label} date is today` : diffDays === 1 ? `${label} date is tomorrow` : `${label} date in ${diffDays} days`;
+        sendNotification(`Project: ${p.name}`, { body, tag: key });
+      }
+    });
+  }, [projects]);
 
   // ── Shift log reminder ──
   const shiftReminderRef = useRef({ lastDate: null, timer: null });
