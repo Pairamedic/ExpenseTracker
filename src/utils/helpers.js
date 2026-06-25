@@ -170,6 +170,26 @@ export function exportToCSV(data, filename) {
   URL.revokeObjectURL(url);
 }
 
+export function exportMonthCSV(mk, { bills, income, purchases }) {
+  const monthBills = getBillsForMonth(bills, mk);
+  const monthIncome = getIncomeForMonth(income, mk);
+  const monthPurchases = purchases.filter((p) => p.date && p.date.startsWith(mk));
+  const mult = (f) => f === 'weekly' ? 4.33 : f === 'biweekly' ? 2.17 : 1;
+
+  if (monthBills.length) exportToCSV(
+    monthBills.map((b) => ({ name: b.name, amount: b.amount, category: b.category || '', dueDay: b.dueDay || '', status: getBillStatus(b, mk) })),
+    `bills-${mk}.csv`
+  );
+  if (monthIncome.length) exportToCSV(
+    monthIncome.map((i) => ({ source: i.source, frequency: i.frequency, perPaycheck: i.amount, monthlyAmount: Math.round(i.amount * mult(i.frequency) * 100) / 100 })),
+    `income-${mk}.csv`
+  );
+  if (monthPurchases.length) exportToCSV(
+    monthPurchases.map((p) => ({ date: p.date, merchant: p.merchant, amount: p.amount, category: p.category, person: p.person, notes: p.notes || '' })),
+    `spending-${mk}.csv`
+  );
+}
+
 export function exportAllData({ bills, income, debts, savings, purchases }) {
   const ts = new Date().toISOString().slice(0, 10);
   if (bills.length) exportToCSV(bills.map((b) => ({ name: b.name, amount: b.amount, category: b.category, owner: b.owner, dueDay: b.dueDay || '', isRecurring: b.isRecurring })), `bills-${ts}.csv`);

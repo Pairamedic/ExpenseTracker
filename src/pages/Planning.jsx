@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { ChevronDown, ChevronUp, Calculator, TrendingUp, Clock, Check } from 'lucide-react';
+import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Calculator, TrendingUp, Clock, Check, Wallet } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { formatCurrency } from '../utils/helpers';
+import { formatCurrency, getPayDatesForMonth, getBillsForMonth, getBillStatus, monthKey, monthLabel } from '../utils/helpers';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -868,10 +868,152 @@ function PTOTab({ s, onChange, jobs, shifts }) {
 
 // ── Planning Tools content (embeddable in other pages) ────────────────────────
 
+function mkShift(mk, offset) {
+  const [y, m] = mk.split('-').map(Number);
+  return monthKey(new Date(y, m - 1 + offset, 1));
+}
+
+function CashFlowContent() {
+  const { income, bills } = useApp();
+  const [mk, setMk] = useState(() => monthKey(new Date()));
+
+  const payEvents = useMemo(() => {
+    const [y, m] = mk.split('-').map(Number);
+    const events = [];
+    income.filter((i) => i.isRecurring || i.month === mk).forEach((item) => {
+      if (!item.startDate || item.frequency === 'monthly') {
+        events.push({ date: new Date(y, m - 1, 1), amount: item.amount, source: item.source || 'Income' });
+      } else {
+        getPayDatesForMonth(item, mk).forEach((d) =>
+          events.push({ date: d, amount: item.amount, source: item.source || 'Income' })
+        );
+      }
+    });
+    return events.sort((a, b) => a.date - b.date);
+  }, [income, mk]);
+
+  const billEvents = useMemo(() => {
+    const [y, m] = mk.split('-').map(Number);
+    return getBillsForMonth(bills, mk)
+      .filter((b) => b.dueDay)
+      .map((b) => ({
+        date: new Date(y, m - 1, b.dueDay),
+        day: b.dueDay,
+        amount: b.amount,
+        name: b.name,
+        status: getBillStatus(b, mk),
+      }))
+      .sort((a, b) => a.day - b.day);
+  }, [bills, mk]);
+
+  const windows = useMemo(() => {
+    if (!payEvents.length) return [];
+    return payEvents.map((pay, i) => {
+      const nextPay = payEvents[i + 1];
+      const dueBills = billEvents.filter((b) => b.date >= pay.date && (!nextPay || b.date < nextPay.date));
+      const totalBills = dueBills.reduce((s, b) => s + b.amount, 0);
+      return { payDate: pay.date, amount: pay.amount, source: pay.source, bills: dueBills, totalBills, net: pay.amount - totalBills };
+    });
+  }, [payEvents, billEvents]);
+
+  const uncoveredBills = payEvents.length > 0 ? billEvents.filter((b) => b.date < payEvents[0].date) : [];
+  const totalPaychecks = payEvents.reduce((s, p) => s + p.amount, 0);
+  const totalBillsAmt = billEvents.reduce((s, b) => s + b.amount, 0);
+  const fmtDay = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <button onClick={() => setMk((prev) => mkShift(prev, -1))} style={{ padding: '0.5rem', borderRadius: '0.75rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
+          <ChevronLeft size={18} />
+        </button>
+        <span style={{ flex: 1, textAlign: 'center', fontWeight: 700, fontSize: '0.9375rem', color: 'var(--text)' }}>{monthLabel(mk)}</span>
+        <button onClick={() => setMk((prev) => mkShift(prev, 1))} style={{ padding: '0.5rem', borderRadius: '0.75rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
+          <ChevronRight size={18} />
+        </button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+        <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', padding: '0.875rem' }}>
+          <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>Paychecks</p>
+          <p style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--positive-text)' }}>{formatCurrency(totalPaychecks)}</p>
+          <p style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: '0.25rem' }}>{payEvents.length} check{payEvents.length !== 1 ? 's' : ''}</p>
+        </div>
+        <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', padding: '0.875rem' }}>
+          <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>Bills</p>
+          <p style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text)' }}>{formatCurrency(totalBillsAmt)}</p>
+          <p style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: '0.25rem' }}>{billEvents.length} bill{billEvents.length !== 1 ? 's' : ''}</p>
+        </div>
+      </div>
+
+      {payEvents.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '2rem 1rem', backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem' }}>
+          <Wallet size={36} style={{ margin: '0 auto 0.75rem', opacity: 0.2, color: 'var(--muted)', display: 'block' }} />
+          <p style={{ fontSize: '0.875rem', color: 'var(--muted)', marginBottom: '0.375rem' }}>No paychecks found for this month.</p>
+          <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>Add income with a start date and weekly/biweekly frequency to see paycheck coverage.</p>
+        </div>
+      ) : (
+        <>
+          {uncoveredBills.length > 0 && (
+            <div style={{ backgroundColor: 'rgba(244,63,94,0.08)', border: '1px solid var(--danger)', borderRadius: '1rem', padding: '1rem' }}>
+              <p style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--danger)', marginBottom: '0.5rem' }}>Before first paycheck</p>
+              {uncoveredBills.map((b, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0', borderTop: i > 0 ? '1px solid rgba(244,63,94,0.15)' : 'none' }}>
+                  <span style={{ fontSize: '0.875rem', color: 'var(--text)' }}>{b.name} <span style={{ fontSize: '0.7rem', color: 'var(--subtle)' }}>due {b.day}</span></span>
+                  <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--danger)' }}>{formatCurrency(b.amount)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {windows.map((w, i) => (
+            <div key={i} style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1rem', padding: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: w.bills.length > 0 ? '0.75rem' : 0 }}>
+                <div>
+                  <p style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text)' }}>{fmtDay(w.payDate)}</p>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '0.125rem' }}>{w.source}</p>
+                </div>
+                <p style={{ fontSize: '1.125rem', fontWeight: 900, color: 'var(--positive-text)' }}>+{formatCurrency(w.amount)}</p>
+              </div>
+              {w.bills.length > 0 ? (
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: '0.625rem' }}>
+                  {w.bills.map((b, j) => (
+                    <div key={j} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.25rem 0' }}>
+                      <div>
+                        <span style={{ fontSize: '0.8125rem', color: b.status === 'paid' ? 'var(--muted)' : 'var(--text)', textDecoration: b.status === 'paid' ? 'line-through' : 'none' }}>{b.name}</span>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--subtle)', marginLeft: '0.375rem' }}>due {b.day}</span>
+                      </div>
+                      <span style={{ fontSize: '0.875rem', fontWeight: 700, color: b.status === 'paid' ? 'var(--muted)' : 'var(--text)' }}>-{formatCurrency(b.amount)}</span>
+                    </div>
+                  ))}
+                  <div style={{ borderTop: '1px solid var(--border)', marginTop: '0.5rem', paddingTop: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--muted)' }}>Remaining</span>
+                    <span style={{ fontSize: '1rem', fontWeight: 900, color: w.net >= 0 ? 'var(--positive-text)' : 'var(--danger)' }}>{formatCurrency(w.net)}</span>
+                  </div>
+                </div>
+              ) : (
+                <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', paddingTop: '0.375rem', borderTop: '1px solid var(--border)' }}>No bills due before next paycheck</p>
+              )}
+            </div>
+          ))}
+
+          <div style={{ backgroundColor: 'var(--surface2)', borderRadius: '1rem', padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--muted)' }}>Income − Bills</span>
+            <span style={{ fontSize: '1.25rem', fontWeight: 900, color: (totalPaychecks - totalBillsAmt) >= 0 ? 'var(--positive-text)' : 'var(--danger)' }}>
+              {formatCurrency(totalPaychecks - totalBillsAmt)}
+            </span>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 const TABS = [
   { key: 'tax', label: 'Tax Return', Icon: Calculator },
   { key: 'ira', label: 'IRA / 401k', Icon: TrendingUp },
   { key: 'pto', label: 'PTO', Icon: Clock },
+  { key: 'cashflow', label: 'Cash Flow', Icon: Wallet },
 ];
 
 export function PlanningContent() {
@@ -895,6 +1037,7 @@ export function PlanningContent() {
         {activeTab === 'tax' && <TaxTab s={planningSettings} onChange={updatePlanningSettings} income={income} jobs={jobs} />}
         {activeTab === 'ira' && <IRATab s={planningSettings} onChange={updatePlanningSettings} jobs={jobs} />}
         {activeTab === 'pto' && <PTOTab s={planningSettings} onChange={updatePlanningSettings} jobs={jobs} shifts={shifts} />}
+        {activeTab === 'cashflow' && <CashFlowContent />}
       </div>
     </div>
   );
