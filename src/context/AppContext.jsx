@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { storage } from '../utils/storage';
-import { saveUserData, loadUserData, saveSharedView } from '../utils/firestoreSync';
+import { saveUserData, loadUserData, saveSharedView, saveFCMToken } from '../utils/firestoreSync';
 import { generateId, currentMonthKey, getBillStatus, nextBillStatus } from '../utils/helpers';
 import { notificationPermission, sendNotification, getDueDateMs, registerFCMToken, onForegroundMessage } from '../utils/notifications';
 
@@ -460,10 +460,10 @@ export function AppProvider({ children, uid }) {
   useEffect(() => {
     if (notificationPermission() !== 'granted') return;
     let unsub = () => {};
-    registerFCMToken();
+    registerFCMToken().then((token) => { if (token && uid) saveFCMToken(uid, token); });
     onForegroundMessage().then((fn) => { unsub = fn; });
     return () => unsub();
-  }, []);
+  }, [uid]);
 
   // ── Global To-Do notification scheduling ──
   const todoNotifiedRef = useRef(new Set());
