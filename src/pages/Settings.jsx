@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Trash2, AlertTriangle, Wallet, PiggyBank, DollarSign, Sun, Moon, LogOut, Mail, Download, Share2, RefreshCw, Copy, Check, X, Bell, BellOff } from 'lucide-react';
+import { User, Trash2, AlertTriangle, Wallet, PiggyBank, DollarSign, Sun, Moon, LogOut, Mail, Download, Share2, RefreshCw, Copy, Check, X, Bell, BellOff, Lock } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
@@ -42,6 +42,8 @@ export default function Settings() {
   const [shareLoading, setShareLoading] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [shareError, setShareError] = useState('');
+  const [pinEditMode, setPinEditMode] = useState(false);
+  const [pinInput, setPinInput] = useState('');
   const [notifPermission, setNotifPermission] = useState(() => notificationPermission());
   const [notifEnabling, setNotifEnabling] = useState(false);
 
@@ -289,6 +291,59 @@ export default function Settings() {
               )}
             </div>
           )}
+        </section>
+
+        {/* Share Link PIN */}
+        <section className="mb-4" style={cardStyle}>
+          <div className="flex items-center gap-2 mb-1">
+            <Lock size={15} style={{ color: 'var(--accent-text)' }} />
+            <span style={sectionLabelStyle}>Share View PIN</span>
+          </div>
+          <p className="text-xs mb-3" style={{ color: 'var(--muted)' }}>
+            Anyone opening the shared link must enter this PIN. Save it to their device so they only enter it once.
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
+            {pinEditMode ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={pinInput}
+                  autoFocus
+                  onChange={(e) => setPinInput(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  placeholder="0000"
+                  style={{ width: '5.5rem', textAlign: 'center', letterSpacing: '0.3em', fontSize: '1.125rem', fontWeight: 800, padding: '0.5rem 0.625rem', backgroundColor: 'var(--surface2)', border: '1.5px solid var(--accent)', borderRadius: '0.625rem', color: 'var(--text)', outline: 'none' }}
+                />
+                <button
+                  onClick={() => {
+                    if (pinInput.length === 4) {
+                      setSettings({ ...settings, sharePin: pinInput });
+                      setPinEditMode(false);
+                    }
+                  }}
+                  disabled={pinInput.length !== 4}
+                  style={{ padding: '0.5rem 0.875rem', backgroundColor: pinInput.length === 4 ? 'var(--accent)' : 'var(--surface2)', color: pinInput.length === 4 ? '#fff' : 'var(--muted)', border: 'none', borderRadius: '0.625rem', fontSize: '0.875rem', fontWeight: 700, cursor: pinInput.length === 4 ? 'pointer' : 'default' }}>
+                  Save
+                </button>
+                <button onClick={() => setPinEditMode(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: '0.25rem', display: 'flex' }}>
+                  <X size={16} />
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '1.25rem', letterSpacing: '0.2em', color: 'var(--text)', fontWeight: 700, lineHeight: 1 }}>{'●'.repeat(settings.sharePin?.length || 4)}</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>({(settings.sharePin?.length || 4)}-digit PIN)</span>
+                </div>
+                <button
+                  onClick={() => { setPinInput(settings.sharePin || '3419'); setPinEditMode(true); }}
+                  style={{ padding: '0.5rem 0.875rem', backgroundColor: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '0.625rem', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text)', cursor: 'pointer' }}>
+                  Change PIN
+                </button>
+              </div>
+            )}
+          </div>
         </section>
 
         {/* Notifications */}

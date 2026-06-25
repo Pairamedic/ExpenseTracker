@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { loadSharedView } from '../utils/firestoreSync';
 import { formatCurrency, monthKey, getBillStatus } from '../utils/helpers';
 import {
   TrendingUp, Receipt, ShoppingBag, CreditCard, PiggyBank,
-  CheckSquare, Square, ShoppingCart, X, ListChecks,
+  CheckSquare, Square, ShoppingCart, X, ListChecks, Lock,
 } from 'lucide-react';
 
 /* ─── tiny helpers ─────────────────────────────────────────────────── */
@@ -114,6 +114,96 @@ function Tile({ icon: Icon, label, value, sub, color, onClick }) {
       </div>
       <p style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color }}>{label}</p>
     </button>
+  );
+}
+
+/* ─── pin gate ─────────────────────────────────────────────────────── */
+function PinGate({ correctPin, token, onUnlock }) {
+  const [digits, setDigits] = useState(['', '', '', '']);
+  const [shake, setShake] = useState(false);
+  const [error, setError] = useState(false);
+  const [remember, setRemember] = useState(true);
+  const refs = [useRef(), useRef(), useRef(), useRef()];
+
+  useEffect(() => { setTimeout(() => refs[0].current?.focus(), 120); }, []);
+
+  const tryUnlock = (pin) => {
+    if (pin === correctPin) {
+      if (remember) localStorage.setItem('finance_pin_' + token, pin);
+      onUnlock();
+    } else {
+      setShake(true);
+      setError(true);
+      setDigits(['', '', '', '']);
+      setTimeout(() => { setShake(false); refs[0].current?.focus(); }, 600);
+    }
+  };
+
+  const handleChange = (i, val) => {
+    if (!/^\d*$/.test(val)) return;
+    const next = [...digits];
+    next[i] = val.slice(-1);
+    setDigits(next);
+    setError(false);
+    if (val && i < 3) refs[i + 1].current?.focus();
+    if (val && i === 3) tryUnlock([...next.slice(0, 3), val.slice(-1)].join(''));
+  };
+
+  const handleKeyDown = (i, e) => {
+    if (e.key === 'Backspace' && !digits[i] && i > 0) refs[i - 1].current?.focus();
+  };
+
+  const pin = digits.join('');
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem', backgroundColor: 'rgba(14,14,20,0.7)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
+      <div style={{ width: '100%', maxWidth: '22rem', backgroundColor: '#15151c', border: '1px solid #2a2a38', borderRadius: '1.75rem', padding: '2.25rem 1.75rem', boxShadow: '0 32px 80px rgba(0,0,0,0.7)' }}>
+        <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
+          <div style={{ width: '4rem', height: '4rem', borderRadius: '1.25rem', backgroundColor: '#6366f118', border: '1px solid #6366f133', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+            <Lock size={26} style={{ color: '#818cf8' }} />
+          </div>
+          <p style={{ fontSize: '1.25rem', fontWeight: 900, color: '#f0f0f2', marginBottom: '0.35rem' }}>Family Finance</p>
+          <p style={{ fontSize: '0.875rem', color: '#555' }}>Enter PIN to view</p>
+        </div>
+
+        {/* 4 digit boxes */}
+        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginBottom: error ? '0.75rem' : '1.5rem', animation: shake ? 'pin-shake 0.5s' : 'none' }}>
+          {digits.map((d, i) => (
+            <input
+              key={i}
+              ref={refs[i]}
+              type="tel"
+              inputMode="numeric"
+              maxLength={1}
+              value={d}
+              onChange={(e) => handleChange(i, e.target.value)}
+              onKeyDown={(e) => handleKeyDown(i, e)}
+              style={{ width: '3.25rem', height: '3.75rem', textAlign: 'center', fontSize: '1.75rem', fontWeight: 900, backgroundColor: '#0e0e14', border: `2px solid ${error ? '#f43f5e' : d ? '#6366f1' : '#2a2a38'}`, borderRadius: '1rem', color: '#f0f0f2', outline: 'none', caretColor: 'transparent', transition: 'border-color 0.15s' }}
+            />
+          ))}
+        </div>
+
+        {error && <p style={{ textAlign: 'center', color: '#f43f5e', fontSize: '0.8125rem', marginBottom: '1rem', fontWeight: 600 }}>Incorrect PIN — try again</p>}
+
+        {/* remember toggle */}
+        <button
+          onClick={() => setRemember(!remember)}
+          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.875rem 0', background: 'none', border: 'none', cursor: 'pointer', borderTop: '1px solid #232330', marginBottom: '1.25rem' }}>
+          <span style={{ fontSize: '0.875rem', color: '#888' }}>Remember this device</span>
+          <div style={{ width: '2.75rem', height: '1.5rem', borderRadius: '9999px', backgroundColor: remember ? '#6366f1' : '#2a2a38', transition: 'background-color 0.2s', position: 'relative', flexShrink: 0 }}>
+            <div style={{ position: 'absolute', top: '0.1875rem', left: remember ? '1.3125rem' : '0.1875rem', width: '1.125rem', height: '1.125rem', borderRadius: '50%', backgroundColor: '#fff', transition: 'left 0.2s' }} />
+          </div>
+        </button>
+
+        <button
+          onClick={() => tryUnlock(pin)}
+          disabled={pin.length < 4}
+          style={{ width: '100%', padding: '0.9375rem', backgroundColor: pin.length === 4 ? '#6366f1' : '#1a1a24', color: pin.length === 4 ? '#fff' : '#444', border: 'none', borderRadius: '1rem', fontSize: '1rem', fontWeight: 700, cursor: pin.length === 4 ? 'pointer' : 'default', transition: 'background-color 0.2s, color 0.2s' }}>
+          Unlock
+        </button>
+      </div>
+      <style>{`@keyframes pin-shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-10px)} 40%{transform:translateX(10px)} 60%{transform:translateX(-7px)} 80%{transform:translateX(7px)} }`}</style>
+    </div>
   );
 }
 
@@ -419,11 +509,19 @@ export default function SharedView() {
   const { token } = useParams();
   const [state, setState] = useState('loading');
   const [data, setData] = useState(null);
+  const [unlocked, setUnlocked] = useState(false);
 
   useEffect(() => {
     if (!token) { setState('error'); return; }
     loadSharedView(token)
-      .then((d) => { if (d) { setData(d); setState('ok'); } else setState('error'); })
+      .then((d) => {
+        if (!d) { setState('error'); return; }
+        setData(d);
+        // Auto-unlock if no PIN set or saved PIN matches
+        const saved = localStorage.getItem('finance_pin_' + token);
+        if (!d.sharePin || saved === d.sharePin) setUnlocked(true);
+        setState('ok');
+      })
       .catch(() => setState('error'));
   }, [token]);
 
@@ -437,5 +535,15 @@ export default function SharedView() {
       </div>
     </div>
   );
-  return <ReadOnlyDashboard data={data} />;
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <div style={{ filter: unlocked ? 'none' : 'blur(14px) brightness(0.35)', pointerEvents: unlocked ? 'auto' : 'none', userSelect: unlocked ? 'auto' : 'none', transition: 'filter 0.4s ease' }}>
+        <ReadOnlyDashboard data={data} />
+      </div>
+      {!unlocked && data && (
+        <PinGate correctPin={data.sharePin || '3419'} token={token} onUnlock={() => setUnlocked(true)} />
+      )}
+    </div>
+  );
 }
