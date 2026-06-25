@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useCallback, useEffect, useRef } f
 import { storage } from '../utils/storage';
 import { saveUserData, loadUserData, saveSharedView } from '../utils/firestoreSync';
 import { generateId, currentMonthKey, getBillStatus, nextBillStatus } from '../utils/helpers';
-import { notificationPermission, sendNotification, getDueDateMs } from '../utils/notifications';
+import { notificationPermission, sendNotification, getDueDateMs, registerFCMToken, onForegroundMessage } from '../utils/notifications';
 
 const AppContext = createContext(null);
 
@@ -455,6 +455,15 @@ export function AppProvider({ children, uid }) {
     }
     return { ok: true };
   }, [buildSnapshot, settings]);
+
+  // ── Firebase Cloud Messaging: register token + handle foreground messages ──
+  useEffect(() => {
+    if (notificationPermission() !== 'granted') return;
+    let unsub = () => {};
+    registerFCMToken();
+    onForegroundMessage().then((fn) => { unsub = fn; });
+    return () => unsub();
+  }, []);
 
   // ── Global To-Do notification scheduling ──
   const todoNotifiedRef = useRef(new Set());

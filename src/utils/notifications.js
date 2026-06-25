@@ -1,3 +1,9 @@
+import { messaging } from '../firebase';
+import { getToken, onMessage } from 'firebase/messaging';
+
+const VAPID_KEY = 'bdUnK4mtP19w7NtBQniJNN39vroY5Q4lRHefPiSkc9M';
+const SW_PATH = '/ExpenseTracker/firebase-messaging-sw.js';
+
 export function notificationsSupported() {
   return typeof window !== 'undefined' && 'Notification' in window;
 }
@@ -55,4 +61,41 @@ export function formatDueBadge(dueDate, dueTime) {
     return { label: due.toLocaleDateString('en-US', { weekday: 'short' }), color: 'var(--accent-text)' };
   }
   return { label: due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), color: 'var(--muted)' };
+}
+
+// ── Firebase Cloud Messaging (FCM) ──────────────────────────────────────────
+
+/**
+ * Register this browser with FCM and return the device token.
+ * Call only after notification permission is granted.
+ * Returns null if FCM is not supported in this browser.
+ */
+export async function registerFCMToken() {
+  try {
+    const client = await messaging;
+    if (!client) return null;
+    const swReg = await navigator.serviceWorker.register(SW_PATH);
+    const token = await getToken(client, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swReg });
+    return token || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Listen for FCM messages while the app is in the foreground.
+ * Returns an unsubscribe function.
+ */
+export async function onForegroundMessage(callback) {
+  const client = await messaging;
+  if (!client) return () => {};
+  return onMessage(client, (payload) => {
+    const { title, body, icon } = payload.notification || {};
+    sendNotification(title || 'Finance Manager', {
+      body: body || '',
+      icon: icon || undefined,
+      data: payload.data,
+    });
+    callback?.(payload);
+  });
 }
