@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { signInAnonymously } from 'firebase/auth';
-import { auth } from '../firebase';
 import { loadSharedView } from '../utils/firestoreSync';
 import { formatCurrency, monthKey, getBillStatus } from '../utils/helpers';
 import { TrendingUp, Receipt, ShoppingBag, CreditCard, PiggyBank, CheckSquare, Square, Clock, AlertTriangle } from 'lucide-react';
@@ -249,9 +247,6 @@ export default function SharedView() {
   useEffect(() => {
     async function load() {
       try {
-        if (!auth.currentUser) {
-          await signInAnonymously(auth);
-        }
         const d = await loadSharedView(token);
         if (!d) {
           setError('not_found');
