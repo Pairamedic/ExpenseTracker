@@ -1592,7 +1592,7 @@ function SegmentedControl({ value, onChange, options }) {
       {options.map((o) => (
         <button key={o} onClick={() => onChange(o)}
           style={{
-            flex: 1, padding: '0.625rem 0', borderRadius: '0.625rem', fontSize: '0.9375rem', fontWeight: '700',
+            flex: 1, padding: '0.625rem 0', borderRadius: '0.625rem', fontSize: '0.875rem', fontWeight: '700',
             border: 'none', cursor: 'pointer', transition: 'all 0.15s',
             backgroundColor: value === o ? 'var(--surface)' : 'transparent',
             color: value === o ? 'var(--text)' : 'var(--subtle)',

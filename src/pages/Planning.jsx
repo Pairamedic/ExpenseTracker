@@ -1010,10 +1010,10 @@ function CashFlowContent() {
 }
 
 const TABS = [
-  { key: 'tax', label: 'Tax Return', Icon: Calculator },
-  { key: 'ira', label: 'IRA / 401k', Icon: TrendingUp },
-  { key: 'pto', label: 'PTO', Icon: Clock },
-  { key: 'cashflow', label: 'Cash Flow', Icon: Wallet },
+  { key: 'tax', label: 'Tax' },
+  { key: 'ira', label: 'IRA' },
+  { key: 'pto', label: 'PTO' },
+  { key: 'cashflow', label: 'Cash Flow' },
 ];
 
 export function PlanningContent() {
@@ -1022,14 +1022,14 @@ export function PlanningContent() {
 
   return (
     <div>
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: '1rem' }}>
-        {TABS.map(({ key, label, Icon }) => (
+      <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.875rem', padding: '0.25rem', gap: '0.25rem', marginBottom: '1rem' }}>
+        {TABS.map(({ key, label }) => (
           <button key={key} onClick={() => setActiveTab(key)}
-            style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', padding: '0.625rem 0.25rem', border: 'none', background: 'none', cursor: 'pointer',
-              borderBottom: activeTab === key ? '2px solid var(--accent)' : '2px solid transparent',
-              color: activeTab === key ? 'var(--accent-text)' : 'var(--subtle)' }}>
-            <Icon size={18} />
-            <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>{label}</span>
+            style={{ flex: 1, padding: '0.625rem 0', borderRadius: '0.625rem', fontSize: '0.875rem', fontWeight: 700, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+              backgroundColor: activeTab === key ? 'var(--surface)' : 'transparent',
+              color: activeTab === key ? 'var(--text)' : 'var(--subtle)',
+              boxShadow: activeTab === key ? '0 1px 4px rgba(0,0,0,0.15)' : 'none' }}>
+            {label}
           </button>
         ))}
       </div>
