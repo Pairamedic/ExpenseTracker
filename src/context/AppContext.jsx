@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useCallback, useEffect, useRef } f
 import { storage } from '../utils/storage';
 import { saveUserData, loadUserData, saveSharedView, saveFCMToken } from '../utils/firestoreSync';
 import { generateId, currentMonthKey, getBillStatus, nextBillStatus } from '../utils/helpers';
-import { notificationPermission, requestNotificationPermission, sendNotification, getDueDateMs, registerFCMToken, onForegroundMessage } from '../utils/notifications';
+import { notificationPermission, requestNotificationPermission, sendNotification, getDueDateMs, registerFCMToken, onForegroundMessage, scheduleShiftNotification, cancelShiftNotification } from '../utils/notifications';
 
 const AppContext = createContext(null);
 
@@ -344,9 +344,28 @@ export function AppProvider({ children, uid }) {
   const deleteJob = useCallback((id) => persistJobs(jobs.filter((j) => j.id !== id)), [jobs, persistJobs]);
 
   // ── Shifts ──
-  const addShift = useCallback((sh) => persistShifts([{ ...sh, id: generateId(), createdAt: new Date().toISOString() }, ...shifts]), [shifts, persistShifts]);
-  const updateShift = useCallback((id, u) => persistShifts(shifts.map((s) => s.id === id ? { ...s, ...u } : s)), [shifts, persistShifts]);
-  const deleteShift = useCallback((id) => persistShifts(shifts.filter((s) => s.id !== id)), [shifts, persistShifts]);
+  const addShift = useCallback((sh) => {
+    const newShift = { ...sh, id: generateId(), createdAt: new Date().toISOString() };
+    const next = [newShift, ...shifts];
+    persistShifts(next);
+    if (newShift.notificationEnabled) {
+      const job = jobs.find((j) => j.id === newShift.jobId);
+      scheduleShiftNotification(newShift, job);
+    }
+  }, [shifts, jobs, persistShifts]);
+  const updateShift = useCallback((id, u) => {
+    const updated = { ...shifts.find((s) => s.id === id), ...u };
+    persistShifts(shifts.map((s) => s.id === id ? updated : s));
+    cancelShiftNotification(id);
+    if (updated.notificationEnabled) {
+      const job = jobs.find((j) => j.id === updated.jobId);
+      scheduleShiftNotification(updated, job);
+    }
+  }, [shifts, jobs, persistShifts]);
+  const deleteShift = useCallback((id) => {
+    cancelShiftNotification(id);
+    persistShifts(shifts.filter((s) => s.id !== id));
+  }, [shifts, persistShifts]);
   const bulkSaveShifts = useCallback((entries) => {
     let updated = [...shifts];
     for (const { existingId, ...data } of entries) {
@@ -823,6 +842,23 @@ export function AppProvider({ children, uid }) {
     shiftReminderRef.current.timer = t;
     return () => clearTimeout(t);
   }, [notifPrefs.shifts]);
+
+  // ── Schedule future shift notifications on mount / when shifts change ──
+  const shiftNotifsScheduledRef = useRef(false);
+  useEffect(() => {
+    if (notificationPermission() !== 'granted') return;
+    shiftNotifsScheduledRef.current = true;
+    // Reschedule all upcoming shifts that have notifications enabled
+    shifts.forEach((sh) => {
+      if (sh.notificationEnabled) {
+        const job = jobs.find((j) => j.id === sh.jobId);
+        scheduleShiftNotification(sh, job);
+      }
+    });
+    return () => {
+      // Cleanup timers when component unmounts - optional, keeps them in module scope
+    };
+  }, [shifts, jobs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <AppContext.Provider value={{

@@ -199,7 +199,7 @@ export function exportAllData({ bills, income, debts, savings, purchases }) {
   if (purchases.length) exportToCSV(purchases.map((p) => ({ date: p.date, merchant: p.merchant, amount: p.amount, category: p.category, person: p.person, notes: p.notes || '' })), `spending-${ts}.csv`);
 }
 
-export function exportAsHTML({ bills, income, debts, savings, purchases, commitments = [], plannedExpenses = [], agreements = [], projects = [], budgetCategories = [], budgetSpends = [], shoppingLists = [], shoppingItems = [], settings = {}, mk = null, include = null }) {
+export function exportAsHTML({ bills, income, debts, savings, purchases, commitments = [], plannedExpenses = [], agreements = [], projects = [], budgetCategories = [], budgetSpends = [], shoppingLists = [], shoppingItems = [], shifts = [], jobs = [], settings = {}, mk = null, include = null }) {
   const ts = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const fmt = (n) => '$' + (n ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const inc = (key) => !include || include.includes(key);
@@ -410,6 +410,38 @@ ${inc('lists') && shoppingLists.length ? (() => {
   return listBlocks.length ? section('Shopping Lists', listBlocks.join('')) : '';
 })() : ''}
 
+${inc('shifts') && shifts.length ? (() => {
+  const displayShifts = mk ? shifts.filter((s) => s.date && s.date.startsWith(mk)) : [...shifts];
+  if (displayShifts.length === 0) return '';
+  displayShifts.sort((a, b) => a.date.localeCompare(b.date));
+  const fmtTime = (t) => {
+    if (!t) return '—';
+    const [h, m] = t.split(':').map(Number);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`;
+  };
+  const fmtDuration = (h) => {
+    if (!h) return '—';
+    const hrs = Math.floor(h);
+    const mins = Math.round((h - hrs) * 60);
+    return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
+  };
+  return section('Work Shifts', table(
+    ['Date', 'Job', 'Start', 'End', 'Duration', 'Location'],
+    displayShifts.map((sh) => {
+      const job = jobs.find((j) => j.id === sh.jobId);
+      return [
+        new Date(sh.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
+        job?.name || '—',
+        fmtTime(sh.startTime),
+        fmtTime(sh.endTime),
+        `<span class="amount">${fmtDuration(sh.hoursWorked)}</span>`,
+        sh.location || '—',
+      ];
+    })
+  ));
+})() : ''}
+
 </body>
 </html>`;
 
@@ -462,4 +494,116 @@ export function getCategoryTotals(purchases, mk) {
     map[p.category] = (map[p.category] || 0) + p.amount;
   });
   return Object.entries(map).sort((a, b) => b[1] - a[1]).map(([cat, amt]) => ({ cat, amt }));
+}
+
+
+// ── Job Schedule Export ──
+export function exportJobScheduleHTML({ job, shifts, startDate = null, endDate = null }) {
+  const ts = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const fmt = (n) => '$' + (n ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  let displayShifts = shifts.filter((s) => s.jobId === job.id);
+  if (startDate) displayShifts = displayShifts.filter((s) => s.date >= startDate);
+  if (endDate) displayShifts = displayShifts.filter((s) => s.date <= endDate);
+  displayShifts.sort((a, b) => a.date.localeCompare(b.date));
+
+  const totalHours = displayShifts.reduce((s, sh) => s + (sh.hoursWorked || 0), 0);
+
+  const fmtTime = (t) => {
+    if (!t) return '—';
+    const [h, m] = t.split(':').map(Number);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`;
+  };
+  const fmtDuration = (h) => {
+    if (!h) return '—';
+    const hrs = Math.floor(h);
+    const mins = Math.round((h - hrs) * 60);
+    return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
+  };
+
+  const periodLabel = startDate && endDate
+    ? `${new Date(startDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${new Date(endDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+    : 'All Shifts';
+
+  const table = (headers, rows) => `
+    <table>
+      <thead><tr>${headers.map((h) => `<th>${h}</th>`).join('')}</tr></thead>
+      <tbody>${rows.map((r) => `<tr>${r.map((c) => `<td>${c ?? ''}</td>`).join('')}</tr>`).join('')}</tbody>
+    </table>`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>${job.name} — Schedule Export</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; color: #111; background: #fff; padding: 2rem; }
+  h1 { font-size: 1.75rem; font-weight: 800; margin-bottom: 0.25rem; }
+  .subtitle { color: #666; font-size: 0.875rem; margin-bottom: 0.5rem; }
+  .meta { color: #444; font-size: 0.8125rem; margin-bottom: 2rem; }
+  section { margin-bottom: 2.5rem; }
+  h2 { font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #444; border-bottom: 2px solid #e5e7eb; padding-bottom: 0.5rem; margin-bottom: 1rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { text-align: left; padding: 0.5rem 0.75rem; background: #f3f4f6; font-weight: 700; color: #374151; border: 1px solid #e5e7eb; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+  td { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; color: #111; vertical-align: top; }
+  tr:nth-child(even) td { background: #f9fafb; }
+  .amount { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .summary { display: flex; gap: 2rem; padding: 1rem; background: #f3f4f6; border-radius: 0.5rem; margin-bottom: 1.5rem; }
+  .summary-item { }
+  .summary-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: #6b7280; margin-bottom: 0.25rem; }
+  .summary-value { font-size: 1.5rem; font-weight: 800; color: #111; }
+  @media print { body { padding: 1rem; } }
+</style>
+</head>
+<body>
+<h1>${job.name}</h1>
+<p class="subtitle">Schedule Export — Exported on ${ts}</p>
+<p class="meta">
+  Pay rate: ${fmt(job.hourlyRate)}/hr · ${job.payFrequency || 'biweekly'} · Period: ${periodLabel}
+</p>
+
+<div class="summary">
+  <div class="summary-item">
+    <p class="summary-label">Total Shifts</p>
+    <p class="summary-value">${displayShifts.length}</p>
+  </div>
+  <div class="summary-item">
+    <p class="summary-label">Total Hours</p>
+    <p class="summary-value">${fmtDuration(totalHours)}</p>
+  </div>
+  <div class="summary-item">
+    <p class="summary-label">Est. Gross Pay</p>
+    <p class="summary-value">${fmt(Math.round(totalHours * (job.hourlyRate || 0) * 100) / 100)}</p>
+  </div>
+</div>
+
+${displayShifts.length > 0 ? `
+<section>
+  <h2>Shifts</h2>
+  ${table(
+    ['Date', 'Start', 'End', 'Duration', 'Location', 'Notes'],
+    displayShifts.map((sh) => [
+      new Date(sh.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
+      fmtTime(sh.startTime),
+      fmtTime(sh.endTime),
+      `<span class="amount">${fmtDuration(sh.hoursWorked)}</span>`,
+      sh.location || '—',
+      sh.notes || '',
+    ])
+  )}
+</section>
+` : '<p style="color:#666;margin-top:1rem;">No shifts found for this period.</p>'}
+
+</body>
+</html>`;
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${job.name.replace(/\s+/g, '-').toLowerCase()}-schedule-${new Date().toISOString().slice(0, 10)}.html`;
+  a.click();
+  URL.revokeObjectURL(url);
 }

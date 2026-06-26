@@ -321,22 +321,55 @@ function JobForm({ initial = {}, onSave, onCancel }) {
 
 // ── Shift Form ────────────────────────────────────────────────────────────────
 
+const NOTIF_OFFSETS = [
+  { label: '15 min before', value: '15' },
+  { label: '30 min before', value: '30' },
+  { label: '1 hour before', value: '60' },
+  { label: '2 hours before', value: '120' },
+];
+
 function ShiftForm({ initial = {}, jobs, onSave, onCancel }) {
   const [form, setForm] = useState({
     date: today(),
     jobId: jobs[0]?.id || '',
     hoursWorked: '',
+    startTime: '',
+    endTime: '',
+    location: '',
+    notificationEnabled: false,
+    notificationOffsetMinutes: '30',
     notes: '',
     otExempt: false,
     ...initial,
   });
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const set = (k, v) => setForm((f) => {
+    const next = { ...f, [k]: v };
+    if (k === 'startTime' || k === 'endTime') {
+      const s = k === 'startTime' ? v : f.startTime;
+      const e = k === 'endTime' ? v : f.endTime;
+      if (s && e) {
+        const [sh, sm] = s.split(':').map(Number);
+        const [eh, em] = e.split(':').map(Number);
+        let diff = (eh * 60 + em) - (sh * 60 + sm);
+        if (diff <= 0) diff += 24 * 60;
+        next.hoursWorked = String(Math.round(diff / 15) * 0.25);
+      }
+    }
+    return next;
+  });
+
   const selectedJob = jobs.find((j) => j.id === form.jobId);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!form.jobId || !form.hoursWorked) return;
-    onSave({ ...form, hoursWorked: parseFloat(form.hoursWorked) });
+    onSave({
+      ...form,
+      hoursWorked: parseFloat(form.hoursWorked),
+      location: form.location.trim() || null,
+      notificationOffsetMinutes: parseInt(form.notificationOffsetMinutes) || 30,
+    });
   };
 
   return (
@@ -355,14 +388,32 @@ function ShiftForm({ initial = {}, jobs, onSave, onCancel }) {
         </div>
       )}
 
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+        <div>
+          <Label>Start Time</Label>
+          <Input type="time" value={form.startTime} onChange={(e) => set('startTime', e.target.value)} />
+        </div>
+        <div>
+          <Label>End Time</Label>
+          <Input type="time" value={form.endTime} onChange={(e) => set('endTime', e.target.value)} />
+        </div>
+      </div>
+
       <div>
         <Label>
           Hours Worked
           {selectedJob && <span style={{ color: 'var(--subtle)', marginLeft: '0.25rem', fontSize: '0.75rem' }}>(normal: {selectedJob.normalShiftHours}h)</span>}
+          {form.startTime && form.endTime && <span style={{ color: 'var(--accent-text)', marginLeft: '0.25rem', fontSize: '0.75rem' }}>auto-calculated</span>}
         </Label>
-        <Input type="number" min="0" max="24" step="0.25" placeholder="8.0" value={form.hoursWorked}
-          onChange={(e) => set('hoursWorked', e.target.value)} required autoFocus
+        <Input type="number" min="0" max="72" step="0.25" placeholder="8.0" value={form.hoursWorked}
+          onChange={(e) => set('hoursWorked', e.target.value)} required
           style={{ fontSize: '1.5rem', textAlign: 'center', fontWeight: '700' }} />
+      </div>
+
+      <div>
+        <Label>Location (optional)</Label>
+        <Input placeholder="e.g. Main Station, HQ, Remote" value={form.location}
+          onChange={(e) => set('location', e.target.value)} />
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '0.875rem', padding: '0.75rem 1rem' }}>
@@ -376,6 +427,32 @@ function ShiftForm({ initial = {}, jobs, onSave, onCancel }) {
           <span style={{ position: 'absolute', top: '2px', width: '1.125rem', height: '1.125rem', borderRadius: '9999px', backgroundColor: '#fff', transition: 'left 0.2s',
             left: form.otExempt ? 'calc(100% - 1.25rem)' : '2px' }} />
         </button>
+      </div>
+
+      <div style={{ backgroundColor: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '0.875rem', padding: '0.75rem 1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: form.notificationEnabled ? '0.75rem' : 0 }}>
+          <div>
+            <p style={{ fontSize: '0.875rem', fontWeight: '700', color: 'var(--text)' }}>Shift Reminder</p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.125rem' }}>
+              {form.startTime ? `Notify before ${form.startTime}` : 'Set start time to enable'}
+            </p>
+          </div>
+          <button type="button" onClick={() => set('notificationEnabled', !form.notificationEnabled)}
+            disabled={!form.startTime}
+            style={{ width: '2.75rem', height: '1.5rem', borderRadius: '9999px', border: 'none', cursor: form.startTime ? 'pointer' : 'not-allowed', transition: 'background 0.2s', position: 'relative', flexShrink: 0, opacity: form.startTime ? 1 : 0.4,
+              backgroundColor: form.notificationEnabled && form.startTime ? 'var(--accent)' : 'var(--border2)' }}>
+            <span style={{ position: 'absolute', top: '2px', width: '1.125rem', height: '1.125rem', borderRadius: '9999px', backgroundColor: '#fff', transition: 'left 0.2s',
+              left: form.notificationEnabled && form.startTime ? 'calc(100% - 1.25rem)' : '2px' }} />
+          </button>
+        </div>
+        {form.notificationEnabled && form.startTime && (
+          <div>
+            <Label>Notify me</Label>
+            <Select value={form.notificationOffsetMinutes} onChange={(e) => set('notificationOffsetMinutes', e.target.value)}>
+              {NOTIF_OFFSETS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </Select>
+          </div>
+        )}
       </div>
 
       <div>
@@ -1167,7 +1244,9 @@ function HoursTab({ jobs, shifts, addShift, updateShift, deleteShift, bulkSaveSh
                 <p style={{ fontWeight: '600', color: 'var(--text)', fontSize: '0.9375rem' }}>{job?.name || 'Unknown'}</p>
                 {sh.otExempt && <span style={{ fontSize: '0.625rem', fontWeight: 700, color: 'var(--warn)', backgroundColor: 'rgba(245,158,11,0.15)', padding: '0.125rem 0.375rem', borderRadius: '0.375rem' }}>OT Exempt</span>}
               </div>
-              <p style={{ fontSize: '0.8125rem', color: 'var(--muted)', marginTop: '0.125rem' }}>{sh.hoursWorked}h logged{sh.notes ? ` · ${sh.notes}` : ''}</p>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--muted)', marginTop: '0.125rem' }}>
+  {sh.startTime && sh.endTime ? `${sh.startTime}–${sh.endTime} · ` : ''}{sh.hoursWorked}h{sh.location ? ` · ${sh.location}` : ''}{sh.notes ? ` · ${sh.notes}` : ''}
+</p>
             </div>
             <div style={{ display: 'flex', gap: '0.25rem' }}>
               <button onClick={() => setEditShift(sh)} style={{ padding: '0.375rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}><Pencil size={15} /></button>
@@ -1233,7 +1312,9 @@ function HoursTab({ jobs, shifts, addShift, updateShift, deleteShift, bulkSaveSh
                       {jobs.length > 1 && <span style={{ fontSize: '0.6875rem', backgroundColor: 'var(--surface2)', color: 'var(--muted)', padding: '0.125rem 0.5rem', borderRadius: '0.375rem' }}>{job?.name}</span>}
                       {sh.otExempt && <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--warn)', backgroundColor: 'rgba(245,158,11,0.15)', padding: '0.125rem 0.375rem', borderRadius: '0.375rem' }}>OT Exempt</span>}
                     </div>
-                    <p style={{ fontSize: '0.8125rem', color: 'var(--subtle)', marginTop: '0.125rem' }}>{sh.hoursWorked}h{sh.notes ? ` · ${sh.notes}` : ''}</p>
+                    <p style={{ fontSize: '0.8125rem', color: 'var(--subtle)', marginTop: '0.125rem' }}>
+  {sh.startTime && sh.endTime ? `${sh.startTime}–${sh.endTime} · ` : ''}{sh.hoursWorked}h{sh.location ? ` · ${sh.location}` : ''}{sh.notes ? ` · ${sh.notes}` : ''}
+</p>
                   </div>
                   <div style={{ display: 'flex', gap: '0.25rem' }}>
                     <button onClick={() => setEditShift(sh)} style={{ padding: '0.375rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}><Pencil size={14} /></button>
@@ -1288,6 +1369,8 @@ function EstimateTab({ jobs, shifts, addIncome }) {
   const [range, setRange] = useState(() => getLastNDaysEnd(14));
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [periodOffset, setPeriodOffset] = useState(0);
+  const [autoAdvance, setAutoAdvance] = useState(false);
 
   const job = jobs.find((j) => j.id === selectedJobId);
   const payPeriods = job ? getPayPeriodBounds(job) : null;
@@ -1306,12 +1389,22 @@ function EstimateTab({ jobs, shifts, addIncome }) {
 
   // Keep range in sync when job or preset changes
   useEffect(() => {
-    if (preset === 'current' && payPeriods) setRange(payPeriods.current);
-    else if (preset === 'previous' && payPeriods) setRange(payPeriods.previous);
+    if (preset === 'current' && payPeriods) {
+      const p = getPayPeriodAtOffset(job, periodOffset);
+      if (p) setRange(p);
+    } else if (preset === 'previous' && payPeriods) setRange(payPeriods.previous);
     else if (preset === '7d') setRange(getLastNDaysEnd(7));
     else if (preset === '14d') setRange(getLastNDaysEnd(14));
     else if (preset === 'week') setRange(getThisWeekRange());
-  }, [preset, selectedJobId]);
+  }, [preset, selectedJobId, periodOffset]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!autoAdvance || !job || !payPeriods || preset !== 'current') return;
+    const nextP = getPayPeriodAtOffset(job, periodOffset + 1);
+    if (!nextP) return;
+    const hasNext = shifts.some((s) => s.jobId === job.id && s.date >= nextP.start && s.date <= nextP.end);
+    if (hasNext) setPeriodOffset((o) => o + 1);
+  }, [autoAdvance, shifts, job?.id, preset]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const periodShifts = useMemo(() =>
     shifts.filter((s) => s.jobId === selectedJobId && s.date >= range.start && s.date <= range.end),
@@ -1335,6 +1428,7 @@ function EstimateTab({ jobs, shifts, addIncome }) {
     setSelectedJobId(id);
     setSaved(false);
     setPreset('current');
+    setPeriodOffset(0);
   }
 
   function handleSave() {
@@ -1427,7 +1521,22 @@ function EstimateTab({ jobs, shifts, addIncome }) {
       {/* Period */}
       <div style={{ marginBottom: '1rem' }}>
         <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.5rem' }}>Pay Period</p>
-        {payPeriods && (
+        {payPeriods && preset === 'current' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+            <button type="button" onClick={() => { setPeriodOffset((o) => o - 1); setSaved(false); }}
+              style={{ padding: '0.375rem', borderRadius: '0.625rem', color: 'var(--muted)', background: 'none', border: '1px solid var(--border)', cursor: 'pointer' }}>
+              <ChevronLeft size={16} />
+            </button>
+            <p style={{ flex: 1, fontSize: '0.75rem', color: 'var(--positive-text)', fontWeight: '600', textAlign: 'center' }}>
+              {periodOffset === 0 ? 'Current pay period' : periodOffset > 0 ? `+${periodOffset} period${periodOffset !== 1 ? 's' : ''}` : `${periodOffset} period${periodOffset !== -1 ? 's' : ''}`}
+            </p>
+            <button type="button" onClick={() => { setPeriodOffset((o) => o + 1); setSaved(false); }}
+              style={{ padding: '0.375rem', borderRadius: '0.625rem', color: 'var(--muted)', background: 'none', border: '1px solid var(--border)', cursor: 'pointer' }}>
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
+        {payPeriods && preset !== 'current' && (
           <p style={{ fontSize: '0.75rem', color: 'var(--positive-text)', marginBottom: '0.5rem', fontWeight: '600' }}>
             Auto-calculated from your payroll cycle
           </p>
@@ -1442,6 +1551,17 @@ function EstimateTab({ jobs, shifts, addIncome }) {
             </button>
           ))}
         </div>
+        {payPeriods && preset === 'current' && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '0.75rem', padding: '0.5rem 0.875rem', marginBottom: '0.5rem' }}>
+            <p style={{ fontSize: '0.8125rem', color: 'var(--muted)' }}>Auto-advance if next period has hours</p>
+            <button type="button" onClick={() => setAutoAdvance((v) => !v)}
+              style={{ width: '2.5rem', height: '1.375rem', borderRadius: '9999px', border: 'none', cursor: 'pointer', transition: 'background 0.2s', position: 'relative', flexShrink: 0,
+                backgroundColor: autoAdvance ? 'var(--accent)' : 'var(--border2)' }}>
+              <span style={{ position: 'absolute', top: '2px', width: '1rem', height: '1rem', borderRadius: '9999px', backgroundColor: '#fff', transition: 'left 0.2s',
+                left: autoAdvance ? 'calc(100% - 1.125rem)' : '2px' }} />
+            </button>
+          </div>
+        )}
         {preset === 'custom' && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.5rem' }}>
             <div>

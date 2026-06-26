@@ -647,6 +647,7 @@ export default function BillsDebts() {
   const {
     bills, addBill, updateBill, deleteBill, setBillStatusDirect,
     debts, addDebt, updateDebt, deleteDebt, toggleDebtPaid,
+    budget, setBudgetForMonth,
     budgetCategories, addBudgetCategory, updateBudgetCategory, deleteBudgetCategory, persistBudgetCategories,
     budgetSpends, addBudgetSpend, updateBudgetSpend, deleteBudgetSpend,
     settings, income,
@@ -669,6 +670,8 @@ export default function BillsDebts() {
   const [showAddSpend, setShowAddSpend] = useState(null); // null | { categoryId }
   const [editSpend, setEditSpend] = useState(null);
   const [expandedCats, setExpandedCats] = useState(new Set());
+  const [editBudgetAmt, setEditBudgetAmt] = useState(false);
+  const [budgetAmtInput, setBudgetAmtInput] = useState('');
 
   const { myName, spouseName } = settings;
   const aaronLabel = myName || 'Primary User';
@@ -715,6 +718,7 @@ export default function BillsDebts() {
   }), [budgetCategories, monthBudgetSpends]);
   const totalBudgetLimit = budgetCategories.reduce((s, c) => s + c.monthlyLimit, 0);
   const totalBudgetSpent = monthBudgetSpends.reduce((s, sp) => s + sp.amount, 0);
+  const hardSetAmount = budget?.[mk] || 0;
 
   const sectionLabel = { fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)' };
 
@@ -868,18 +872,55 @@ export default function BillsDebts() {
               <>
                 {/* Month overview */}
                 <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1.25rem', padding: '1.25rem' }}>
-                  <p style={{ ...sectionLabel, marginBottom: '0.25rem' }}>Monthly Budget</p>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                    <p style={{ ...sectionLabel }}>Monthly Budget (Fixed)</p>
+                    <button onClick={() => { setEditBudgetAmt(true); setBudgetAmtInput(hardSetAmount ? String(hardSetAmount) : ''); }}
+                      style={{ padding: '0.25rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.5rem' }}>
+                      <Pencil size={13} />
+                    </button>
+                  </div>
+                  {editBudgetAmt ? (
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.75rem' }}>
+                      <div style={{ position: 'relative', flex: 1 }}>
+                        <span style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }}>$</span>
+                        <input type="number" inputMode="decimal" min="0" step="1" placeholder="0"
+                          value={budgetAmtInput} onChange={(e) => setBudgetAmtInput(e.target.value)}
+                          autoFocus className="app-input" style={{ paddingLeft: '1.75rem' }} />
+                      </div>
+                      <button onClick={() => { setBudgetForMonth(mk, parseFloat(budgetAmtInput) || 0); setEditBudgetAmt(false); }}
+                        style={{ padding: '0.5rem 0.875rem', backgroundColor: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '0.75rem', fontWeight: 700, cursor: 'pointer', fontSize: '0.875rem' }}>
+                        Set
+                      </button>
+                      <button onClick={() => setEditBudgetAmt(false)}
+                        style={{ padding: '0.5rem', color: 'var(--muted)', background: 'none', border: '1px solid var(--border)', borderRadius: '0.75rem', cursor: 'pointer' }}>
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ marginBottom: '0.5rem' }}>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginBottom: '0.25rem' }}>
+                        {hardSetAmount > 0 ? `Budget set: ${formatCurrency(hardSetAmount)}` : 'Tap ✎ to set your monthly budget'}
+                      </p>
+                    </div>
+                  )}
                   <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                    <span style={{ fontSize: '2rem', fontWeight: 900, color: totalBudgetSpent > totalBudgetLimit ? 'var(--danger)' : 'var(--text)' }}>{formatCurrency(totalBudgetLimit - totalBudgetSpent)}</span>
-                    <span style={{ fontSize: '0.875rem', color: 'var(--subtle)', paddingBottom: '0.3rem' }}>remaining</span>
+                    <span style={{ fontSize: '2rem', fontWeight: 900, color: hardSetAmount > 0 && totalBudgetSpent > hardSetAmount ? 'var(--danger)' : 'var(--text)' }}>
+                      {hardSetAmount > 0 ? formatCurrency(hardSetAmount - totalBudgetSpent) : '—'}
+                    </span>
+                    <span style={{ fontSize: '0.875rem', color: 'var(--subtle)', paddingBottom: '0.3rem' }}>available</span>
                   </div>
                   <div style={{ height: '6px', borderRadius: '9999px', backgroundColor: 'var(--border)', overflow: 'hidden', marginBottom: '0.5rem' }}>
-                    <div style={{ height: '100%', width: `${Math.min(100, totalBudgetLimit > 0 ? (totalBudgetSpent / totalBudgetLimit) * 100 : 0)}%`, borderRadius: '9999px',
-                      backgroundColor: totalBudgetSpent >= totalBudgetLimit ? 'var(--danger)' : totalBudgetSpent / totalBudgetLimit > 0.75 ? 'var(--warn)' : 'var(--accent)' }} />
+                    <div style={{ height: '100%', width: `${Math.min(100, hardSetAmount > 0 ? (totalBudgetSpent / hardSetAmount) * 100 : 0)}%`, borderRadius: '9999px',
+                      backgroundColor: hardSetAmount > 0 && totalBudgetSpent >= hardSetAmount ? 'var(--danger)' : hardSetAmount > 0 && totalBudgetSpent / hardSetAmount > 0.75 ? 'var(--warn)' : 'var(--accent)' }} />
                   </div>
                   <p style={{ fontSize: '0.8125rem', color: 'var(--subtle)' }}>
-                    {formatCurrency(totalBudgetSpent)} spent of {formatCurrency(totalBudgetLimit)} total
+                    {formatCurrency(totalBudgetSpent)} spent{hardSetAmount > 0 ? ` of ${formatCurrency(hardSetAmount)} budgeted` : ''}
                   </p>
+                  {budgetCategories.length > 0 && (
+                    <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginTop: '0.25rem', fontStyle: 'italic' }}>
+                      Envelopes below are for planning only and don't reduce the budget above
+                    </p>
+                  )}
                 </div>
 
                 {/* Category cards */}
