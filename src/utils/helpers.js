@@ -204,8 +204,8 @@ export function exportAsHTML({ bills, income, debts, savings, purchases, commitm
   const fmt = (n) => '$' + (n ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const inc = (key) => !include || include.includes(key);
 
-  const myName = settings.myName || 'Me';
-  const spouseName = settings.spouseName || 'Partner';
+  const myName = settings.myName || 'Primary User';
+  const spouseName = settings.spouseName || 'Secondary User';
 
   const personName = (p) => {
     if (!p) return myName;
@@ -336,7 +336,7 @@ ${inc('agreements') && agreements.length ? section('Financial Deals', table(
   agreements.map((ag) => [
     ag.description,
     ag.amount != null && ag.amount > 0 ? `<span class="amount">${fmt(ag.amount)}</span>` : '—',
-    ag.person === 'me' ? 'Aaron' : ag.person === 'partner' ? 'Cameron' : 'Both',
+    ag.person === 'me' ? myName : ag.person === 'partner' ? spouseName : 'Both',
     ag.date ? new Date(ag.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—',
     ag.status === 'settled' ? '<span class="badge badge-paid">Settled</span>' : '<span class="badge badge-pending">Active</span>',
     ag.notes || '',

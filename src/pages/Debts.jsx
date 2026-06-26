@@ -23,7 +23,7 @@ function ownerBadge(owner, myName, spouseName) {
   );
   return (
     <span style={{ fontSize: '0.75rem', backgroundColor: 'var(--surface2)', color: 'var(--accent-text)', border: '1px solid var(--border)', padding: '0.125rem 0.5rem', borderRadius: '0.375rem', fontWeight: '600' }}>
-      {normalized === 'cameron' ? (spouseName || 'Cameron') : (myName || 'Aaron')}
+      {normalized === 'cameron' ? (spouseName || 'Secondary User') : (myName || 'Primary User')}
     </span>
   );
 }
@@ -91,8 +91,8 @@ export default function Debts() {
   const [ownerFilter, setOwnerFilter] = useState('all');
 
   const { myName, spouseName } = settings;
-  const aaronLabel = myName || 'Aaron';
-  const cameronLabel = spouseName || 'Cameron';
+  const aaronLabel = myName || 'Primary User';
+  const cameronLabel = spouseName || 'Secondary User';
 
   const filtered = ownerFilter === 'all' ? debts : debts.filter((d) => normalizeOwner(d.owner) === ownerFilter);
 

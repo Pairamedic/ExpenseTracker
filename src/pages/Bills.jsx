@@ -29,10 +29,10 @@ function ownerBadge(owner, myName, spouseName) {
     <span style={{ fontSize: '0.75rem', backgroundColor: 'var(--surface2)', color: 'var(--muted)', border: '1px solid var(--border)', padding: '0.125rem 0.5rem', borderRadius: '0.375rem', fontWeight: '600' }}>Joint</span>
   );
   if (normalized === 'cameron') return (
-    <span style={{ fontSize: '0.75rem', backgroundColor: 'var(--surface2)', color: 'var(--accent-text)', border: '1px solid var(--border)', padding: '0.125rem 0.5rem', borderRadius: '0.375rem', fontWeight: '600' }}>{spouseName || 'Cameron'}</span>
+    <span style={{ fontSize: '0.75rem', backgroundColor: 'var(--surface2)', color: 'var(--accent-text)', border: '1px solid var(--border)', padding: '0.125rem 0.5rem', borderRadius: '0.375rem', fontWeight: '600' }}>{spouseName || 'Secondary User'}</span>
   );
   return (
-    <span style={{ fontSize: '0.75rem', backgroundColor: 'var(--surface2)', color: 'var(--accent-text)', border: '1px solid var(--border)', padding: '0.125rem 0.5rem', borderRadius: '0.375rem', fontWeight: '600' }}>{myName || 'Aaron'}</span>
+    <span style={{ fontSize: '0.75rem', backgroundColor: 'var(--surface2)', color: 'var(--accent-text)', border: '1px solid var(--border)', padding: '0.125rem 0.5rem', borderRadius: '0.375rem', fontWeight: '600' }}>{myName || 'Primary User'}</span>
   );
 }
 
@@ -165,8 +165,8 @@ export default function Bills() {
   const [ownerFilter, setOwnerFilter] = useState(null);
 
   const { myName, spouseName } = settings;
-  const aaronLabel = myName || 'Aaron';
-  const cameronLabel = spouseName || 'Cameron';
+  const aaronLabel = myName || 'Primary User';
+  const cameronLabel = spouseName || 'Secondary User';
 
   const monthBills = getBillsForMonth(bills, mk);
 

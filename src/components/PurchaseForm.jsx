@@ -89,8 +89,8 @@ export default function PurchaseForm({ initial = {}, onSave, onCancel, myName, s
     if (cameraRef.current) cameraRef.current.value = '';
   };
 
-  const aaronLabel = myName || 'Aaron';
-  const cameronLabel = spouseName || 'Cameron';
+  const aaronLabel = myName || 'Primary User';
+  const cameronLabel = spouseName || 'Secondary User';
   const personOptions = [['aaron', aaronLabel], ['cameron', cameronLabel]];
 
   return (

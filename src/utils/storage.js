@@ -39,8 +39,8 @@ function set(key, value) {
 
 const DEFAULT_SETTINGS = {
   spouseEnabled: true,
-  spouseName: 'Cameron',
-  myName: 'Aaron',
+  spouseName: '',
+  myName: '',
   monthlySpendingBudget: 0,
   monthlySavingsTarget: 0,
   lightMode: false,
