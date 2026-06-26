@@ -153,3 +153,26 @@ export function getPayPeriodBounds(job) {
     },
   };
 }
+
+// Return the pay period { start, end } at a given offset from the current period.
+// offset=0: current period, offset=-1: previous period, offset=-2: two periods back, etc.
+export function getPayPeriodAtOffset(job, offset) {
+  if (!job.payPeriodStartDate) return null;
+  const cycle = job.payFrequency === 'weekly' ? 7 : 14;
+  const refMs = new Date(job.payPeriodStartDate + 'T12:00:00').getTime();
+  const nowMs = new Date().setHours(12, 0, 0, 0);
+  const dayMs = 1000 * 60 * 60 * 24;
+  const daysDiff = Math.floor((nowMs - refMs) / dayMs);
+  const periodIdx = Math.floor(daysDiff / cycle) + offset;
+
+  const addD = (base, n) => {
+    const d = new Date(base + 'T12:00:00');
+    d.setDate(d.getDate() + n);
+    return d.toISOString().slice(0, 10);
+  };
+
+  return {
+    start: addD(job.payPeriodStartDate, periodIdx * cycle),
+    end: addD(job.payPeriodStartDate, (periodIdx + 1) * cycle - 1),
+  };
+}
