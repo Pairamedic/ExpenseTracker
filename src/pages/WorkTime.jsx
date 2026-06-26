@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatCurrency, monthKey } from '../utils/helpers';
-import { calcPaycheck, calcHoursFromShifts, getPayPeriodBounds } from '../utils/taxCalc';
+import { calcPaycheck, calcHoursFromShifts, getPayPeriodBounds, getPayPeriodAtOffset } from '../utils/taxCalc';
 import Modal from '../components/Modal';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -995,6 +995,7 @@ function HoursTab({ jobs, shifts, addShift, updateShift, deleteShift, bulkSaveSh
   const [showBulkForm, setShowBulkForm] = useState(false);
   const [editShift, setEditShift] = useState(null);
   const [calView, setCalView] = useState(true);
+  const [periodOffset, setPeriodOffset] = useState(0);
 
   const recentShifts = useMemo(() =>
     [...shifts].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30),
@@ -1049,62 +1050,90 @@ function HoursTab({ jobs, shifts, addShift, updateShift, deleteShift, bulkSaveSh
           {/* Pay period earnings summary */}
           {(() => {
             const summaries = jobs.map((job) => {
-              const pp = getPayPeriodBounds(job);
-              if (!pp) return null;
-              const { start, end } = pp.current;
+              const period = getPayPeriodAtOffset(job, periodOffset);
+              if (!period) return null;
+              const { start, end } = period;
               const periodShifts = shifts.filter((s) => s.jobId === job.id && s.date >= start && s.date <= end);
-              if (periodShifts.length === 0) return null;
-              const { regularHours, overtimeHours } = calcHoursFromShifts(periodShifts, job);
-              const result = calcPaycheck({ job, regularHours, overtimeHours });
-              const actual = (paycheckActuals || []).find((a) => a.jobId === job.id && a.periodStart === start);
-              return { job, result, start, end, actual };
+              // Preserve existing behavior: hide current-period jobs with no shifts logged
+              if (periodOffset === 0 && periodShifts.length === 0) return null;
+              const hasShifts = periodShifts.length > 0;
+              const { regularHours, overtimeHours } = hasShifts ? calcHoursFromShifts(periodShifts, job) : { regularHours: 0, overtimeHours: 0 };
+              const result = hasShifts ? calcPaycheck({ job, regularHours, overtimeHours }) : null;
+              const actual = hasShifts ? (paycheckActuals || []).find((a) => a.jobId === job.id && a.periodStart === start) : null;
+              return { job, result, start, end, actual, hasShifts };
             }).filter(Boolean);
             if (summaries.length === 0) return null;
+            const isCurrentPeriod = periodOffset === 0;
             return (
               <div style={{ marginTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-                <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', padding: '0 0.25rem' }}>
-                  Current Pay Period Estimate
-                </p>
-                {summaries.map(({ job, result, start, end, actual }) => {
-                  const delta = actual ? actual.amount - result.netPay : null;
+                <div style={{ display: 'flex', alignItems: 'center', padding: '0 0.125rem' }}>
+                  <button
+                    onClick={() => setPeriodOffset((o) => o - 1)}
+                    aria-label="Previous pay period"
+                    style={{ padding: '0.25rem', borderRadius: '0.5rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}
+                  >
+                    <ChevronLeft size={15} />
+                  </button>
+                  <p style={{ flex: 1, textAlign: 'center', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)' }}>
+                    {isCurrentPeriod ? 'Current Pay Period Estimate' : 'Pay Period Estimate'}
+                  </p>
+                  <button
+                    onClick={() => setPeriodOffset((o) => o + 1)}
+                    aria-label="Next pay period"
+                    disabled={periodOffset >= 0}
+                    style={{ padding: '0.25rem', borderRadius: '0.5rem', color: periodOffset >= 0 ? 'var(--border)' : 'var(--muted)', background: 'none', border: 'none', cursor: periodOffset >= 0 ? 'default' : 'pointer', flexShrink: 0 }}
+                  >
+                    <ChevronRight size={15} />
+                  </button>
+                </div>
+                {summaries.map(({ job, result, start, end, actual, hasShifts }) => {
+                  const delta = actual && result ? actual.amount - result.netPay : null;
                   return (
                     <div key={job.id} style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.875rem', padding: '0.875rem' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' }}>
                         <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text)' }}>{job.name}</span>
                         <span style={{ fontSize: '0.6875rem', color: 'var(--subtle)' }}>{periodLabel(start, end)}</span>
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                        <div style={{ textAlign: 'center', backgroundColor: 'var(--surface2)', borderRadius: '0.625rem', padding: '0.625rem 0.5rem' }}>
-                          <p style={{ fontSize: '0.6rem', color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem' }}>Est. Gross</p>
-                          <p style={{ fontSize: '1.0625rem', fontWeight: 800, color: 'var(--text)' }}>{formatCurrency(result.grossPay)}</p>
-                        </div>
-                        <div style={{ textAlign: 'center', backgroundColor: 'var(--positive-soft)', borderRadius: '0.625rem', padding: '0.625rem 0.5rem', border: '1px solid rgba(16,185,129,0.2)' }}>
-                          <p style={{ fontSize: '0.6rem', color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem' }}>Est. Net</p>
-                          <p style={{ fontSize: '1.0625rem', fontWeight: 800, color: 'var(--positive-text)' }}>{formatCurrency(result.netPay)}</p>
-                        </div>
-                      </div>
-                      {result.overtimeHours > 0 && (
-                        <p style={{ fontSize: '0.75rem', color: 'var(--warn)', marginTop: '0.375rem', textAlign: 'center' }}>
-                          {result.regularHours}h reg + {result.overtimeHours}h OT
+                      {hasShifts ? (
+                        <>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                            <div style={{ textAlign: 'center', backgroundColor: 'var(--surface2)', borderRadius: '0.625rem', padding: '0.625rem 0.5rem' }}>
+                              <p style={{ fontSize: '0.6rem', color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem' }}>Est. Gross</p>
+                              <p style={{ fontSize: '1.0625rem', fontWeight: 800, color: 'var(--text)' }}>{formatCurrency(result.grossPay)}</p>
+                            </div>
+                            <div style={{ textAlign: 'center', backgroundColor: 'var(--positive-soft)', borderRadius: '0.625rem', padding: '0.625rem 0.5rem', border: '1px solid rgba(16,185,129,0.2)' }}>
+                              <p style={{ fontSize: '0.6rem', color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.25rem' }}>Est. Net</p>
+                              <p style={{ fontSize: '1.0625rem', fontWeight: 800, color: 'var(--positive-text)' }}>{formatCurrency(result.netPay)}</p>
+                            </div>
+                          </div>
+                          {result.overtimeHours > 0 && (
+                            <p style={{ fontSize: '0.75rem', color: 'var(--warn)', marginTop: '0.375rem', textAlign: 'center' }}>
+                              {result.regularHours}h reg + {result.overtimeHours}h OT
+                            </p>
+                          )}
+                          {/* Actual deposit comparison */}
+                          {actual ? (
+                            <div style={{ marginTop: '0.5rem', padding: '0.625rem', backgroundColor: 'var(--surface2)', borderRadius: '0.625rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                              <div>
+                                <p style={{ fontSize: '0.6rem', color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Actual Deposit</p>
+                                <p style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text)' }}>{formatCurrency(actual.amount)}</p>
+                              </div>
+                              <div style={{ textAlign: 'right' }}>
+                                <p style={{ fontSize: '0.6rem', color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>vs. Estimate</p>
+                                <p style={{ fontSize: '0.9375rem', fontWeight: 700, color: delta >= 0 ? 'var(--positive-text)' : 'var(--danger)' }}>
+                                  {delta >= 0 ? '+' : ''}{formatCurrency(delta)}
+                                </p>
+                              </div>
+                            </div>
+                          ) : addPaycheckActual && isCurrentPeriod ? (
+                            <ActualPayPrompt jobId={job.id} periodStart={start} periodEnd={end} onSave={addPaycheckActual} />
+                          ) : null}
+                        </>
+                      ) : (
+                        <p style={{ fontSize: '0.8125rem', color: 'var(--subtle)', textAlign: 'center', padding: '0.75rem 0' }}>
+                          No shifts logged for this period
                         </p>
                       )}
-                      {/* Actual deposit comparison */}
-                      {actual ? (
-                        <div style={{ marginTop: '0.5rem', padding: '0.625rem', backgroundColor: 'var(--surface2)', borderRadius: '0.625rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
-                          <div>
-                            <p style={{ fontSize: '0.6rem', color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Actual Deposit</p>
-                            <p style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text)' }}>{formatCurrency(actual.amount)}</p>
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <p style={{ fontSize: '0.6rem', color: 'var(--subtle)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>vs. Estimate</p>
-                            <p style={{ fontSize: '0.9375rem', fontWeight: 700, color: delta >= 0 ? 'var(--positive-text)' : 'var(--danger)' }}>
-                              {delta >= 0 ? '+' : ''}{formatCurrency(delta)}
-                            </p>
-                          </div>
-                        </div>
-                      ) : addPaycheckActual ? (
-                        <ActualPayPrompt jobId={job.id} periodStart={start} periodEnd={end} onSave={addPaycheckActual} />
-                      ) : null}
                     </div>
                   );
                 })}
