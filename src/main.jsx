@@ -7,6 +7,10 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     window.location.reload();
   });
+  // Periodic check catches updates in long-running sessions (app open for hours)
+  navigator.serviceWorker.ready.then((reg) => {
+    setInterval(() => reg.update(), 30 * 60 * 1000);
+  });
 }
 
 createRoot(document.getElementById('root')).render(

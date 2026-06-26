@@ -50,6 +50,22 @@ export default function Settings() {
   const [pinInput, setPinInput] = useState('');
   const [notifPermission, setNotifPermission] = useState(() => notificationPermission());
   const [notifEnabling, setNotifEnabling] = useState(false);
+  const [updating, setUpdating] = useState(false);
+
+  const handleForceUpdate = async () => {
+    setUpdating(true);
+    try {
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const reg of registrations) await reg.unregister();
+      }
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+    } catch {}
+    window.location.reload(true);
+  };
 
   const updatePref = (category, key, value) =>
     persistNotifPrefs({ ...notifPrefs, [category]: { ...(notifPrefs[category] || {}), [key]: value } });
@@ -535,6 +551,32 @@ export default function Settings() {
               ⚠ Active — all changes are temporary
             </p>
           )}
+        </section>
+
+        {/* Update App */}
+        <section className="mb-4" style={cardStyle}>
+          <div className="flex items-center gap-2 mb-2">
+            <RefreshCw size={15} style={{ color: 'var(--accent-text)' }} />
+            <span style={sectionLabelStyle}>App Update</span>
+          </div>
+          <p className="text-xs mb-3" style={{ color: 'var(--muted)' }}>
+            The app updates automatically in the background. If something looks outdated, tap below to force-clear the cache and reload the latest version.
+          </p>
+          <button
+            onClick={handleForceUpdate}
+            disabled={updating}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
+              padding: '0.625rem 1rem', borderRadius: '0.75rem',
+              border: '1px solid var(--accent)',
+              backgroundColor: 'rgba(99,102,241,0.08)',
+              color: 'var(--accent-text)',
+              fontSize: '0.875rem', fontWeight: '700', cursor: updating ? 'default' : 'pointer',
+              opacity: updating ? 0.6 : 1,
+            }}>
+            <RefreshCw size={14} style={{ animation: updating ? 'spin 0.8s linear infinite' : 'none' }} />
+            {updating ? 'Clearing cache & reloading…' : 'Update App'}
+          </button>
         </section>
 
         {/* Danger zone */}
