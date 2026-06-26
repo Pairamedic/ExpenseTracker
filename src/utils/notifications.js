@@ -34,6 +34,48 @@ export function sendNotification(title, options = {}) {
   }
 }
 
+// ── Shift notification scheduling ──────────────────────────────────────────
+
+const shiftNotifTimers = {};
+
+/**
+ * Schedule a browser notification before a shift starts.
+ * @param {object} shift - shift object with { id, date, startTime, notificationEnabled, notificationOffsetMinutes }
+ * @param {object} job - job object with { name }
+ */
+export function scheduleShiftNotification(shift, job) {
+  if (!notificationsSupported() || Notification.permission !== 'granted') return;
+  if (!shift.notificationEnabled || !shift.startTime || !shift.date) return;
+
+  // Cancel any existing timer for this shift
+  cancelShiftNotification(shift.id);
+
+  const offsetMinutes = parseInt(shift.notificationOffsetMinutes) || 30;
+  const shiftMs = new Date(`${shift.date}T${shift.startTime}`).getTime();
+  const notifyMs = shiftMs - offsetMinutes * 60 * 1000;
+  const delay = notifyMs - Date.now();
+
+  if (delay <= 0) return; // already past
+
+  shiftNotifTimers[shift.id] = setTimeout(() => {
+    delete shiftNotifTimers[shift.id];
+    const jobName = job?.name || 'Shift';
+    const body = `${jobName} starts in ${offsetMinutes} min (${shift.startTime})`;
+    sendNotification(`Upcoming Shift: ${jobName}`, { body, tag: `shift-${shift.id}` });
+  }, Math.min(delay, 2147483647));
+}
+
+/**
+ * Cancel a scheduled shift notification timer.
+ * @param {string} shiftId
+ */
+export function cancelShiftNotification(shiftId) {
+  if (shiftNotifTimers[shiftId]) {
+    clearTimeout(shiftNotifTimers[shiftId]);
+    delete shiftNotifTimers[shiftId];
+  }
+}
+
 export function getDueDateMs(dueDate, dueTime) {
   if (!dueDate) return null;
   return new Date(`${dueDate}T${dueTime || '23:59'}`).getTime();

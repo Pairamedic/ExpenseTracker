@@ -4,12 +4,13 @@ import { User, Trash2, AlertTriangle, Wallet, PiggyBank, DollarSign, Sun, Moon, 
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
-import { formatCurrency, exportAllData, exportAsHTML } from '../utils/helpers';
+import { formatCurrency, exportAllData, exportAsHTML, exportJobScheduleHTML } from '../utils/helpers';
 import { notificationPermission, sendNotification } from '../utils/notifications';
 
 const ALL_EXPORT_CATS = [
   { key: 'bills', label: 'Bills' },
   { key: 'income', label: 'Income' },
+  { key: 'shifts', label: 'Shifts' },
   { key: 'debts', label: 'Debts' },
   { key: 'savings', label: 'Savings' },
   { key: 'commitments', label: 'Commitments' },
@@ -36,7 +37,7 @@ function NotifRow({ label, sublabel, checked, onChange }) {
 }
 
 export default function Settings() {
-  const { settings, setSettings, bills, income, debts, savings, commitments, plannedExpenses, agreements, projects, purchases, budgetCategories, budgetSpends, shoppingLists, shoppingItems, generateShareLink, revokeShareLink, refreshShareLink, notifPrefs, persistNotifPrefs, fcmToken, enablePushNotifications, testMode, enterTestMode, exitTestMode } = useApp();
+  const { settings, setSettings, bills, income, debts, savings, commitments, plannedExpenses, agreements, projects, purchases, budgetCategories, budgetSpends, shoppingLists, shoppingItems, shifts, jobs, generateShareLink, revokeShareLink, refreshShareLink, notifPrefs, persistNotifPrefs, fcmToken, enablePushNotifications, testMode, enterTestMode, exitTestMode } = useApp();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ ...settings });
@@ -51,6 +52,7 @@ export default function Settings() {
   const [notifPermission, setNotifPermission] = useState(() => notificationPermission());
   const [notifEnabling, setNotifEnabling] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [jobExportId, setJobExportId] = useState('');
 
   const handleForceUpdate = async () => {
     setUpdating(true);
@@ -510,7 +512,7 @@ export default function Settings() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
             <button
-              onClick={() => exportAsHTML({ bills, income, debts, savings, purchases, commitments, plannedExpenses, agreements, projects, budgetCategories, budgetSpends, shoppingLists, shoppingItems, settings, include: exportCats })}
+              onClick={() => exportAsHTML({ bills, income, debts, savings, purchases, commitments, plannedExpenses, agreements, projects, budgetCategories, budgetSpends, shoppingLists, shoppingItems, shifts, jobs, settings, include: exportCats })}
               className="flex items-center gap-2 text-sm font-semibold"
               style={{ color: '#fff', border: 'none', padding: '0.625rem 1rem', borderRadius: '0.75rem', backgroundColor: 'var(--accent)', cursor: 'pointer' }}>
               <Download size={14} /> Export to HTML (Printable)
@@ -521,6 +523,26 @@ export default function Settings() {
               style={{ color: 'var(--accent-text)', border: '1px solid var(--accent)', padding: '0.625rem 1rem', borderRadius: '0.75rem', backgroundColor: 'transparent', cursor: 'pointer' }}>
               <Download size={14} /> Export to CSV
             </button>
+            {jobs.length > 0 && (
+              <div style={{ marginTop: '0.5rem', padding: '0.75rem', backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', border: '1px solid var(--border)' }}>
+                <p style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text)', marginBottom: '0.5rem' }}>Job Schedule Export</p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', marginBottom: '0.75rem' }}>Export a single job's schedule with only job and shift info.</p>
+                <select value={jobExportId} onChange={(e) => setJobExportId(e.target.value)} className="app-input" style={{ marginBottom: '0.5rem' }}>
+                  <option value="">Select a job…</option>
+                  {jobs.map((j) => <option key={j.id} value={j.id}>{j.name}</option>)}
+                </select>
+                <button
+                  disabled={!jobExportId}
+                  onClick={() => {
+                    const j = jobs.find((jj) => jj.id === jobExportId);
+                    if (j) exportJobScheduleHTML({ job: j, shifts });
+                  }}
+                  className="flex items-center gap-2 text-sm font-semibold"
+                  style={{ color: jobExportId ? '#fff' : 'var(--muted)', border: 'none', padding: '0.625rem 1rem', borderRadius: '0.75rem', width: '100%', backgroundColor: jobExportId ? 'var(--accent)' : 'var(--border)', cursor: jobExportId ? 'pointer' : 'not-allowed' }}>
+                  <Download size={14} /> Export Job Schedule
+                </button>
+              </div>
+            )}
           </div>
         </section>
 
