@@ -291,8 +291,8 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   const { spouseName, myName, monthlySpendingBudget, monthlySavingsTarget, purchasesInAvailable } = settings;
-  const partnerLabel = spouseName || 'Cameron';
-  const aaronLabel = myName || 'Aaron';
+  const partnerLabel = spouseName || 'Secondary User';
+  const aaronLabel = myName || 'Primary User';
 
   const allMonthBills = getBillsForMonth(bills, mk);
   const monthIncome = getIncomeForMonth(income, mk);

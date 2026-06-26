@@ -33,8 +33,8 @@ export default function BillForm({ initial = {}, onSave, onCancel, myName, spous
     });
   };
 
-  const aaronLabel = myName || 'Aaron';
-  const cameronLabel = spouseName || 'Cameron';
+  const aaronLabel = myName || 'Primary User';
+  const cameronLabel = spouseName || 'Secondary User';
   const ownerOptions = [
     { val: 'aaron', label: aaronLabel },
     { val: 'cameron', label: cameronLabel },

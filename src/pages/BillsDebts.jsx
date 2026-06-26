@@ -32,7 +32,7 @@ function normalizeOwner(owner) {
 
 function OwnerBadge({ owner, myName, spouseName }) {
   const n = normalizeOwner(owner);
-  const label = n === 'joint' ? 'Joint' : n === 'cameron' ? (spouseName || 'Cameron') : (myName || 'Aaron');
+  const label = n === 'joint' ? 'Joint' : n === 'cameron' ? (spouseName || 'Secondary User') : (myName || 'Primary User');
   const color = n === 'joint' ? 'var(--muted)' : n === 'cameron' ? '#a78bfa' : 'var(--accent-text)';
   return (
     <span style={{ fontSize: '0.6875rem', color, backgroundColor: 'var(--surface2)', border: '1px solid var(--border)', padding: '0.125rem 0.5rem', borderRadius: '0.375rem', fontWeight: 600 }}>
@@ -671,8 +671,8 @@ export default function BillsDebts() {
   const [expandedCats, setExpandedCats] = useState(new Set());
 
   const { myName, spouseName } = settings;
-  const aaronLabel = myName || 'Aaron';
-  const cameronLabel = spouseName || 'Cameron';
+  const aaronLabel = myName || 'Primary User';
+  const cameronLabel = spouseName || 'Secondary User';
 
   const monthBills = getBillsForMonth(bills, mk);
   const ownerFiltered = ownerFilter ? monthBills.filter((b) => normalizeOwner(b.owner) === ownerFilter) : monthBills;

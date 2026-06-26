@@ -29,8 +29,8 @@ export default function DebtForm({ initial = {}, onSave, onCancel, myName, spous
   };
 
   const ownerOptions = [
-    { val: 'aaron', label: myName || 'Aaron' },
-    { val: 'cameron', label: spouseName || 'Cameron' },
+    { val: 'aaron', label: myName || 'Primary User' },
+    { val: 'cameron', label: spouseName || 'Secondary User' },
     { val: 'joint', label: 'Joint' },
   ];
 

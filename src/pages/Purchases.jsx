@@ -276,7 +276,7 @@ function monthOffset(mk, offset) {
 function PurchaseRow({ purchase, onEdit, onDelete, onAttach, myName, spouseName }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const isAaron = purchase.person === 'aaron' || purchase.person === 'me';
-  const personLabel = isAaron ? (myName || 'Aaron') : (spouseName || 'Cameron');
+  const personLabel = isAaron ? (myName || 'Primary User') : (spouseName || 'Secondary User');
   const dateLabel = new Date(purchase.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const attachCount = (purchase.attachments || []).length;
 
@@ -804,8 +804,8 @@ export default function Purchases() {
 
   const { myName, spouseName, monthlySpendingBudget, purchasesInAvailable } = settings;
   const spendingLimit = monthlySpendingBudget || 0;
-  const aaronLabel = myName || 'Aaron';
-  const cameronLabel = spouseName || 'Cameron';
+  const aaronLabel = myName || 'Primary User';
+  const cameronLabel = spouseName || 'Secondary User';
 
   const monthPurchases = purchases.filter((p) => {
     if (!p.date) return false;
