@@ -792,7 +792,7 @@ export default function Purchases() {
   const [showAdd, setShowAdd] = useState(() => searchParams.get('new') === '1');
   const [editItem, setEditItem] = useState(null);
   const [attachPurchaseId, setAttachPurchaseId] = useState(null);
-  const [personFilter, setPersonFilter] = useState('all');
+  const [personFilter, setPersonFilter] = useState(null);
   const [showRecurring, setShowRecurring] = useState(false);
   const [showTemplates, setShowTemplates] = useState(true);
   const [showAddTemplate, setShowAddTemplate] = useState(false);
@@ -814,7 +814,9 @@ export default function Purchases() {
 
   const normalPerson = (p) => (p.person === 'me' ? 'aaron' : p.person);
 
-  const filtered = personFilter === 'all'
+  const togglePerson = (val) => setPersonFilter((cur) => (cur === val ? null : val));
+
+  const filtered = !personFilter
     ? monthPurchases
     : monthPurchases.filter((p) => normalPerson(p) === personFilter);
 
@@ -887,7 +889,7 @@ export default function Purchases() {
         </div>
 
         {/* Tab nav */}
-        <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.875rem', padding: '0.25rem', gap: '0.25rem', marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.875rem', padding: '0.25rem', gap: '0.25rem', marginBottom: '1rem', border: '1px solid var(--border)' }}>
           {[['spending', 'Spending'], ['commitments', 'Commitments'], ['goals', 'Goals'], ['projects', 'Projects']].map(([t, label]) => (
             <button key={t} onClick={() => setPlanTab(t)}
               style={{ flex: 1, padding: '0.625rem 0', borderRadius: '0.625rem', fontSize: '0.8125rem', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'all 0.15s',
@@ -899,20 +901,8 @@ export default function Purchases() {
           ))}
         </div>
 
-        {/* Person filter — spending tab only */}
-        {planTab === 'spending' && <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.875rem', padding: '0.25rem', gap: '0.25rem', marginBottom: '1rem' }}>
-          {[['all', 'All'], ['aaron', aaronLabel], ['cameron', cameronLabel]].map(([val, label]) => (
-            <button key={val} onClick={() => setPersonFilter(val)}
-              style={{ flex: 1, padding: '0.625rem 0', borderRadius: '0.625rem', fontSize: '0.875rem', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'all 0.15s',
-                backgroundColor: personFilter === val ? 'var(--surface)' : 'transparent',
-                color: personFilter === val ? 'var(--text)' : 'var(--subtle)',
-                boxShadow: personFilter === val ? '0 1px 4px rgba(0,0,0,0.15)' : 'none' }}>
-              {label}
-            </button>
-          ))}
-        </div>}
-
-        {planTab === 'spending' && <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+        {/* Month nav — spending tab only, above person filter */}
+        {planTab === 'spending' && <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.625rem' }}>
           <button onClick={() => setMk(monthOffset(mk, -1))} style={{ padding: '0.5rem', borderRadius: '0.75rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
             <ChevronLeft size={20} />
           </button>
@@ -920,6 +910,19 @@ export default function Purchases() {
           <button onClick={() => setMk(monthOffset(mk, 1))} style={{ padding: '0.5rem', borderRadius: '0.75rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
             <ChevronRight size={20} />
           </button>
+        </div>}
+
+        {/* Person filter — spending tab only */}
+        {planTab === 'spending' && <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', padding: '0.2rem', gap: '0.2rem', marginBottom: '1rem' }}>
+          {[['aaron', aaronLabel], ['cameron', cameronLabel], ['joint', 'Joint']].map(([val, label]) => (
+            <button key={val} onClick={() => togglePerson(val)}
+              style={{ flex: 1, padding: '0.5rem 0', borderRadius: '0.5625rem', fontSize: '0.8125rem', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                backgroundColor: personFilter === val ? 'var(--surface)' : 'transparent',
+                color: personFilter === val ? 'var(--text)' : 'var(--subtle)',
+                boxShadow: personFilter === val ? '0 1px 3px rgba(0,0,0,0.12)' : 'none' }}>
+              {label}
+            </button>
+          ))}
         </div>}
 
         {/* Spending limit card */}
@@ -1030,9 +1033,11 @@ export default function Purchases() {
                   myName={myName} spouseName={spouseName} />
               </div>
             ))}
-            {personFilter !== 'all' && (
+            {personFilter && (
               <div style={{ padding: '0.75rem 1rem', backgroundColor: 'var(--surface2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontWeight: '600' }}>Total ({personFilter === 'aaron' ? aaronLabel : cameronLabel})</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontWeight: '600' }}>
+                  Total ({personFilter === 'aaron' ? aaronLabel : personFilter === 'cameron' ? cameronLabel : 'Joint'})
+                </span>
                 <span style={{ fontSize: '0.875rem', fontWeight: '700', color: 'var(--text)' }}>{formatCurrency(filteredTotal)}</span>
               </div>
             )}
