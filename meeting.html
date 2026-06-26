@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>House Meeting Notes</title>
+<meta name="description" content="Weekly house meeting notes for Cameron & Aaron">
+<meta name="theme-color" content="#1e2533">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="House Meetings">
+
+<!-- PWA Manifest inline as data URI -->
+<link rel="manifest" href="data:application/json,{%22name%22:%22House%20Meeting%20Notes%22,%22short_name%22:%22Meetings%22,%22start_url%22:%22.%22,%22display%22:%22standalone%22,%22background_color%22:%22%231e2533%22,%22theme_color%22:%22%231e2533%22,%22icons%22:[{%22src%22:%22data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20100%20100'%3E%3Ctext%20y%3D'.9em'%20font-size%3D'90'%3E%F0%9F%8F%A0%3C%2Ftext%3E%3C%2Fsvg%3E%22,%22sizes%22:%22any%22,%22type%22:%22image%2Fsvg+xml%22}]}">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,300&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #1e2533;
+    --bg-card: #252d3d;
+    --bg-input: #1a2030;
+    --border: #313d54;
+    --text: #f7f4ef;
+    --text-muted: #8a97b0;
+    --sage: #7eb89a;
+    --amber: #e8a44a;
+    --rose: #c47a8a;
+    --sky: #6fa8c9;
+    --slate-light: #a8b8d0;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  html { font-size: 16px; }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0 0 80px 0;
+  }
+
+  /* ── Header ── */
+  header {
+    background: linear-gradient(160deg, #252d3d 0%, #1a2235 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 28px 24px 24px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(12px);
+  }
+
+  .header-inner {
+    max-width: 760px;
+    margin: 0 auto;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .header-title { flex: 1; min-width: 200px; }
+
+  .header-title h1 {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: clamp(1.5rem, 4vw, 2rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    line-height: 1.1;
+  }
+
+  .header-title h1 span {
+    color: var(--sage);
+    font-style: italic;
+  }
+
+  .header-sub {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 9px 16px;
+    border-radius: var(--radius-sm);
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+  }
+
+  .btn-primary {
+    background: var(--sage);
+    color: #1a2030;
+  }
+  .btn-primary:hover { background: #8fcca8; transform: translateY(-1px); }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--slate-light); color: var(--text); }
+
+  .btn-danger {
+    background: transparent;
+    color: #e87a7a;
+    border: 1px solid #3d2535;
+  }
+  .btn-danger:hover { background: #3d2535; }
+
+  .btn-export {
+    background: var(--amber);
+    color: #1a2030;
+  }
+  .btn-export:hover { background: #f0b45c; transform: translateY(-1px); }
+
+  /* ── Main layout ── */
+  main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 28px 20px;
+  }
+
+  /* ── Date row ── */
+  .date-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+
+  .date-row label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  input[type="date"], input[type="text"], textarea, select {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    transition: border-color 0.15s;
+    appearance: none;
+  }
+
+  input[type="date"]:focus, input[type="text"]:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--sage);
+    box-shadow: 0 0 0 3px rgba(126, 184, 154, 0.12);
+  }
+
+  input[type="date"] { padding: 9px 12px; }
+
+  /* ── Section cards ── */
+  .section-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+  }
+  .section-header:hover { background: rgba(255,255,255,0.03); }
+
+  .section-icon {
+    font-size: 1.1rem;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    flex-shrink: 0;
+  }
+
+  .section-money .section-icon { background: rgba(232, 164, 74, 0.15); }
+  .section-next .section-icon { background: rgba(111, 168, 201, 0.15); }
+  .section-us .section-icon { background: rgba(196, 122, 138, 0.15); }
+  .section-house .section-icon { background: rgba(126, 184, 154, 0.15); }
+  .section-general .section-icon { background: rgba(168, 184, 208, 0.15); }
+
+  .section-title-text {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 1rem;
+    flex: 1;
+  }
+
+  .section-money .section-title-text { color: var(--amber); }
+  .section-next .section-title-text { color: var(--sky); }
+  .section-us .section-title-text { color: var(--rose); }
+  .section-house .section-title-text { color: var(--sage); }
+  .section-general .section-title-text { color: var(--slate-light); }
+
+  .section-chevron {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    transition: transform 0.2s;
+  }
+  .section-card.collapsed .section-chevron { transform: rotate(-90deg); }
+
+  .section-body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .section-card.collapsed .section-body { display: none; }
+
+  /* ── Bullet items ── */
+  .bullet-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .bullet-item {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .bullet-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-top: 11px;
+    flex-shrink: 0;
+  }
+
+  .section-money .bullet-dot { background: var(--amber); }
+  .section-next .bullet-dot { background: var(--sky); }
+  .section-us .bullet-dot { background: var(--rose); }
+  .section-house .bullet-dot { background: var(--sage); }
+  .section-general .bullet-dot { background: var(--slate-light); }
+
+  .bullet-item textarea {
+    flex: 1;
+    padding: 8px 10px;
+    resize: vertical;
+    min-height: 38px;
+    line-height: 1.5;
+    border-radius: 6px;
+  }
+
+  .bullet-remove {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 1rem;
+    padding: 6px 4px;
+    border-radius: 4px;
+    line-height: 1;
+    transition: color 0.15s;
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+  .bullet-remove:hover { color: #e87a7a; }
+
+  .add-bullet-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: none;
+    border: 1px dashed var(--border);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-family: 'Inter', sans-serif;
+    padding: 7px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+    align-self: flex-start;
+  }
+  .add-bullet-btn:hover { border-color: var(--sage); color: var(--sage); }
+
+  /* ── Notes field ── */
+  .notes-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: -6px;
+  }
+
+  .notes-area {
+    width: 100%;
+    padding: 10px 12px;
+    min-height: 80px;
+    resize: vertical;
+    line-height: 1.6;
+    border-radius: 6px;
+  }
+
+  /* ── Past meetings ── */
+  .past-section {
+    margin-top: 36px;
+    border-top: 1px solid var(--border);
+    padding-top: 28px;
+  }
+
+  .past-section h2 {
+    font-family: 'Fraunces', serif;
+    font-weight: 300;
+    font-style: italic;
+    font-size: 1.1rem;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+    letter-spacing: -0.01em;
+  }
+
+  .past-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .past-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .past-item:hover { border-color: var(--sage); background: #2a3446; }
+
+  .past-item-date {
+    font-family: 'Fraunces', serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text);
+    flex: 1;
+  }
+
+  .past-item-preview {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    flex: 2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .past-item-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  .past-action-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .past-action-btn:hover { border-color: var(--sage); color: var(--sage); }
+  .past-action-btn.del:hover { border-color: #e87a7a; color: #e87a7a; }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--sage);
+    color: #1a2030;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 10px 20px;
+    border-radius: 100px;
+    z-index: 1000;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(10,14,24,0.85);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    backdrop-filter: blur(4px);
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    max-width: 680px;
+    width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 28px;
+  }
+
+  .modal h2 {
+    font-family: 'Fraunces', serif;
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .modal-date {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 24px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 24px;
+    flex-wrap: wrap;
+  }
+
+  /* ── Empty state ── */
+  .empty-state {
+    text-align: center;
+    padding: 32px 20px;
+    color: var(--text-muted);
+    font-size: 0.88rem;
+  }
+
+  .empty-state span { font-size: 2rem; display: block; margin-bottom: 8px; }
+
+  /* ── Print/Export styles ── */
+  @media print {
+    body { background: white; color: #1a1a1a; padding: 0; }
+    header, .past-section, .header-actions, .btn, .add-bullet-btn, .bullet-remove,
+    .modal-overlay, .toast { display: none !important; }
+    main { max-width: 100%; padding: 0; }
+    .section-card { border: none; background: white; break-inside: avoid; }
+    .section-header { border-bottom: 2px solid #eee; cursor: default; }
+    .section-body { padding: 12px 0; }
+    .section-title-text { color: #1a1a1a !important; }
+    textarea { border: none; background: transparent; color: #1a1a1a; resize: none; }
+    .date-row input { border: none; background: transparent; color: #666; }
+    .bullet-dot { background: #666 !important; }
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 520px) {
+    .past-item { flex-wrap: wrap; }
+    .past-item-preview { display: none; }
+    .modal { padding: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="header-title">
+      <h1>🏠 House <span>Meeting</span></h1>
+      <div class="header-sub">Cameron & Aaron · Weekly Notes</div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-secondary" onclick="newMeeting()">+ New</button>
+      <button class="btn btn-primary" onclick="saveMeeting()">💾 Save</button>
+      <button class="btn btn-export" onclick="exportPDF()">⬇ Export</button>
+    </div>
+  </div>
+</header>
+
+<main id="mainContent">
+  <!-- Date row -->
+  <div class="date-row">
+    <label for="meetingDate">Meeting Date</label>
+    <input type="date" id="meetingDate">
+  </div>
+
+  <!-- Money Section -->
+  <div class="section-card section-money" id="card-money">
+    <div class="section-header" onclick="toggleCard('money')">
+      <div class="section-icon">💰</div>
+      <div class="section-title-text">Money</div>
+      <div class="section-chevron">▼</div>
+    </div>
+    <div class="section-body">
+      <div class="bullet-list" id="bullets-money"></div>
+      <button class="add-bullet-btn" onclick="addBullet('money')">＋ Add item</button>
+      <div class="notes-label">Additional Notes</div>
+      <textarea class="notes-area" id="notes-money" placeholder="Extra context, reminders…"></textarea>
+    </div>
+  </div>
+
+  <!-- What's Next Section -->
+  <div class="section-card section-next" id="card-next">
+    <div class="section-header" onclick="toggleCard('next')">
+      <div class="section-icon">📈</div>
+      <div class="section-title-text">What's Next</div>
+      <div class="section-chevron">▼</div>
+    </div>
+    <div class="section-body">
+      <div class="bullet-list" id="bullets-next"></div>
+      <button class="add-bullet-btn" onclick="addBullet('next')">＋ Add item</button>
+      <div class="notes-label">Additional Notes</div>
+      <textarea class="notes-area" id="notes-next" placeholder="Plans, goals, upcoming…"></textarea>
+    </div>
+  </div>
+
+  <!-- Us Section -->
+  <div class="section-card section-us" id="card-us">
+    <div class="section-header" onclick="toggleCard('us')">
+      <div class="section-icon">❤️</div>
+      <div class="section-title-text">Us</div>
+      <div class="section-chevron">▼</div>
+    </div>
+    <div class="section-body">
+      <div class="bullet-list" id="bullets-us"></div>
+      <button class="add-bullet-btn" onclick="addBullet('us')">＋ Add item</button>
+      <div class="notes-label">Additional Notes</div>
+      <textarea class="notes-area" id="notes-us" placeholder="Relationship check-in, intentions…"></textarea>
+    </div>
+  </div>
+
+  <!-- House Stuff Section -->
+  <div class="section-card section-house" id="card-house">
+    <div class="section-header" onclick="toggleCard('house')">
+      <div class="section-icon">🏠</div>
+      <div class="section-title-text">House Stuff</div>
+      <div class="section-chevron">▼</div>
+    </div>
+    <div class="section-body">
+      <div class="bullet-list" id="bullets-house"></div>
+      <button class="add-bullet-btn" onclick="addBullet('house')">＋ Add item</button>
+      <div class="notes-label">Additional Notes</div>
+      <textarea class="notes-area" id="notes-house" placeholder="Maintenance, chores, bills…"></textarea>
+    </div>
+  </div>
+
+  <!-- General Section -->
+  <div class="section-card section-general" id="card-general">
+    <div class="section-header" onclick="toggleCard('general')">
+      <div class="section-icon">📝</div>
+      <div class="section-title-text">General</div>
+      <div class="section-chevron">▼</div>
+    </div>
+    <div class="section-body">
+      <div class="bullet-list" id="bullets-general"></div>
+      <button class="add-bullet-btn" onclick="addBullet('general')">＋ Add item</button>
+      <div class="notes-label">Additional Notes</div>
+      <textarea class="notes-area" id="notes-general" placeholder="Anything else…"></textarea>
+    </div>
+  </div>
+
+  <!-- Past Meetings -->
+  <div class="past-section">
+    <h2>Past meetings</h2>
+    <div class="past-list" id="pastList"></div>
+  </div>
+</main>
+
+<!-- View Modal -->
+<div class="modal-overlay" id="viewModal">
+  <div class="modal">
+    <h2 id="modalTitle">Meeting Notes</h2>
+    <div class="modal-date" id="modalDate"></div>
+    <div id="modalBody"></div>
+    <div class="modal-actions">
+      <button class="btn btn-export" onclick="exportModalPDF()">⬇ Export PDF</button>
+      <button class="btn btn-secondary" onclick="loadIntoEditor()">✏️ Edit</button>
+      <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State ──
+const SECTIONS = ['money','next','us','house','general'];
+const SECTION_META = {
+  money: { icon: '💰', label: 'Money' },
+  next:  { icon: '📈', label: "What's Next" },
+  us:    { icon: '❤️', label: 'Us' },
+  house: { icon: '🏠', label: 'House Stuff' },
+  general: { icon: '📝', label: 'General' }
+};
+
+let currentId = null; // ID of meeting being viewed in modal
+
+// ── Init ──
+window.addEventListener('DOMContentLoaded', () => {
+  // Set today's date
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('meetingDate').value = today;
+
+  // Load draft
+  loadDraft();
+  renderPastList();
+
+  // Auto-save draft on input
+  document.addEventListener('input', debouncedDraftSave);
+});
+
+// ── Draft (current unsaved meeting) ──
+function collectFormData() {
+  const data = { date: document.getElementById('meetingDate').value, sections: {} };
+  SECTIONS.forEach(s => {
+    const bullets = [...document.querySelectorAll(`#bullets-${s} textarea`)].map(t => t.value);
+    data.sections[s] = {
+      bullets,
+      notes: document.getElementById(`notes-${s}`).value
+    };
+  });
+  return data;
+}
+
+function applyFormData(data) {
+  if (data.date) document.getElementById('meetingDate').value = data.date;
+  SECTIONS.forEach(s => {
+    const sd = data.sections?.[s] || {};
+    const list = document.getElementById(`bullets-${s}`);
+    list.innerHTML = '';
+    (sd.bullets || []).forEach(text => addBullet(s, text));
+    document.getElementById(`notes-${s}`).value = sd.notes || '';
+  });
+}
+
+let draftTimer;
+function debouncedDraftSave() {
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(() => {
+    localStorage.setItem('hm_draft', JSON.stringify(collectFormData()));
+  }, 600);
+}
+
+function loadDraft() {
+  const raw = localStorage.getItem('hm_draft');
+  if (raw) {
+    try {
+      applyFormData(JSON.parse(raw));
+    } catch(e) {
+      SECTIONS.forEach(s => addBullet(s));
+    }
+  } else {
+    SECTIONS.forEach(s => addBullet(s));
+  }
+}
+
+// ── Bullets ──
+function addBullet(section, value = '') {
+  const list = document.getElementById(`bullets-${section}`);
+  const item = document.createElement('div');
+  item.className = 'bullet-item';
+  item.innerHTML = `
+    <div class="bullet-dot"></div>
+    <textarea rows="1" placeholder="Add a note…" oninput="autoResize(this)">${escapeHtml(value)}</textarea>
+    <button class="bullet-remove" onclick="removeBullet(this)" title="Remove">×</button>
+  `;
+  list.appendChild(item);
+  // auto-resize on load
+  const ta = item.querySelector('textarea');
+  autoResize(ta);
+}
+
+function removeBullet(btn) {
+  btn.closest('.bullet-item').remove();
+  debouncedDraftSave();
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.max(38, el.scrollHeight) + 'px';
+}
+
+// ── Section collapse ──
+function toggleCard(id) {
+  document.getElementById(`card-${id}`).classList.toggle('collapsed');
+}
+
+// ── Save ──
+function saveMeeting() {
+  const data = collectFormData();
+  if (!data.date) { showToast('Please pick a date first'); return; }
+
+  const meetings = getSavedMeetings();
+  // Check for existing same-date meeting
+  const existing = meetings.findIndex(m => m.date === data.date);
+  const id = existing >= 0 ? meetings[existing].id : Date.now().toString();
+  data.id = id;
+
+  if (existing >= 0) {
+    meetings[existing] = data;
+  } else {
+    meetings.unshift(data);
+  }
+
+  localStorage.setItem('hm_meetings', JSON.stringify(meetings));
+  localStorage.removeItem('hm_draft');
+
+  renderPastList();
+  showToast('Meeting saved ✓');
+}
+
+// ── New ──
+function newMeeting() {
+  localStorage.removeItem('hm_draft');
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('meetingDate').value = today;
+  SECTIONS.forEach(s => {
+    document.getElementById(`bullets-${s}`).innerHTML = '';
+    document.getElementById(`notes-${s}`).value = '';
+    addBullet(s);
+  });
+  showToast('New meeting started');
+}
+
+// ── Storage helpers ──
+function getSavedMeetings() {
+  try { return JSON.parse(localStorage.getItem('hm_meetings') || '[]'); }
+  catch(e) { return []; }
+}
+
+// ── Past list ──
+function renderPastList() {
+  const meetings = getSavedMeetings();
+  const list = document.getElementById('pastList');
+  if (!meetings.length) {
+    list.innerHTML = '<div class="empty-state"><span>📋</span>Saved meetings will appear here</div>';
+    return;
+  }
+  list.innerHTML = meetings.map(m => {
+    const preview = getPreviewText(m);
+    return `
+      <div class="past-item">
+        <div class="past-item-date">${formatDate(m.date)}</div>
+        <div class="past-item-preview">${escapeHtml(preview)}</div>
+        <div class="past-item-actions">
+          <button class="past-action-btn" onclick="openMeeting('${m.id}')">View</button>
+          <button class="past-action-btn del" onclick="deleteMeeting('${m.id}', event)">Delete</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function getPreviewText(m) {
+  for (const s of SECTIONS) {
+    const bullets = m.sections?.[s]?.bullets || [];
+    const first = bullets.find(b => b.trim());
+    if (first) return first;
+  }
+  return 'No notes';
+}
+
+function deleteMeeting(id, e) {
+  e.stopPropagation();
+  if (!confirm('Delete this meeting?')) return;
+  const meetings = getSavedMeetings().filter(m => m.id !== id);
+  localStorage.setItem('hm_meetings', JSON.stringify(meetings));
+  renderPastList();
+  showToast('Meeting deleted');
+}
+
+// ── View Modal ──
+function openMeeting(id) {
+  const meetings = getSavedMeetings();
+  const m = meetings.find(x => x.id === id);
+  if (!m) return;
+  currentId = id;
+
+  document.getElementById('modalTitle').textContent = '🏠 House Meeting Notes';
+  document.getElementById('modalDate').textContent = formatDate(m.date);
+
+  let html = '';
+  SECTIONS.forEach(s => {
+    const sd = m.sections?.[s] || {};
+    const bullets = (sd.bullets || []).filter(b => b.trim());
+    const notes = (sd.notes || '').trim();
+    if (!bullets.length && !notes) return;
+
+    const meta = SECTION_META[s];
+    html += `<div style="margin-bottom:20px;">
+      <div style="font-family:'Fraunces',serif;font-weight:600;font-size:1.05rem;margin-bottom:8px;">${meta.icon} ${meta.label}</div>`;
+    if (bullets.length) {
+      html += '<ul style="list-style:none;padding:0;display:flex;flex-direction:column;gap:6px;">';
+      bullets.forEach(b => {
+        html += `<li style="display:flex;gap:8px;font-size:0.88rem;line-height:1.55;">
+          <span style="opacity:0.5;flex-shrink:0;">•</span>
+          <span>${escapeHtml(b)}</span>
+        </li>`;
+      });
+      html += '</ul>';
+    }
+    if (notes) {
+      html += `<div style="margin-top:8px;font-size:0.82rem;opacity:0.65;font-style:italic;line-height:1.5;">${escapeHtml(notes)}</div>`;
+    }
+    html += '</div>';
+  });
+
+  document.getElementById('modalBody').innerHTML = html || '<p style="opacity:0.5;font-size:0.88rem;">No notes recorded.</p>';
+  document.getElementById('viewModal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('viewModal').classList.remove('open');
+  currentId = null;
+}
+
+function loadIntoEditor() {
+  if (!currentId) return;
+  const m = getSavedMeetings().find(x => x.id === currentId);
+  if (!m) return;
+  applyFormData(m);
+  closeModal();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  showToast('Loaded for editing');
+}
+
+// Close modal on overlay click
+document.getElementById('viewModal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// ── Export ──
+function exportPDF() {
+  const data = collectFormData();
+  openExportWindow(data);
+}
+
+function exportModalPDF() {
+  if (!currentId) return;
+  const m = getSavedMeetings().find(x => x.id === currentId);
+  if (m) openExportWindow(m);
+}
+
+function openExportWindow(data) {
+  const html = buildExportHTML(data);
+  const win = window.open('', '_blank');
+  if (!win) { showToast('Allow pop-ups to export'); return; }
+  win.document.write(html);
+  win.document.close();
+  setTimeout(() => win.print(), 800);
+}
+
+function buildExportHTML(data) {
+  const sectionColors = {
+    money: '#c87d2a', next: '#3d7fa3', us: '#a04e62', house: '#4a8c68', general: '#556070'
+  };
+
+  let sectionsHTML = '';
+  SECTIONS.forEach(s => {
+    const sd = data.sections?.[s] || {};
+    const bullets = (sd.bullets || []).filter(b => b.trim());
+    const notes = (sd.notes || '').trim();
+    if (!bullets.length && !notes) return;
+
+    const meta = SECTION_META[s];
+    const color = sectionColors[s];
+
+    sectionsHTML += `
+      <div class="section">
+        <div class="section-head" style="border-left-color:${color}">
+          <span class="section-emoji">${meta.icon}</span>
+          <span class="section-label" style="color:${color}">${meta.label}</span>
+        </div>
+        <ul class="bullets">
+          ${bullets.map(b => `<li>${escapeHtml(b)}</li>`).join('')}
+        </ul>
+        ${notes ? `<div class="section-notes">${escapeHtml(notes)}</div>` : ''}
+      </div>
+    `;
+  });
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>House Meeting – ${formatDate(data.date)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  @page { margin: 1in 0.9in; }
+  body { font-family: 'Inter', sans-serif; color: #1a1e2a; background: white; font-size: 11.5pt; line-height: 1.6; }
+  .page { max-width: 680px; margin: 0 auto; padding: 40px 0; }
+  .masthead { margin-bottom: 36px; padding-bottom: 20px; border-bottom: 2px solid #e8e4de; }
+  .masthead-title { font-family: 'Fraunces', serif; font-size: 28pt; font-weight: 700; color: #1a1e2a; letter-spacing: -0.02em; line-height: 1; }
+  .masthead-title span { color: #4a8c68; font-style: italic; }
+  .masthead-sub { font-size: 9pt; color: #888; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 6px; font-weight: 600; }
+  .masthead-date { font-family: 'Fraunces', serif; font-size: 13pt; color: #555; margin-top: 8px; font-style: italic; font-weight: 300; }
+  .section { margin-bottom: 28px; break-inside: avoid; }
+  .section-head { display: flex; align-items: center; gap: 8px; border-left: 3px solid; padding-left: 12px; margin-bottom: 10px; }
+  .section-emoji { font-size: 14pt; }
+  .section-label { font-family: 'Fraunces', serif; font-size: 13pt; font-weight: 700; }
+  .bullets { list-style: none; padding: 0 0 0 20px; display: flex; flex-direction: column; gap: 7px; }
+  .bullets li { position: relative; font-size: 10.5pt; line-height: 1.6; color: #2a2a2a; }
+  .bullets li::before { content: '·'; position: absolute; left: -14px; color: #999; font-size: 14pt; line-height: 1.2; }
+  .section-notes { margin-top: 8px; padding: 8px 12px; background: #f7f5f2; border-radius: 4px; font-size: 9.5pt; color: #666; font-style: italic; line-height: 1.55; }
+  .footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid #e8e4de; font-size: 8.5pt; color: #bbb; text-align: center; }
+  @media print {
+    body { font-size: 11pt; }
+    .page { padding: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="masthead">
+    <div class="masthead-title">House <span>Meeting</span></div>
+    <div class="masthead-sub">Cameron &amp; Aaron · Weekly Notes</div>
+    <div class="masthead-date">${formatDate(data.date)}</div>
+  </div>
+  ${sectionsHTML || '<p style="color:#999;font-style:italic;">No notes recorded for this meeting.</p>'}
+  <div class="footer">Generated ${new Date().toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'})}</div>
+</div>
+</body>
+</html>`;
+}
+
+// ── Utilities ──
+function formatDate(str) {
+  if (!str) return 'Unknown date';
+  const [y, m, d] = str.split('-').map(Number);
+  return new Date(y, m-1, d).toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+}
+
+function escapeHtml(str) {
+  return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
+}
+
+// ── Service Worker (PWA) ──
+if ('serviceWorker' in navigator) {
+  const swCode = `
+const CACHE = 'hm-v1';
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./', './index.html'])));
+  self.skipWaiting();
+});
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))));
+  self.clients.claim();
+});
+self.addEventListener('fetch', e => {
+  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request).catch(() => caches.match('./'))));
+});
+  `;
+  const blob = new Blob([swCode], { type: 'application/javascript' });
+  const swUrl = URL.createObjectURL(blob);
+  navigator.serviceWorker.register(swUrl).catch(() => {});
+}
+
+// ── Pre-load the example meeting from the brief ──
+(function preloadExample() {
+  // Only pre-load if nothing is saved yet
+  if (localStorage.getItem('hm_meetings')) return;
+  if (localStorage.getItem('hm_draft')) return;
+
+  const example = {
+    id: 'example-1',
+    date: '2026-06-26',
+    sections: {
+      money: {
+        bullets: [
+          '$150 at the beginning of the month and $300 at the end of the month for personal allowances.',
+          '$1500 from one of Cameron\'s paychecks goes to joint savings, currently at $4,000.',
+          'On 06-26, Aaron will only receive $100 due to the Claude subscription and windshield repair deductible. This will be the last windshield deductible payment from Aaron\'s personal allowance.',
+          'No debts owed to Cameron from Aaron/joint funds.'
+        ],
+        notes: ''
+      },
+      next: {
+        bullets: [
+          'Cameron will withhold $1500 from a check to pay for flooring in both back bedrooms and Aaron\'s office. Joint savings currently at $4,000.',
+          'Both OT shifts for Aaron are picked up for July. Aaron will attempt to pick up one extra day plus a teaching shift to help pay for floors.',
+          'Minimum needed is $2,100 to buy and install flooring in all rooms.'
+        ],
+        notes: ''
+      },
+      us: {
+        bullets: [
+          'Decision to pause looking for therapy until August, with potential reconsideration of continuing the relationship/marriage if things don\'t improve.'
+        ],
+        notes: ''
+      },
+      house: {
+        bullets: [
+          'Entergy bill increased by $127.96. Be cautious with washer/dryer use — minimize laundry loads and re-washing out of convenience.',
+          'Try to wash laundry at work when possible, and limit household laundry to a max of one wash per week.'
+        ],
+        notes: ''
+      },
+      general: { bullets: [], notes: '' }
+    }
+  };
+
+  const meetings = [example];
+  localStorage.setItem('hm_meetings', JSON.stringify(meetings));
+  // Load it into draft so it's visible on first open
+  localStorage.setItem('hm_draft', JSON.stringify({...example, id: undefined}));
+})();
+
+// Re-run loadDraft after preload
+loadDraft();
+renderPastList();
+</script>
+</body>
+</html>`;
