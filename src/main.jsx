@@ -7,8 +7,9 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     window.location.reload();
   });
-  // Periodic check catches updates in long-running sessions (app open for hours)
+  // Force fresh SW check on every launch (bypasses HTTP cache) + every 30 min for long sessions
   navigator.serviceWorker.ready.then((reg) => {
+    reg.update();
     setInterval(() => reg.update(), 30 * 60 * 1000);
   });
 }
