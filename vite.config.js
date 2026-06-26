@@ -9,6 +9,10 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+        clientsClaim: true,
+        skipWaiting: true,
+      },
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
       manifest: {
         name: 'Finance Manager',
@@ -17,9 +21,36 @@ export default defineConfig({
         theme_color: '#0f172a',
         background_color: '#0f172a',
         display: 'standalone',
+        orientation: 'portrait-primary',
         start_url: '/ExpenseTracker/',
+        scope: '/ExpenseTracker/',
         icons: [
-          { src: '/ExpenseTracker/app-icon.jpeg', sizes: '512x512', type: 'image/jpeg', purpose: 'any maskable' },
+          { src: '/ExpenseTracker/pwa-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/ExpenseTracker/pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: '/ExpenseTracker/pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
+        shortcuts: [
+          {
+            name: 'Log Purchase',
+            short_name: 'Log',
+            description: 'Quickly log a new purchase',
+            url: '/ExpenseTracker/purchases?new=1',
+            icons: [{ src: '/ExpenseTracker/pwa-192x192.png', sizes: '192x192', type: 'image/png' }],
+          },
+          {
+            name: 'View Bills',
+            short_name: 'Bills',
+            description: 'Check your bills and payments',
+            url: '/ExpenseTracker/bills',
+            icons: [{ src: '/ExpenseTracker/pwa-192x192.png', sizes: '192x192', type: 'image/png' }],
+          },
+          {
+            name: 'Upload Document',
+            short_name: 'Upload',
+            description: 'Go to the Document Vault to upload files',
+            url: '/ExpenseTracker/vault',
+            icons: [{ src: '/ExpenseTracker/pwa-192x192.png', sizes: '192x192', type: 'image/png' }],
+          },
         ],
       },
     }),

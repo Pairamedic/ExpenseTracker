@@ -792,7 +792,7 @@ export default function Purchases() {
   const [showAdd, setShowAdd] = useState(() => searchParams.get('new') === '1');
   const [editItem, setEditItem] = useState(null);
   const [attachPurchaseId, setAttachPurchaseId] = useState(null);
-  const [personFilter, setPersonFilter] = useState(null);
+  const [personFilter, setPersonFilter] = useState('all');
   const [showRecurring, setShowRecurring] = useState(false);
   const [showTemplates, setShowTemplates] = useState(true);
   const [showAddTemplate, setShowAddTemplate] = useState(false);
@@ -814,9 +814,7 @@ export default function Purchases() {
 
   const normalPerson = (p) => (p.person === 'me' ? 'aaron' : p.person);
 
-  const togglePerson = (val) => setPersonFilter((cur) => (cur === val ? null : val));
-
-  const filtered = !personFilter
+  const filtered = personFilter === 'all'
     ? monthPurchases
     : monthPurchases.filter((p) => normalPerson(p) === personFilter);
 
@@ -888,110 +886,28 @@ export default function Purchases() {
           </div>
         </div>
 
-        {/* Tab nav — primary navigation, visually larger */}
-        <div style={{ display: 'flex', backgroundColor: 'var(--surface)', borderRadius: '0.875rem', padding: '0.3rem', gap: '0.25rem', marginBottom: '1rem', border: '1px solid var(--border)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-          {[['spending', 'Spending'], ['commitments', 'Commitments'], ['goals', 'Goals'], ['projects', 'Projects']].map(([t, label]) => (
+        <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.875rem', padding: '0.25rem', gap: '0.25rem', marginBottom: '1rem' }}>
+          {[['spending', 'Spending'], ['commitments', 'Pledges'], ['goals', 'Goals'], ['projects', 'Projects']].map(([t, label]) => (
             <button key={t} onClick={() => setPlanTab(t)}
-              style={{ flex: 1, padding: '0.75rem 0', borderRadius: '0.625rem', fontSize: '0.875rem', fontWeight: '800', border: 'none', cursor: 'pointer', transition: 'all 0.15s',
-                backgroundColor: planTab === t ? 'var(--accent)' : 'transparent',
-                color: planTab === t ? '#fff' : 'var(--subtle)',
-                boxShadow: planTab === t ? '0 2px 6px rgba(0,0,0,0.18)' : 'none' }}>
+              style={{ flex: 1, padding: '0.625rem 0', borderRadius: '0.625rem', fontSize: '0.875rem', fontWeight: 700, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                backgroundColor: planTab === t ? 'var(--surface)' : 'transparent',
+                color: planTab === t ? 'var(--text)' : 'var(--subtle)',
+                boxShadow: planTab === t ? '0 1px 4px rgba(0,0,0,0.15)' : 'none' }}>
               {label}
             </button>
           ))}
         </div>
 
-        {/* Month nav — spending tab only, above person filter */}
-        {planTab === 'spending' && <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-          <button onClick={() => setMk(monthOffset(mk, -1))} style={{ padding: '0.5rem', borderRadius: '0.75rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
-            <ChevronLeft size={20} />
-          </button>
-          <span style={{ flex: 1, textAlign: 'center', fontWeight: '700', fontSize: '1rem', color: 'var(--text)' }}>{monthLabel(mk)}</span>
-          <button onClick={() => setMk(monthOffset(mk, 1))} style={{ padding: '0.5rem', borderRadius: '0.75rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
-            <ChevronRight size={20} />
-          </button>
-        </div>}
-
-        {/* Person filter — spending tab only, compact secondary toggle */}
-        {planTab === 'spending' && <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.625rem', padding: '0.2rem', gap: '0.2rem', marginBottom: '1rem' }}>
-          {[['aaron', aaronLabel], ['cameron', cameronLabel], ['joint', 'Joint']].map(([val, label]) => (
-            <button key={val} onClick={() => togglePerson(val)}
-              style={{ flex: 1, padding: '0.4rem 0', borderRadius: '0.4375rem', fontSize: '0.75rem', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'all 0.15s',
-                backgroundColor: personFilter === val ? 'var(--surface)' : 'transparent',
-                color: personFilter === val ? 'var(--text)' : 'var(--subtle)',
-                boxShadow: personFilter === val ? '0 1px 3px rgba(0,0,0,0.12)' : 'none' }}>
-              {label}
+        {planTab === 'spending' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <button onClick={() => setMk(monthOffset(mk, -1))} style={{ padding: '0.5rem', borderRadius: '0.75rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
+              <ChevronLeft size={20} />
             </button>
-          ))}
-        </div>}
-
-        {/* Spending limit card */}
-        {planTab === 'spending' && <div style={{ backgroundColor: spendingLimit > 0 ? limitBg : 'var(--surface)', border: `1px solid ${spendingLimit > 0 ? limitBorderColor : 'var(--border)'}`, borderRadius: '1.25rem', padding: '1rem 1.25rem', marginBottom: '0.75rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: spendingLimit > 0 ? '0.625rem' : 0 }}>
-            <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: spendingLimit > 0 ? limitColor : 'var(--subtle)' }}>
-              Monthly Spending Limit
-            </p>
-            <button onClick={() => { setLimitInput(spendingLimit > 0 ? String(spendingLimit) : ''); setShowLimitEdit(true); }}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--subtle)', padding: '0.25rem', display: 'flex', alignItems: 'center' }}>
-              <Pencil size={12} />
+            <span style={{ flex: 1, textAlign: 'center', fontWeight: '700', fontSize: '1rem', color: 'var(--text)' }}>{monthLabel(mk)}</span>
+            <button onClick={() => setMk(monthOffset(mk, 1))} style={{ padding: '0.5rem', borderRadius: '0.75rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
+              <ChevronRight size={20} />
             </button>
           </div>
-          {spendingLimit > 0 ? (
-            <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.5rem' }}>
-                <p style={{ fontSize: '1.625rem', fontWeight: '900', letterSpacing: '-0.02em', color: limitColor }}>
-                  {totalAll > spendingLimit ? '-' : ''}{formatCurrency(Math.abs(spendingLimit - totalAll))}
-                </p>
-                <p style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>of {formatCurrency(spendingLimit)} limit</p>
-              </div>
-              <div style={{ height: '0.375rem', backgroundColor: 'var(--surface2)', borderRadius: '9999px', overflow: 'hidden', marginBottom: '0.625rem' }}>
-                <div style={{ height: '100%', backgroundColor: limitColor, width: `${limitPct}%`, transition: 'width 0.3s ease', borderRadius: '9999px' }} />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <p style={{ fontSize: '0.7rem', color: 'var(--subtle)' }}>
-                  {formatCurrency(totalAll)} spent · {Math.round(limitPct)}% used
-                </p>
-                <button onClick={() => setSettings({ ...settings, purchasesInAvailable: !purchasesInAvailable })}
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                  <div style={{ width: '2rem', height: '1.125rem', borderRadius: '9999px', position: 'relative', flexShrink: 0, transition: 'background 0.2s',
-                    backgroundColor: purchasesInAvailable ? 'var(--accent)' : 'var(--border2)' }}>
-                    <span style={{ position: 'absolute', top: '2px', width: '0.75rem', height: '0.75rem', borderRadius: '9999px', backgroundColor: '#fff', transition: 'left 0.2s',
-                      left: purchasesInAvailable ? 'calc(100% - 0.875rem)' : '2px' }} />
-                  </div>
-                  <span style={{ fontSize: '0.7rem', color: purchasesInAvailable ? 'var(--accent-text)' : 'var(--subtle)' }}>Show in Available</span>
-                </button>
-              </div>
-            </>
-          ) : (
-            <button onClick={() => { setLimitInput(''); setShowLimitEdit(true); }}
-              style={{ fontSize: '0.875rem', color: 'var(--subtle)', background: 'none', border: 'none', cursor: 'pointer', padding: '0.125rem 0', textAlign: 'left' }}>
-              Tap to set a monthly spending limit →
-            </button>
-          )}
-        </div>}
-
-        {planTab === 'spending' && monthPurchases.length > 0 && (
-          <>
-            <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1.25rem', padding: '1.25rem', marginBottom: '0.75rem' }}>
-              <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', marginBottom: '0.25rem' }}>Total Spent</p>
-              <p style={{ fontSize: '2.5rem', fontWeight: '900', color: 'var(--text)' }}>{formatCurrency(totalAll)}</p>
-              <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}><span style={{ color: 'var(--accent-text)', fontWeight: '700' }}>{aaronLabel}:</span> {formatCurrency(totalAaron)}</span>
-                <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}><span style={{ color: 'var(--accent-text)', fontWeight: '700' }}>{cameronLabel}:</span> {formatCurrency(totalCameron)}</span>
-              </div>
-            </div>
-
-            {topCategories.length > 0 && (
-              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
-                {topCategories.map(([cat, amt]) => (
-                  <div key={cat} style={{ flexShrink: 0, backgroundColor: 'var(--surface)', borderRadius: '0.75rem', padding: '0.5rem 0.75rem', border: '1px solid var(--border)', textAlign: 'center', minWidth: '5rem' }}>
-                    <p style={{ fontSize: '0.7rem', color: 'var(--subtle)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cat}</p>
-                    <p style={{ fontSize: '0.875rem', fontWeight: '700', color: 'var(--text)', marginTop: '0.125rem' }}>{formatCurrency(amt)}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
         )}
       </div>
 
@@ -1009,6 +925,83 @@ export default function Purchases() {
       />}
 
       {planTab === 'spending' && <div style={{ padding: '0 1rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+          {[['all', 'All', 'var(--accent)'], ['aaron', aaronLabel, 'var(--accent)'], ['cameron', cameronLabel, '#a78bfa']].map(([val, label, activeColor]) => (
+            <button key={val} onClick={() => setPersonFilter(val)}
+              style={{ flex: 1, padding: '0.5rem 0', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: 700, border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                backgroundColor: personFilter === val ? activeColor : 'var(--surface2)',
+                color: personFilter === val ? '#fff' : 'var(--muted)' }}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ backgroundColor: spendingLimit > 0 ? limitBg : 'var(--surface)', border: `1px solid ${spendingLimit > 0 ? limitBorderColor : 'var(--border)'}`, borderRadius: '1rem', padding: '1rem', marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+            <div>
+              <p style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)', fontWeight: '700', marginBottom: '0.25rem' }}>Total Spent</p>
+              <p style={{ fontSize: '2rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-0.03em', lineHeight: 1 }}>{formatCurrency(totalAll)}</p>
+            </div>
+            {spendingLimit > 0 && (
+              <p style={{ fontSize: '0.8125rem', color: 'var(--muted)', fontWeight: '600', textAlign: 'right', marginTop: '0.25rem' }}>
+                of {formatCurrency(spendingLimit)}
+              </p>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: '1rem', marginBottom: spendingLimit > 0 ? '0.875rem' : 0 }}>
+            <div>
+              <p style={{ fontSize: '0.6875rem', color: 'var(--subtle)', fontWeight: '600', marginBottom: '0.125rem' }}>{aaronLabel}</p>
+              <p style={{ fontSize: '0.9375rem', fontWeight: '800', color: 'var(--text)' }}>{formatCurrency(totalAaron)}</p>
+            </div>
+            <div style={{ width: '1px', backgroundColor: 'var(--border)', alignSelf: 'stretch' }} />
+            <div>
+              <p style={{ fontSize: '0.6875rem', color: 'var(--subtle)', fontWeight: '600', marginBottom: '0.125rem' }}>{cameronLabel}</p>
+              <p style={{ fontSize: '0.9375rem', fontWeight: '800', color: 'var(--text)' }}>{formatCurrency(totalCameron)}</p>
+            </div>
+          </div>
+          {spendingLimit > 0 ? (
+            <>
+              <div style={{ height: '6px', backgroundColor: 'var(--surface2)', borderRadius: '999px', overflow: 'hidden', marginBottom: '0.5rem' }}>
+                <div style={{ height: '100%', width: `${limitPct}%`, backgroundColor: limitColor, borderRadius: '999px', transition: 'width 0.3s' }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <p style={{ fontSize: '0.8125rem', fontWeight: '700', color: limitColor }}>
+                  {totalAll > spendingLimit ? `${formatCurrency(totalAll - spendingLimit)} over` : `${formatCurrency(spendingLimit - totalAll)} left`}
+                </p>
+                <button onClick={() => { setLimitInput(String(spendingLimit)); setShowLimitEdit(true); }}
+                  style={{ fontSize: '0.75rem', color: 'var(--subtle)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600' }}>
+                  Edit limit
+                </button>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.625rem', paddingTop: '0.625rem', borderTop: '1px solid var(--border)' }}>
+                <span style={{ fontSize: '0.8125rem', color: 'var(--muted)', fontWeight: '600' }}>Show in Available</span>
+                <button onClick={() => setSettings({ ...settings, purchasesInAvailable: !purchasesInAvailable })}
+                  style={{ width: '2.5rem', height: '1.375rem', borderRadius: '999px', border: 'none', cursor: 'pointer', padding: 0, transition: 'background 0.2s', position: 'relative',
+                    backgroundColor: purchasesInAvailable ? 'var(--accent)' : 'var(--surface2)' }}>
+                  <span style={{ position: 'absolute', top: '0.1875rem', width: '1rem', height: '1rem', borderRadius: '50%', backgroundColor: '#fff', transition: 'left 0.2s',
+                    left: purchasesInAvailable ? '1.25rem' : '0.1875rem' }} />
+                </button>
+              </div>
+            </>
+          ) : (
+            <button onClick={() => { setLimitInput(''); setShowLimitEdit(true); }}
+              style={{ fontSize: '0.8125rem', fontWeight: '700', color: 'var(--accent-text)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.375rem', marginTop: '0.25rem' }}>
+              <Plus size={13} /> Set spending limit
+            </button>
+          )}
+        </div>
+
+        {topCategories.length > 0 && (
+          <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', marginBottom: '1rem', paddingBottom: '0.125rem', scrollbarWidth: 'none' }}>
+            {topCategories.map(([cat, amt]) => (
+              <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', flexShrink: 0, padding: '0.375rem 0.75rem', borderRadius: '999px', backgroundColor: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                <span style={{ fontSize: '0.8125rem', fontWeight: '600', color: 'var(--text)' }}>{cat}</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--subtle)', fontWeight: '700' }}>{formatCurrency(amt)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         {sorted.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
             <ShoppingBag size={48} style={{ margin: '0 auto 1rem', opacity: 0.2, color: 'var(--muted)', display: 'block' }} />
@@ -1033,10 +1026,10 @@ export default function Purchases() {
                   myName={myName} spouseName={spouseName} />
               </div>
             ))}
-            {personFilter && (
+            {personFilter !== 'all' && (
               <div style={{ padding: '0.75rem 1rem', backgroundColor: 'var(--surface2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontWeight: '600' }}>
-                  Total ({personFilter === 'aaron' ? aaronLabel : personFilter === 'cameron' ? cameronLabel : 'Joint'})
+                  Total ({personFilter === 'aaron' ? aaronLabel : cameronLabel})
                 </span>
                 <span style={{ fontSize: '0.875rem', fontWeight: '700', color: 'var(--text)' }}>{formatCurrency(filteredTotal)}</span>
               </div>
