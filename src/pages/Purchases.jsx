@@ -888,21 +888,21 @@ export default function Purchases() {
           </div>
         </div>
 
-        {/* Tab nav */}
-        <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.875rem', padding: '0.25rem', gap: '0.25rem', marginBottom: '1rem', border: '1px solid var(--border)' }}>
+        {/* Tab nav — primary navigation, visually larger */}
+        <div style={{ display: 'flex', backgroundColor: 'var(--surface)', borderRadius: '0.875rem', padding: '0.3rem', gap: '0.25rem', marginBottom: '1rem', border: '1px solid var(--border)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
           {[['spending', 'Spending'], ['commitments', 'Commitments'], ['goals', 'Goals'], ['projects', 'Projects']].map(([t, label]) => (
             <button key={t} onClick={() => setPlanTab(t)}
-              style={{ flex: 1, padding: '0.625rem 0', borderRadius: '0.625rem', fontSize: '0.8125rem', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'all 0.15s',
-                backgroundColor: planTab === t ? 'var(--surface)' : 'transparent',
-                color: planTab === t ? 'var(--text)' : 'var(--subtle)',
-                boxShadow: planTab === t ? '0 1px 4px rgba(0,0,0,0.15)' : 'none' }}>
+              style={{ flex: 1, padding: '0.75rem 0', borderRadius: '0.625rem', fontSize: '0.875rem', fontWeight: '800', border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                backgroundColor: planTab === t ? 'var(--accent)' : 'transparent',
+                color: planTab === t ? '#fff' : 'var(--subtle)',
+                boxShadow: planTab === t ? '0 2px 6px rgba(0,0,0,0.18)' : 'none' }}>
               {label}
             </button>
           ))}
         </div>
 
         {/* Month nav — spending tab only, above person filter */}
-        {planTab === 'spending' && <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.625rem' }}>
+        {planTab === 'spending' && <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
           <button onClick={() => setMk(monthOffset(mk, -1))} style={{ padding: '0.5rem', borderRadius: '0.75rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
             <ChevronLeft size={20} />
           </button>
@@ -912,11 +912,11 @@ export default function Purchases() {
           </button>
         </div>}
 
-        {/* Person filter — spending tab only */}
-        {planTab === 'spending' && <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', padding: '0.2rem', gap: '0.2rem', marginBottom: '1rem' }}>
+        {/* Person filter — spending tab only, compact secondary toggle */}
+        {planTab === 'spending' && <div style={{ display: 'flex', backgroundColor: 'var(--surface2)', borderRadius: '0.625rem', padding: '0.2rem', gap: '0.2rem', marginBottom: '1rem' }}>
           {[['aaron', aaronLabel], ['cameron', cameronLabel], ['joint', 'Joint']].map(([val, label]) => (
             <button key={val} onClick={() => togglePerson(val)}
-              style={{ flex: 1, padding: '0.5rem 0', borderRadius: '0.5625rem', fontSize: '0.8125rem', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+              style={{ flex: 1, padding: '0.4rem 0', borderRadius: '0.4375rem', fontSize: '0.75rem', fontWeight: '700', border: 'none', cursor: 'pointer', transition: 'all 0.15s',
                 backgroundColor: personFilter === val ? 'var(--surface)' : 'transparent',
                 color: personFilter === val ? 'var(--text)' : 'var(--subtle)',
                 boxShadow: personFilter === val ? '0 1px 3px rgba(0,0,0,0.12)' : 'none' }}>
