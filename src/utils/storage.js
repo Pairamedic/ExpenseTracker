@@ -22,6 +22,7 @@ const KEYS = {
   PAYCHECK_ACTUALS: 'bt_paycheck_actuals',
   NOTIF_PREFS: 'bt_notif_prefs',
   PROJECTS: 'bt_projects',
+  VAULT_DOCUMENTS: 'bt_vault_docs',
 };
 
 function get(key) {
@@ -127,6 +128,9 @@ export const storage = {
 
   getProjects: () => get(KEYS.PROJECTS) || [],
   setProjects: (v) => set(KEYS.PROJECTS, v),
+
+  getVaultDocuments: () => get(KEYS.VAULT_DOCUMENTS) || [],
+  setVaultDocuments: (v) => set(KEYS.VAULT_DOCUMENTS, v),
 
   getNotifPrefs: () => {
     const saved = get(KEYS.NOTIF_PREFS) || {};

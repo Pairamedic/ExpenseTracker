@@ -4,7 +4,7 @@ import {
   CalendarDays, Plus, Pencil, Trash2, CheckSquare, Square,
   MoreVertical, Bell, LayoutDashboard, Link, Plane, AlertTriangle,
   Wallet, PiggyBank, Settings, BarChart2, Users, LayoutGrid,
-  ChevronDown, ChevronUp, FileText, Zap, Share2, Check, RefreshCw,
+  ChevronDown, ChevronUp, FileText, Zap, Share2, Check, RefreshCw, FolderOpen,
 } from 'lucide-react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, AreaChart, Area } from 'recharts';
@@ -462,6 +462,10 @@ export default function Dashboard() {
               style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.75rem', backgroundColor: 'var(--surface2)', color: 'var(--muted)', border: '1px solid var(--border)', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', cursor: 'pointer' }}>
               <LayoutGrid size={15} />
             </button>
+            <RouterLink to="/vault"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.875rem', backgroundColor: 'var(--surface2)', color: 'var(--muted)', border: '1px solid var(--border)', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', textDecoration: 'none' }}>
+              <FolderOpen size={15} />
+            </RouterLink>
             <RouterLink to="/settings"
               style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.5rem 0.875rem', backgroundColor: 'var(--surface2)', color: 'var(--muted)', border: '1px solid var(--border)', borderRadius: '0.75rem', fontSize: '0.875rem', fontWeight: '700', textDecoration: 'none' }}>
               <Settings size={15} />
@@ -661,91 +665,132 @@ export default function Dashboard() {
         </div>
 
         {/* Budget envelope pot card — collapsible */}
-        {sec('envelopes') && totalEnvelopeLimit > 0 && (
-          <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1.25rem', marginBottom: '1.25rem', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.875rem 1.25rem', paddingBottom: isCollapsed('envelopes') ? '0.875rem' : '0.625rem' }}>
-              <button onClick={() => toggleCollapsed('envelopes')} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', cursor: 'pointer', flex: 1, textAlign: 'left' }}>
-                {isCollapsed('envelopes') ? <ChevronDown size={14} style={{ color: 'var(--subtle)', flexShrink: 0 }} /> : <ChevronUp size={14} style={{ color: 'var(--subtle)', flexShrink: 0 }} />}
-                <Wallet size={14} style={{ color: 'var(--accent-text)' }} />
-                <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)' }}>Envelopes — {monthLabel(mk)}</span>
-                {isCollapsed('envelopes') && <span style={{ fontSize: '0.875rem', fontWeight: '700', color: totalEnvelopeRemaining >= 0 ? 'var(--text)' : 'var(--danger)' }}>{formatCurrency(totalEnvelopeRemaining)} left</span>}
-              </button>
-              {!isCollapsed('envelopes') && (
-                <button onClick={() => setShowQuickSpend(true)}
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.4rem 0.75rem', backgroundColor: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '0.625rem', fontSize: '0.8125rem', fontWeight: '700', cursor: 'pointer' }}>
-                  <Zap size={13} /> Quick Add
+        {sec('envelopes') && (totalEnvelopeLimit > 0 || spendingBudget > 0) && (() => {
+          const envBudget = spendingBudget > 0 ? spendingBudget : totalEnvelopeLimit;
+          const envRemaining = envBudget - totalEnvelopeSpent;
+          const catIds = new Set(budgetCategories.map((c) => c.id));
+          const orphanedSpends = monthBudgetSpends.filter((s) => !catIds.has(s.categoryId));
+          const orphanedTotal = orphanedSpends.reduce((s, sp) => s + (sp.amount || 0), 0);
+          return (
+            <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '1.25rem', marginBottom: '1.25rem', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.875rem 1.25rem', paddingBottom: isCollapsed('envelopes') ? '0.875rem' : '0.625rem' }}>
+                <button onClick={() => toggleCollapsed('envelopes')} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', cursor: 'pointer', flex: 1, textAlign: 'left' }}>
+                  {isCollapsed('envelopes') ? <ChevronDown size={14} style={{ color: 'var(--subtle)', flexShrink: 0 }} /> : <ChevronUp size={14} style={{ color: 'var(--subtle)', flexShrink: 0 }} />}
+                  <Wallet size={14} style={{ color: 'var(--accent-text)' }} />
+                  <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--subtle)' }}>Envelopes — {monthLabel(mk)}</span>
+                  {isCollapsed('envelopes') && <span style={{ fontSize: '0.875rem', fontWeight: '700', color: envRemaining >= 0 ? 'var(--text)' : 'var(--danger)' }}>{formatCurrency(envRemaining)} left</span>}
                 </button>
-              )}
-            </div>
-            {!isCollapsed('envelopes') && (
-              <div style={{ padding: '0 1.25rem 1rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '0.5rem' }}>
-                  <div>
-                    <p style={{ fontSize: '2rem', fontWeight: '900', letterSpacing: '-0.02em', color: totalEnvelopeRemaining >= 0 ? 'var(--text)' : 'var(--danger)' }}>
-                      {formatCurrency(totalEnvelopeRemaining)}
+                {!isCollapsed('envelopes') && (
+                  <button onClick={() => setShowQuickSpend(true)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.4rem 0.75rem', backgroundColor: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '0.625rem', fontSize: '0.8125rem', fontWeight: '700', cursor: 'pointer' }}>
+                    <Zap size={13} /> Quick Add
+                  </button>
+                )}
+              </div>
+              {!isCollapsed('envelopes') && (
+                <div style={{ padding: '0 1.25rem 1rem' }}>
+                  {spendingBudget === 0 && (
+                    <p style={{ fontSize: '0.75rem', color: 'var(--warn)', marginBottom: '0.5rem', backgroundColor: 'rgba(245,158,11,0.08)', padding: '0.4rem 0.6rem', borderRadius: '0.5rem', border: '1px solid rgba(245,158,11,0.2)' }}>
+                      No spending budget set. Set one in Settings to use this as a hard budget limit.
                     </p>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>remaining of {formatCurrency(totalEnvelopeLimit)}</p>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '0.5rem' }}>
+                    <div>
+                      <p style={{ fontSize: '2rem', fontWeight: '900', letterSpacing: '-0.02em', color: envRemaining >= 0 ? 'var(--text)' : 'var(--danger)' }}>
+                        {formatCurrency(envRemaining)}
+                      </p>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>remaining of {formatCurrency(envBudget)}</p>
+                    </div>
+                    <p style={{ fontSize: '0.875rem', fontWeight: '700', color: totalEnvelopeSpent > envBudget ? 'var(--danger)' : 'var(--muted)' }}>
+                      {formatCurrency(totalEnvelopeSpent)} spent
+                    </p>
                   </div>
-                  <p style={{ fontSize: '0.875rem', fontWeight: '700', color: totalEnvelopeSpent > totalEnvelopeLimit ? 'var(--danger)' : 'var(--muted)' }}>
-                    {formatCurrency(totalEnvelopeSpent)} spent
-                  </p>
-                </div>
-                <div style={{ height: '0.5rem', backgroundColor: 'var(--surface2)', borderRadius: '9999px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', borderRadius: '9999px', transition: 'width 0.3s',
-                    backgroundColor: totalEnvelopeSpent > totalEnvelopeLimit ? 'var(--danger)' : totalEnvelopeSpent > totalEnvelopeLimit * 0.8 ? 'var(--warn)' : 'var(--accent)',
-                    width: `${Math.min(100, totalEnvelopeLimit > 0 ? (totalEnvelopeSpent / totalEnvelopeLimit) * 100 : 0)}%` }} />
-                </div>
-                {/* Per-category breakdown */}
-                {budgetCategories.length > 0 && (
-                  <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
-                    {budgetCategories.map((cat) => {
-                      const catSpends = monthBudgetSpends.filter((s) => s.categoryId === cat.id);
-                      const catSpent = catSpends.reduce((s, sp) => s + (sp.amount || 0), 0);
-                      const catLimit = cat.monthlyLimit || 0;
-                      const catPct = catLimit > 0 ? Math.min(100, (catSpent / catLimit) * 100) : 0;
-                      const isExpanded = expandedEnvCat === cat.id;
-                      return (
-                        <div key={cat.id}>
-                          <button onClick={() => setExpandedEnvCat(isExpanded ? null : cat.id)}
+                  <div style={{ height: '0.5rem', backgroundColor: 'var(--surface2)', borderRadius: '9999px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', borderRadius: '9999px', transition: 'width 0.3s',
+                      backgroundColor: totalEnvelopeSpent > envBudget ? 'var(--danger)' : totalEnvelopeSpent > envBudget * 0.8 ? 'var(--warn)' : 'var(--accent)',
+                      width: `${Math.min(100, envBudget > 0 ? (totalEnvelopeSpent / envBudget) * 100 : 0)}%` }} />
+                  </div>
+                  {/* Per-category breakdown */}
+                  {budgetCategories.length > 0 && (
+                    <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
+                      {budgetCategories.map((cat) => {
+                        const catSpends = monthBudgetSpends.filter((s) => s.categoryId === cat.id);
+                        const catSpent = catSpends.reduce((s, sp) => s + (sp.amount || 0), 0);
+                        const catLimit = cat.monthlyLimit || 0;
+                        const catPct = catLimit > 0 ? Math.min(100, (catSpent / catLimit) * 100) : 0;
+                        const isExpanded = expandedEnvCat === cat.id;
+                        return (
+                          <div key={cat.id}>
+                            <button onClick={() => setExpandedEnvCat(isExpanded ? null : cat.id)}
+                              style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem 0', textAlign: 'left' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
+                                <span style={{ fontSize: '0.8125rem', fontWeight: '600', color: 'var(--text)' }}>{cat.name}</span>
+                                <span style={{ fontSize: '0.75rem', color: catSpent > catLimit ? 'var(--danger)' : 'var(--subtle)' }}>
+                                  {formatCurrency(catSpent)} / {formatCurrency(catLimit)}
+                                </span>
+                              </div>
+                              <div style={{ height: '0.3rem', backgroundColor: 'var(--surface2)', borderRadius: '9999px', overflow: 'hidden' }}>
+                                <div style={{ height: '100%', borderRadius: '9999px', transition: 'width 0.3s',
+                                  backgroundColor: catSpent > catLimit ? 'var(--danger)' : catPct > 80 ? 'var(--warn)' : 'var(--accent)',
+                                  width: `${catPct}%` }} />
+                              </div>
+                            </button>
+                            {isExpanded && (
+                              <div style={{ backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', padding: '0.5rem 0.75rem', marginBottom: '0.25rem' }}>
+                                {catSpends.length === 0 ? (
+                                  <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', textAlign: 'center', padding: '0.25rem 0' }}>No spends logged yet</p>
+                                ) : (
+                                  catSpends.sort((a, b) => b.date?.localeCompare(a.date || '') || 0).map((sp) => (
+                                    <div key={sp.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.25rem 0', borderBottom: '1px solid var(--border)' }}>
+                                      <div>
+                                        <p style={{ fontSize: '0.8125rem', color: 'var(--text)', fontWeight: '500' }}>{sp.description || '—'}</p>
+                                        {sp.date && <p style={{ fontSize: '0.7rem', color: 'var(--subtle)' }}>{new Date(sp.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>}
+                                      </div>
+                                      <span style={{ fontSize: '0.875rem', fontWeight: '700', color: 'var(--text)' }}>{formatCurrency(sp.amount)}</span>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {/* Orphaned / uncategorized spends */}
+                      {orphanedTotal > 0 && (
+                        <div>
+                          <button onClick={() => setExpandedEnvCat(expandedEnvCat === '__orphan' ? null : '__orphan')}
                             style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem 0', textAlign: 'left' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
-                              <span style={{ fontSize: '0.8125rem', fontWeight: '600', color: 'var(--text)' }}>{cat.name}</span>
-                              <span style={{ fontSize: '0.75rem', color: catSpent > catLimit ? 'var(--danger)' : 'var(--subtle)' }}>
-                                {formatCurrency(catSpent)} / {formatCurrency(catLimit)}
-                              </span>
+                              <span style={{ fontSize: '0.8125rem', fontWeight: '600', color: 'var(--warn)' }}>Uncategorized</span>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--warn)' }}>{formatCurrency(orphanedTotal)}</span>
                             </div>
                             <div style={{ height: '0.3rem', backgroundColor: 'var(--surface2)', borderRadius: '9999px', overflow: 'hidden' }}>
-                              <div style={{ height: '100%', borderRadius: '9999px', transition: 'width 0.3s',
-                                backgroundColor: catSpent > catLimit ? 'var(--danger)' : catPct > 80 ? 'var(--warn)' : 'var(--accent)',
-                                width: `${catPct}%` }} />
+                              <div style={{ height: '100%', borderRadius: '9999px', backgroundColor: 'var(--warn)', width: '100%' }} />
                             </div>
                           </button>
-                          {isExpanded && (
-                            <div style={{ backgroundColor: 'var(--surface2)', borderRadius: '0.75rem', padding: '0.5rem 0.75rem', marginBottom: '0.25rem' }}>
-                              {catSpends.length === 0 ? (
-                                <p style={{ fontSize: '0.75rem', color: 'var(--subtle)', textAlign: 'center', padding: '0.25rem 0' }}>No spends logged yet</p>
-                              ) : (
-                                catSpends.sort((a, b) => b.date?.localeCompare(a.date || '') || 0).map((sp) => (
-                                  <div key={sp.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.25rem 0', borderBottom: '1px solid var(--border)' }}>
-                                    <div>
-                                      <p style={{ fontSize: '0.8125rem', color: 'var(--text)', fontWeight: '500' }}>{sp.description || '—'}</p>
-                                      {sp.date && <p style={{ fontSize: '0.7rem', color: 'var(--subtle)' }}>{new Date(sp.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>}
-                                    </div>
-                                    <span style={{ fontSize: '0.875rem', fontWeight: '700', color: 'var(--text)' }}>{formatCurrency(sp.amount)}</span>
+                          {expandedEnvCat === '__orphan' && (
+                            <div style={{ backgroundColor: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '0.75rem', padding: '0.5rem 0.75rem', marginBottom: '0.25rem' }}>
+                              <p style={{ fontSize: '0.7rem', color: 'var(--warn)', marginBottom: '0.375rem' }}>These spends have no matching category. Go to Bills &amp; Budget to reassign or delete them.</p>
+                              {orphanedSpends.sort((a, b) => b.date?.localeCompare(a.date || '') || 0).map((sp) => (
+                                <div key={sp.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.25rem 0', borderBottom: '1px solid rgba(245,158,11,0.2)' }}>
+                                  <div>
+                                    <p style={{ fontSize: '0.8125rem', color: 'var(--text)', fontWeight: '500' }}>{sp.description || '—'}</p>
+                                    {sp.date && <p style={{ fontSize: '0.7rem', color: 'var(--subtle)' }}>{new Date(sp.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>}
                                   </div>
-                                ))
-                              )}
+                                  <span style={{ fontSize: '0.875rem', fontWeight: '700', color: 'var(--warn)' }}>{formatCurrency(sp.amount)}</span>
+                                </div>
+                              ))}
                             </div>
                           )}
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Savings */}
         {sec('savings') && <div style={sectionWrap}>
