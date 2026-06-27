@@ -405,6 +405,10 @@ export function AppProvider({ children, uid }) {
   const addBudgetSpend = useCallback((spend) => persistBudgetSpends([{ ...spend, id: generateId(), createdAt: new Date().toISOString() }, ...budgetSpends]), [budgetSpends, persistBudgetSpends]);
   const updateBudgetSpend = useCallback((id, u) => persistBudgetSpends(budgetSpends.map((s) => s.id === id ? { ...s, ...u } : s)), [budgetSpends, persistBudgetSpends]);
   const deleteBudgetSpend = useCallback((id) => persistBudgetSpends(budgetSpends.filter((s) => s.id !== id)), [budgetSpends, persistBudgetSpends]);
+  const bulkDeleteBudgetSpends = useCallback((ids) => {
+    const set = new Set(ids);
+    persistBudgetSpends(budgetSpends.filter((s) => !set.has(s.id)));
+  }, [budgetSpends, persistBudgetSpends]);
 
   // ── Agreements ──
   const addAgreement = useCallback((ag) => persistAgreements([{ ...ag, id: generateId(), status: 'active', createdAt: new Date().toISOString() }, ...agreements]), [agreements, persistAgreements]);
@@ -900,7 +904,7 @@ export function AppProvider({ children, uid }) {
       jobs, addJob, updateJob, deleteJob,
       shifts, addShift, updateShift, deleteShift, bulkSaveShifts,
       budgetCategories, addBudgetCategory, updateBudgetCategory, deleteBudgetCategory, persistBudgetCategories,
-      budgetSpends, addBudgetSpend, updateBudgetSpend, deleteBudgetSpend,
+      budgetSpends, addBudgetSpend, updateBudgetSpend, deleteBudgetSpend, bulkDeleteBudgetSpends,
       agreements, addAgreement, updateAgreement, deleteAgreement,
       shoppingLists, addShoppingList, updateShoppingList, deleteShoppingList,
       shoppingItems, addShoppingItem, updateShoppingItem, deleteShoppingItem, toggleShoppingItem, importList,

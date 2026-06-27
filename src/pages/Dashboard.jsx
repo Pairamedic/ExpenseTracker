@@ -239,7 +239,7 @@ export default function Dashboard() {
     commitments, addCommitment, updateCommitment, deleteCommitment, toggleCommitment,
     plannedExpenses, addPlannedExpense, updatePlannedExpense, deletePlannedExpense,
     notes, settings, setSettings, purchases,
-    budgetCategories, budgetSpends, addBudgetSpend,
+    budgetCategories, budgetSpends, addBudgetSpend, deleteBudgetSpend, bulkDeleteBudgetSpends,
     agreements, addAgreement, updateAgreement, deleteAgreement,
     setBillStatusDirect, addBill,
   } = useApp();
@@ -770,14 +770,26 @@ export default function Dashboard() {
                           </button>
                           {expandedEnvCat === '__orphan' && (
                             <div style={{ backgroundColor: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '0.75rem', padding: '0.5rem 0.75rem', marginBottom: '0.25rem' }}>
-                              <p style={{ fontSize: '0.7rem', color: 'var(--warn)', marginBottom: '0.375rem' }}>These spends have no matching category. Go to Bills &amp; Budget to reassign or delete them.</p>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.375rem' }}>
+                                <p style={{ fontSize: '0.7rem', color: 'var(--warn)' }}>Stale entries with no matching category</p>
+                                <button onClick={() => bulkDeleteBudgetSpends(orphanedSpends.map((sp) => sp.id))}
+                                  style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', padding: '0.125rem 0.375rem', borderRadius: '0.375rem', backgroundColor: 'rgba(239,68,68,0.1)' }}>
+                                  Delete All
+                                </button>
+                              </div>
                               {orphanedSpends.sort((a, b) => b.date?.localeCompare(a.date || '') || 0).map((sp) => (
-                                <div key={sp.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.25rem 0', borderBottom: '1px solid rgba(245,158,11,0.2)' }}>
-                                  <div>
+                                <div key={sp.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.3rem 0', borderBottom: '1px solid rgba(245,158,11,0.2)' }}>
+                                  <div style={{ minWidth: 0, flex: 1 }}>
                                     <p style={{ fontSize: '0.8125rem', color: 'var(--text)', fontWeight: '500' }}>{sp.description || '—'}</p>
                                     {sp.date && <p style={{ fontSize: '0.7rem', color: 'var(--subtle)' }}>{new Date(sp.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>}
                                   </div>
-                                  <span style={{ fontSize: '0.875rem', fontWeight: '700', color: 'var(--warn)' }}>{formatCurrency(sp.amount)}</span>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                                    <span style={{ fontSize: '0.875rem', fontWeight: '700', color: 'var(--warn)' }}>{formatCurrency(sp.amount)}</span>
+                                    <button onClick={() => deleteBudgetSpend(sp.id)}
+                                      style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: '0.125rem' }}>
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </div>
                                 </div>
                               ))}
                             </div>
