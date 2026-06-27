@@ -784,7 +784,7 @@ function ProjectsTab({ projects, addProject, updateProject, deleteProject }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function Purchases() {
-  const { purchases, addPurchase, updatePurchase, deletePurchase, settings, setSettings, bills, addBill, income, recurringTemplates, addRecurringTemplate, updateRecurringTemplate, deleteRecurringTemplate, commitments, addCommitment, updateCommitment, deleteCommitment, toggleCommitment, agreements, addAgreement, updateAgreement, deleteAgreement, plannedExpenses, addPlannedExpense, updatePlannedExpense, deletePlannedExpense, savings, projects, addProject, updateProject, deleteProject } = useApp();
+  const { purchases, addPurchase, bulkAddPurchases, updatePurchase, deletePurchase, settings, setSettings, bills, addBill, income, recurringTemplates, addRecurringTemplate, updateRecurringTemplate, deleteRecurringTemplate, commitments, addCommitment, updateCommitment, deleteCommitment, toggleCommitment, agreements, addAgreement, updateAgreement, deleteAgreement, plannedExpenses, addPlannedExpense, updatePlannedExpense, deletePlannedExpense, savings, projects, addProject, updateProject, deleteProject } = useApp();
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const [planTab, setPlanTab] = useState('spending');
@@ -1187,7 +1187,7 @@ export default function Purchases() {
         <Modal title="Import Purchases" onClose={() => setShowImport(false)}>
           <ImportPurchasesModal
             onImport={(entries) => {
-              entries.forEach((e) => addPurchase(e));
+              bulkAddPurchases(entries);
               setShowImport(false);
             }}
             onCancel={() => setShowImport(false)}
