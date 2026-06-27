@@ -48,6 +48,7 @@ export function AppProvider({ children, uid }) {
   const [notifPrefs, setNotifPrefsState] = useState(() => storage.getNotifPrefs());
   const [fcmToken, setFcmToken] = useState(() => localStorage.getItem('bt_fcm_token') || null);
   const [projects, setProjectsState] = useState(() => storage.getProjects());
+  const [vaultDocuments, setVaultDocumentsState] = useState(() => storage.getVaultDocuments());
   const [cloudLoaded, setCloudLoaded] = useState(false);
   const [testMode, setTestMode] = useState(false);
   const testModeRef = useRef(false);
@@ -55,7 +56,7 @@ export function AppProvider({ children, uid }) {
 
   // Use refs to always have fresh values for the save function
   const stateRef = useRef({});
-  stateRef.current = { bills, income, budget, settings, notes, debts, savings, commitments, purchases, plannedExpenses, jobs, shifts, budgetCategories, budgetSpends, agreements, shoppingLists, shoppingItems, planningSettings, recurringTemplates, paycheckActuals, notifPrefs, fcmToken, projects };
+  stateRef.current = { bills, income, budget, settings, notes, debts, savings, commitments, purchases, plannedExpenses, jobs, shifts, budgetCategories, budgetSpends, agreements, shoppingLists, shoppingItems, planningSettings, recurringTemplates, paycheckActuals, notifPrefs, fcmToken, projects, vaultDocuments };
 
   // Load from Firestore on login
   useEffect(() => {
@@ -96,6 +97,7 @@ export function AppProvider({ children, uid }) {
         if (data.notifPrefs) { setNotifPrefsState({ ...storage.getNotifPrefs(), ...data.notifPrefs, bills: { ...storage.getNotifPrefs().bills, ...(data.notifPrefs.bills || {}) }, commitments: { ...storage.getNotifPrefs().commitments, ...(data.notifPrefs.commitments || {}) }, todos: { ...storage.getNotifPrefs().todos, ...(data.notifPrefs.todos || {}) }, shifts: { ...storage.getNotifPrefs().shifts, ...(data.notifPrefs.shifts || {}) } }); storage.setNotifPrefs(data.notifPrefs); }
         if (data.fcmToken && !fcmToken) { setFcmToken(data.fcmToken); localStorage.setItem('bt_fcm_token', data.fcmToken); }
         if (data.projects) { setProjectsState(data.projects); storage.setProjects(data.projects); }
+        if (data.vaultDocuments) { setVaultDocumentsState(data.vaultDocuments); storage.setVaultDocuments(data.vaultDocuments); }
       } else {
         // First login — upload existing localStorage data to Firestore
         saveUserData(uid, stateRef.current);
@@ -199,6 +201,11 @@ export function AppProvider({ children, uid }) {
     if (!testModeRef.current) { storage.setProjects(next); debouncedSync({ projects: next }); }
   }, [debouncedSync]);
 
+  const persistVaultDocuments = useCallback((next) => {
+    setVaultDocumentsState(next);
+    if (!testModeRef.current) { storage.setVaultDocuments(next); debouncedSync({ vaultDocuments: next }); }
+  }, [debouncedSync]);
+
   const enterTestMode = useCallback(() => {
     testModeSnapshot.current = { ...stateRef.current };
     testModeRef.current = true;
@@ -230,6 +237,7 @@ export function AppProvider({ children, uid }) {
       setPaycheckActualsState(snap.paycheckActuals); storage.setPaycheckActuals(snap.paycheckActuals);
       setNotifPrefsState(snap.notifPrefs); storage.setNotifPrefs(snap.notifPrefs);
       setProjectsState(snap.projects); storage.setProjects(snap.projects);
+      if (snap.vaultDocuments) { setVaultDocumentsState(snap.vaultDocuments); storage.setVaultDocuments(snap.vaultDocuments); }
       testModeSnapshot.current = null;
     }
     testModeRef.current = false;
@@ -541,6 +549,18 @@ export function AppProvider({ children, uid }) {
     });
     if (changed) persistBudgetCategories(next);
   }, [cloudLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Vault Documents ──
+  const addVaultDocument = useCallback((doc) => {
+    const now = new Date().toISOString();
+    persistVaultDocuments([{ ...doc, id: generateId(), createdAt: now, updatedAt: now }, ...vaultDocuments]);
+  }, [vaultDocuments, persistVaultDocuments]);
+  const updateVaultDocument = useCallback((id, u) => persistVaultDocuments(
+    vaultDocuments.map((d) => d.id === id ? { ...d, ...u, updatedAt: new Date().toISOString() } : d)
+  ), [vaultDocuments, persistVaultDocuments]);
+  const deleteVaultDocument = useCallback((id) => persistVaultDocuments(
+    vaultDocuments.filter((d) => d.id !== id)
+  ), [vaultDocuments, persistVaultDocuments]);
 
   // ── Projects ──
   const addProject = useCallback((p) => persistProjects([
@@ -886,6 +906,7 @@ export function AppProvider({ children, uid }) {
       generateShareLink, revokeShareLink, refreshShareLink,
       notifPrefs, persistNotifPrefs, fcmToken, enablePushNotifications,
       projects, addProject, updateProject, deleteProject,
+      vaultDocuments, addVaultDocument, updateVaultDocument, deleteVaultDocument,
       testMode, enterTestMode, exitTestMode,
     }}>
       {children}
