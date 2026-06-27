@@ -559,6 +559,15 @@ export function AppProvider({ children, uid }) {
     if (changed) persistBudgetCategories(next);
   }, [cloudLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-purge orphaned budget spends whose categoryId no longer matches any category
+  useEffect(() => {
+    if (!cloudLoaded) return;
+    const catIds = new Set(stateRef.current.budgetCategories.map((c) => c.id));
+    const spends = stateRef.current.budgetSpends;
+    const clean = spends.filter((s) => catIds.has(s.categoryId));
+    if (clean.length !== spends.length) persistBudgetSpends(clean);
+  }, [cloudLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Vault Documents ──
   const addVaultDocument = useCallback((doc) => {
     const now = new Date().toISOString();
