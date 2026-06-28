@@ -716,6 +716,8 @@ export default function BillsDebts() {
     const spent = spends.reduce((sum, s) => sum + s.amount, 0);
     return { ...cat, spent, remaining: cat.monthlyLimit - spent, spends, color: catColor(idx) };
   }), [budgetCategories, monthBudgetSpends]);
+  const catIds = useMemo(() => new Set(budgetCategories.map((c) => c.id)), [budgetCategories]);
+  const orphanedSpends = useMemo(() => monthBudgetSpends.filter((s) => !catIds.has(s.categoryId)), [monthBudgetSpends, catIds]);
   const totalBudgetLimit = budgetCategories.reduce((s, c) => s + c.monthlyLimit, 0);
   const totalBudgetSpent = monthBudgetSpends.reduce((s, sp) => s + sp.amount, 0);
   const hardSetAmount = budget?.[mk] || 0;
@@ -1006,6 +1008,33 @@ export default function BillsDebts() {
                     </div>
                   );
                 })}
+
+                {/* Orphaned / uncategorized spends */}
+                {orphanedSpends.length > 0 && (
+                  <div style={{ backgroundColor: 'var(--surface)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: '0.875rem', padding: '1rem', marginBottom: '0.25rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' }}>
+                      <div>
+                        <p style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--warn)' }}>Uncategorized Spends</p>
+                        <p style={{ fontSize: '0.7rem', color: 'var(--subtle)', marginTop: '0.1rem' }}>These have no matching category and are affecting your budget.</p>
+                      </div>
+                      <span style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--warn)' }}>{formatCurrency(orphanedSpends.reduce((s, sp) => s + sp.amount, 0))}</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      {orphanedSpends.sort((a, b) => b.date?.localeCompare(a.date || '') || 0).map((sp) => (
+                        <div key={sp.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', padding: '0.5rem 0', borderBottom: '1px solid var(--border)' }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sp.description || '—'}</p>
+                            {sp.date && <p style={{ fontSize: '0.75rem', color: 'var(--subtle)' }}>{new Date(sp.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexShrink: 0 }}>
+                            <span style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text)' }}>{formatCurrency(sp.amount)}</span>
+                            <button onClick={() => deleteBudgetSpend(sp.id)} style={{ padding: '0.25rem', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}><Trash2 size={12} /></button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Add category shortcut */}
                 <button onClick={() => setShowManageCategories(true)}

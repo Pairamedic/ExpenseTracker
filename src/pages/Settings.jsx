@@ -53,6 +53,7 @@ export default function Settings() {
   const [notifEnabling, setNotifEnabling] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [jobExportId, setJobExportId] = useState('');
+  const [scheduleShowIncome, setScheduleShowIncome] = useState(true);
 
   const handleForceUpdate = async () => {
     setUpdating(true);
@@ -531,11 +532,15 @@ export default function Settings() {
                   <option value="">Select a job…</option>
                   {jobs.map((j) => <option key={j.id} value={j.id}>{j.name}</option>)}
                 </select>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', color: 'var(--text)', marginBottom: '0.625rem', cursor: 'pointer', userSelect: 'none' }}>
+                  <input type="checkbox" checked={scheduleShowIncome} onChange={(e) => setScheduleShowIncome(e.target.checked)} style={{ width: '1rem', height: '1rem', accentColor: 'var(--accent)', cursor: 'pointer' }} />
+                  Show income info (pay rate &amp; estimated gross pay)
+                </label>
                 <button
                   disabled={!jobExportId}
                   onClick={() => {
                     const j = jobs.find((jj) => jj.id === jobExportId);
-                    if (j) exportJobScheduleHTML({ job: j, shifts });
+                    if (j) exportJobScheduleHTML({ job: j, shifts, showIncome: scheduleShowIncome });
                   }}
                   className="flex items-center gap-2 text-sm font-semibold"
                   style={{ color: jobExportId ? '#fff' : 'var(--muted)', border: 'none', padding: '0.625rem 1rem', borderRadius: '0.75rem', width: '100%', backgroundColor: jobExportId ? 'var(--accent)' : 'var(--border)', cursor: jobExportId ? 'pointer' : 'not-allowed' }}>

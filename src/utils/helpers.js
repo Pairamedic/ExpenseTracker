@@ -498,7 +498,7 @@ export function getCategoryTotals(purchases, mk) {
 
 
 // ── Job Schedule Export ──
-export function exportJobScheduleHTML({ job, shifts, startDate = null, endDate = null }) {
+export function exportJobScheduleHTML({ job, shifts, startDate = null, endDate = null, showIncome = true }) {
   const ts = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const fmt = (n) => '$' + (n ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -561,7 +561,7 @@ export function exportJobScheduleHTML({ job, shifts, startDate = null, endDate =
 <h1>${job.name}</h1>
 <p class="subtitle">Schedule Export — Exported on ${ts}</p>
 <p class="meta">
-  Pay rate: ${fmt(job.hourlyRate)}/hr · ${job.payFrequency || 'biweekly'} · Period: ${periodLabel}
+  ${showIncome ? `Pay rate: ${fmt(job.hourlyRate)}/hr · ${job.payFrequency || 'biweekly'} · ` : ''}Period: ${periodLabel}
 </p>
 
 <div class="summary">
@@ -573,10 +573,10 @@ export function exportJobScheduleHTML({ job, shifts, startDate = null, endDate =
     <p class="summary-label">Total Hours</p>
     <p class="summary-value">${fmtDuration(totalHours)}</p>
   </div>
-  <div class="summary-item">
+  ${showIncome ? `<div class="summary-item">
     <p class="summary-label">Est. Gross Pay</p>
     <p class="summary-value">${fmt(Math.round(totalHours * (job.hourlyRate || 0) * 100) / 100)}</p>
-  </div>
+  </div>` : ''}
 </div>
 
 ${displayShifts.length > 0 ? `
